@@ -72,7 +72,7 @@ tmpargs=''
 while [[ "${tmpargs}" == "" ]] ; do
     tmpargs=$( mktemp .tmpXXXXXXXX )
 done
-source ${opt_parser} > ${tmpargs}
+source ${opt_parser} > ${tmpargs} || true
 mybatches=$( cat ${tmpargs} )
 rm -f ${tmpargs}
 
