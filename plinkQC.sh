@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# exit on error
+trap 'exit' ERR
+
 basedir="/cluster/projects/p33/software"
 AWK_LOCAL_INCLUDE=$( printf -- '-f %s\n' $( echo ${AWK_INCLUDE} \
     /cluster/projects/p33/software/lib/awk/abs.awk \
