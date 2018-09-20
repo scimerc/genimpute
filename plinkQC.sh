@@ -276,7 +276,7 @@ else
                     if [[ "${refalleles}" != "" && -s "${tmpbatch}.bim" ]] ; then
                         echo "matching variants to reference.."
                         awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${tmpbatch}.bim | sort -t $'\t' -k 7,7 \
-                        | join -t $'\t' -a2 -2 7 ${refalleles} - | awk -F $'\t' $AWK_LOCAL_INCLUDE \
+                        | join -t $'\t' -a2 -2 7 ${refalleles} - | awk --lint=true -F $'\t' $AWK_LOCAL_INCLUDE \
                         -v batchexcludefile=${batchexcludefile} -v batchflipfile=${batchflipfile} \
                         --source 'BEGIN{
                             total_miss = 0
