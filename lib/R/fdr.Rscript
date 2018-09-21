@@ -1,0 +1,9 @@
+#!/usr/bin/env Rscript
+source( '/cluster/projects/p33/software/lib/R/gc.R' )
+mydata <- read.table( "stdin", sep='\t', strip.white=T, head=F )
+mydata <- mydata[ is.finite( mydata[,2] ), ]
+mydata[,2] = gc_pval( mydata[,2] )
+if ( is.numeric( mydata[,2] ) && all( mydata[,2] >= 0 ) && all( mydata[,2] <= 1 ) ) {
+    mydata[,2] = p.adjust( mydata[,2], method='fdr' )
+    write.table( mydata, col.names=F, row.names=F, quote=F, sep='\t' )
+}
