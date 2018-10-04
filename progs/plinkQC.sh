@@ -15,13 +15,14 @@ AWKLOCINCLUDE=$( printf -- '-f %s\n' $( echo ${AWKINCLUDE} \
     gmatch.awk \
     round.awk \
 ) | sort -u )
+alias join='join --check-order'
 fdrscript="R --slave --file=${BASEDIR}/progs/fdr.Rscript"
 hvmscript="R --slave --file=${BASEDIR}/progs/het_vs_miss.Rscript"
 plinkexe=$( ( which plink || true ) 2> /dev/null )
 if [[ "${plinkexe}" == "" ]] ; then
     echo "plink is required by $( basename $0 ). plink source codes and builds can be found at"
     echo "www.cog-genomics.org. note that some of the functionalities needed by $( basename $0 )"
-    echo "are not currently implemented in plink2."
+    echo "were not implemented in plink2 at the time of writing."
     exit
 fi
 
@@ -127,6 +128,8 @@ else
     echo -e "batch files:\n$( ls ${mybatches} )"
     echo -e "\n==================================\n"
 
+    join --version
+    echo
     R --version
 
     mydir=$( dirname ${myprefix} )
@@ -212,22 +215,26 @@ else
                 fi
                 j=-1
                 tmpbatch=${batch}
+                echo -n "current batch is number "
                 for (( i = 0; i < ${#mybatchvec[@]}; i++ )); do
                     if [[ "${tmpbatch}" == "${mybatchvec[$i]}" ]] ; then
                         j=${i}
                     fi
                 done
+                echo $j
                 fflag='--bfile'
-                case ${myarchvec[$j]} in
-                    "${bedhex}" )
-                        fflag='--bfile' ;;
-                    "${bcfhex}" )
-                        fflag='--bcf' ;;
-                    "${vcfhex}" )
-                        fflag='--vcf' ;;
-                esac
-                unset myarchvec[$j]
-                unset mybatchvec[$j]
+                if (( j > 0 )) ; then
+                    case ${myarchvec[$j]} in
+                        "${bedhex}" )
+                            fflag='--bfile' ;;
+                        "${bcfhex}" )
+                            fflag='--bcf' ;;
+                        "${vcfhex}" )
+                            fflag='--vcf' ;;
+                    esac
+                    unset myarchvec[$j]
+                    unset mybatchvec[$j]
+                fi
                 if [[ ! -f "${batchctrl}" ]] ; then
                     if [[ -s "${tmpbatch}.bim" ]] ; then
                         for chr in $( cut -f 1 ${tmpbatch}.bim | sort -u ) ; do
@@ -285,23 +292,23 @@ else
                     if [[ "${refalleles}" != "" && -s "${tmpbatch}.bim" ]] ; then
                         echo "matching variants to reference.."
                         awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${tmpbatch}.bim | sort -t $'\t' -k 7,7 \
-                        | join -t $'\t' -a2 -2 7 ${refalleles} - | awk --lint=true -F $'\t' $AWKLOCINCLUDE \
-                        -v batchexcludefile=${batchexcludefile} -v batchflipfile=${batchflipfile} \
-                        --source 'BEGIN{
+                        | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${refalleles} - | awk -F $'\t' \
+                        $AWKLOCINCLUDE -v batchexcludefile=${batchexcludefile} -v batchflipfile=${batchflipfile} \
+                        --lint=true --source 'BEGIN{
                             total_miss = 0
                             total_mism = 0
                             total_flip = 0
                         } {
-                            if ( NF < 9 ) {
-                                print( $3 ) >>batchexcludefile
+                            if ( $5 == "-" || $6 == "-" ) {
+                                print( $1 ) >>batchexcludefile
                                 total_miss++
                             }
                             else {
-                                if ( !gmatchx( $2, $3, $8, $9 ) ) {
+                                if ( !gmatchx( $2, $3, $5, $6 ) ) {
                                     print( $5 ) >>batchexcludefile
                                     total_mism++
                                 }
-                                else if ( gflip( $2, $3, $8, $9 ) ) {
+                                else if ( gflip( $2, $3, $5, $6 ) ) {
                                     print( $5 ) >>batchflipfile
                                     total_flip++
                                 }
@@ -406,59 +413,59 @@ else
     hqprefixunique=${hqprefix}_unique
     cleanfile=${hqprefix}.clean.id
     uniquefile=${hqprefixunique}.rel.id
-    pruneprefix=${hqprefix}_LDpruned
-    if [[ ! -f "${pruneprefix}.bed" || ! -f "${pruneprefix}.bim" || ! -f "${pruneprefix}.fam" ]] ; then
+    prunehqprefix=${hqprefix}_LDpruned
+    if [[ ! -f "${prunehqprefix}.bed" || ! -f "${prunehqprefix}.bim" || ! -f "${prunehqprefix}.fam" ]] ; then
         plink --bfile ${myprefix} ${excludeopt} --geno ${varmiss} --maf ${myfreq_hq} --make-bed --out ${hqprefix}
         if [[ -s "${hqprefix}.bed" ]] ; then
             plink --bfile ${hqprefix} --indep-pairphase 500 5 0.2 --out ${hqprefix}_LD
-            plink --bfile ${hqprefix} --extract ${hqprefix}_LD.prune.in --make-bed --out ${pruneprefix}
+            plink --bfile ${hqprefix} --extract ${hqprefix}_LD.prune.in --make-bed --out ${prunehqprefix}
         fi
     fi
     usex=''
-    checkprefix=${pruneprefix}
+    checkprefix=${prunehqprefix}
     parcount=$( awk '$1 == 25' ${checkprefix}.bim | wc -l )
     if (( parcount == 0 )) ; then
-        plink --bfile ${pruneprefix} --split-x ${genome} no-fail --make-bed --out ${pruneprefix}_splitx
-        checkprefix=${pruneprefix}_splitx
+        plink --bfile ${prunehqprefix} --split-x ${genome} no-fail --make-bed --out ${prunehqprefix}_splitx
+        checkprefix=${prunehqprefix}_splitx
     fi
     nosex=''
     xcount=$( awk '$1 == 23' ${checkprefix}.bim | wc -l )
     if (( xcount > mincnt )) ; then
-        plink --bfile ${checkprefix} --impute-sex --make-bed --out ${pruneprefix}_isex
-        if [[ -s "${pruneprefix}_isex.nosex" ]] ; then
-            nosex="--remove ${pruneprefix}_isex.nosex"
+        plink --bfile ${checkprefix} --impute-sex --make-bed --out ${prunehqprefix}_isex
+        if [[ -s "${prunehqprefix}_isex.nosex" ]] ; then
+            nosex="--remove ${prunehqprefix}_isex.nosex"
         fi
-        if [[ -s "${pruneprefix}_isex.fam" ]] ; then
-            plink --bfile ${pruneprefix}_isex ${nosex} --hwe 1.E-${hweneglogp} ${hwtag} \
-                --make-just-bim --out ${pruneprefix}_hwesex
-            if [[ -s "${pruneprefix}_hwsex.bim" ]] ; then
-                plink --bfile ${pruneprefix}_isex --extract <( cut -f2 ${pruneprefix}_hwsex.bim ) \
-                    --impute-sex --make-bed --out ${pruneprefix}_isex
+        if [[ -s "${prunehqprefix}_isex.fam" ]] ; then
+            plink --bfile ${prunehqprefix}_isex ${nosex} --hwe 1.E-${hweneglogp} ${hwtag} \
+                --make-just-bim --out ${prunehqprefix}_hwesex
+            if [[ -s "${prunehqprefix}_hwsex.bim" ]] ; then
+                plink --bfile ${prunehqprefix}_isex --extract <( cut -f2 ${prunehqprefix}_hwsex.bim ) \
+                    --impute-sex --make-bed --out ${prunehqprefix}_isex
             fi
             nosex=''
-            usex="--update-sex ${pruneprefix}_isex.fam 3"
+            usex="--update-sex ${prunehqprefix}_isex.fam 3"
             awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' \
-                ${pruneprefix}_isex.fam > ${pruneprefix}_isex.nosex
-            if [[ -s "${pruneprefix}_isex.nosex" ]] ; then
-                nosex="--remove ${pruneprefix}_isex.nosex"
+                ${prunehqprefix}_isex.fam > ${prunehqprefix}_isex.nosex
+            if [[ -s "${prunehqprefix}_isex.nosex" ]] ; then
+                nosex="--remove ${prunehqprefix}_isex.nosex"
             fi
         fi
     fi
     keeptag=''
     echo "checking sample quality.."
     if [[ ! -s "${uniquefile}" ]] ; then
-        cp ${pruneprefix}.fam ${cleanfile}
+        cp ${prunehqprefix}.fam ${cleanfile}
         if [[ "${hvm}" == "on" ]] ; then
             echo "computing individual heterozygosity and missing rates.."
-            plink --bfile ${pruneprefix} --het --out ${hqprefix}_sq
-            plink --bfile ${pruneprefix} --missing --out ${hqprefix}_sq
+            plink --bfile ${prunehqprefix} --het --out ${hqprefix}_sq
+            plink --bfile ${prunehqprefix} --missing --out ${hqprefix}_sq
             ${hvmscript} --args -m ${hqprefix}_sq.imiss -h ${hqprefix}_sq.het -o ${hqprefix}
         fi
         if [[ -s "${cleanfile}" ]] ; then
             echo "identifying duplicate individuals.."
             if [[ "${keepdups}" == "on" ]] ; then pihat=1 ; fi
-            plink --bfile ${pruneprefix} --keep ${cleanfile} --genome gz --out ${myprefix}
-            plink --bfile ${pruneprefix} --keep ${cleanfile} --cluster --read-genome ${myprefix}.genome.gz \
+            plink --bfile ${prunehqprefix} --keep ${cleanfile} --genome gz --out ${myprefix}
+            plink --bfile ${prunehqprefix} --keep ${cleanfile} --cluster --read-genome ${myprefix}.genome.gz \
                 --rel-cutoff ${pihat} --out ${hqprefixunique}
         fi
     fi
@@ -627,3 +634,4 @@ else
     echo -e "\n================================================================================\n"
 
 fi
+
