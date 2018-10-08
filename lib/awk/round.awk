@@ -37,7 +37,7 @@ function roundup ( x,  ival, aval, fraction )
 	}
 }
 
-function stdround ( x,  ival, aval, fraction )
+function roundstd ( x,  ival, aval, fraction )
 {
 	ival = int ( x )   # integer part, int() truncates
 
