@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# 7| At the shell prompt type
+# 1. At the shell prompt type:
 # 
 # plink --bfile raw-GWA-data --missing --out raw-GWA-data
 # 
@@ -8,7 +8,7 @@
 # The fourth column in the imiss file (N_MISS) gives the number of missing SNPs and the sixth column
 # (F_MISS) gives the proportion of missing SNPs per individual.
 # 
-# 8| At te shell prompt type
+# 2. At te shell prompt type:
 # 
 # plink --bfile raw-GWA-data --het --out raw-GWA-data
 # 
@@ -16,11 +16,11 @@
 # genotypes [O(Hom)] and the fifth column gives the number of non-missing genotypes [N(NM)], per
 # individual.
 # 
-# 9| Calculate the observed heterozygosity rate per individual using the formula
+# 3. Calculate the observed heterozygosity rate per individual using the formula
 # 
 #             hrate = (N(NM) - O(Hom))/N(NM).
 # 
-# 10| Create a graph where the observed heterozygosity rate per individual is plotted on the x-axis
+# 4. Create a graph where the observed heterozygosity rate per individual is plotted on the x-axis
 # and the proportion of missing SNPs per individuals is plotted on the y-axis. This can be done using
 # standard software such as Excel or statistical packages such as SPSS. A script for calculating the
 # heterozygosity rate and producing the graph using R has been supplied (imiss-vs-het.Rscript). Type
@@ -28,7 +28,7 @@
 # R CMD BATCH imiss-vs-het.Rscript at the unix prompt to run this script and create the graph
 # (raw-GWA-data.imiss-vs-het.pdf).
 # 
-# 11| Exmine the plot to decide reasonable thresholds at which to exclude individuals based on
+# 5. Exmine the plot to decide reasonable thresholds at which to exclude individuals based on
 # elevated missing or extreme heterozygosity. We chose to exclude all individuals with a genotype
 # failure rate e 0.03 (Fig 1, vertical dashed line) and/or heterozygosity rate ? 3 standard deviations
 # from the mean (Fig 1, horizontal dashed lines). Add the family ID and individual ID of the 30
@@ -101,6 +101,7 @@ parameters <- parse_command_line( myArgs )
 if ( parameters$missfile != '' && parameters$hetfile != '' ) {
 
     if ( all( file.exists( parameters$missfile, parameters$hetfile ) ) ) {
+        pdf( paste( parameters$outprefix, 'hetVSmiss.pdf', sep='_' ) )
         logfile <- file( paste( parameters$outprefix, 'hetVSmiss.log', sep='_' ) )
         read.table( parameters$hetfile, head=T ) -> hetdata
         read.table( parameters$missfile, head=T ) -> missdata
@@ -118,8 +119,6 @@ if ( parameters$missfile != '' && parameters$hetfile != '' ) {
         } else {
             missrateq = cut( missrate, mybreaks )
         }
-        pdf( paste( parameters$outprefix, 'hetVSmiss.pdf', sep='_' ) )
-        plot( missrate, hetrate )
         for ( q in unique(missrateq) ) {
             qq = which( unique(missrateq) == q )
             tmpmean = mean( hetrate[ missrateq == q ], na.rm=T )
@@ -131,19 +130,27 @@ if ( parameters$missfile != '' && parameters$hetfile != '' ) {
 #             segments( mybreaks[qq], tmpmean + 3*tmpsd, mybreaks[qq+1], tmpmean + 3*tmpsd,
 #                 col='red', lty=2, lwd=2 )
         }
+        missratethreshmax = 0.2
         missratethresh = min(mean(missrate, na.rm=T) + 5*sd(missrate, na.rm=T), 0.1)
+        plot( missrate, hetrate, ylim=c(
+            min( meanhetrate - 2*sqrt( missratethreshmax^2 ), min( hetrate, na.rm=T ) ),
+            max( meanhetrate + 2*sqrt( missratethreshmax^2 ), max( hetrate, na.rm=T ) )
+        ) )
         abline( a=meanhetrate + 5*sdhetrate, b=0, col='red', lty=2 )
         abline( a=meanhetrate - 5*sdhetrate, b=0, col='red', lty=2 )
         abline( v=missratethresh, col='red', lty=2 )
-        myset =
-            hetrate <= meanhetrate + 5*sdhetrate &
-            hetrate >= meanhetrate - 5*sdhetrate &
-            missrate <= missratethresh
+        missratevec = seq( -0.1, 0.2, 0.001 )
+        lines( missratevec, meanhetrate - 2*sqrt( 0.2^2 - missratevec^2 ), col='blue', lty=2 )
+        lines( missratevec, meanhetrate + 2*sqrt( 0.2^2 - missratevec^2 ), col='blue', lty=2 )
+        myset = hetrate <= meanhetrate + 5*sdhetrate & hetrate >= meanhetrate - 5*sdhetrate |
+            missrate >= missratethresh & missrate^2 + ( (hetrate - meanhetrate)/2 )^2 <= missratethreshmax^2
         inliers = mydata[ myset, 1:2 ]
         cat( 'retaining', sum( myset ), 'individuals..\n', file=logfile )
+        inliers$UID = paste( inliers[,1], inliers[,2], sep="_" )
         write.table( inliers, file=paste0( parameters$outprefix, '.clean.id' ),
             sep="\t", quote=F, col.names=F, row.names=F )
         dev.off()
     }
 
 }
+
