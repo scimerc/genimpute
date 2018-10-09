@@ -63,7 +63,7 @@ get_opt ()
 }
 helpme=''
 blacklist=''
-genome='hg19'
+genome='b37'
 hvm='on'
 hweneglogp=12
 hweneglogp_ctrl=4
