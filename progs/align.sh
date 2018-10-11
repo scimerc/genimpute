@@ -67,6 +67,23 @@ get_unique_filename_from_path() {
 }
 
 
+# out: (rs, chr, cm, bp) 
+get_variant_info_from_tped() {
+  awk '{
+    delete catalog
+    for ( k = 5; k <= NF; k++ ) {
+      if ( $k > 0 ) catalog[$k] = 1
+    }
+    asorti( catalog )
+    # write the variant name first to enable skipping it in the uniq command later on
+    printf( "%s %s %s %s", $2, $1, $3, $4 ) # rs,chr,cm,bp
+    for ( allele in catalog ) printf( "_%s", catalog[allele] )
+    print( "" )
+  }' -
+}
+
+
+
 # blacklist of variants
 declare -r varblacklist=${tmpprefix}.exclude
 # whitelist of variants
@@ -182,17 +199,10 @@ for i in ${!batchfiles[@]} ; do
   declare batchfliplist=${plinkinputfn}.fliplist
   # extract marker information corresponding to unique position-specific genotype series:
   # identical position-specific genotype series will thereby be ignored as harmless here.
-  sort -t ' ' -u -k 1,1 -k 4 ${plinkinputfn}.tped | awk '{
-    delete catalog
-    for ( k = 5; k <= NF; k++ ) {
-      if ( $k > 0 ) catalog[$k] = 1
-    }
-    asorti( catalog )
-    # write the variant name first to enable skipping it in the uniq command later on
-    printf( "%s %s %s %s", $2, $1, $3, $4 ) # rs,chr,cm,bp
-    for ( allele in catalog ) printf( "_%s", catalog[allele] )
-    print( "" )
-  }' | sort -t ' ' -k 1,1 > ${plinkinputfn}.gp
+  sort -t ' ' -u -k 1,1 -k 4 ${plinkinputfn}.tped \
+    | get_variant_info_from_tped \
+    | sort -t ' ' -k 1,1 \
+    > ${plinkinputfn}.gp
   # get unique chr,cm,bpa entries [sort|uniq]
   # sort on rsnumbers corresponding to unique entries
   # get complementary set of rsnumbers (rsnumbers of duplicated vars) [join -v1 | cut]
@@ -201,23 +211,16 @@ for i in ${!batchfiles[@]} ; do
     | sort -t ' ' -k 1,1 \
     | join -t ' ' -v1 ${plinkinputfn}.gp - \
     | cut -d ' ' -f 1 \
-    | uniq
+    | uniq \
     > ${batchblacklist} # format: rs
   #TODO: check actual role of centimorgans here
   echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
   echo "non-coherent duplicate variants marked for deletion."
   # extract marker information corresponding to non-blacklisted genotype series
-  sort -t ' ' -k 2,2 ${plinkinputfn}.tped | awk '{
-    delete catalog
-    for ( k = 5; k <= NF; k++ ) {
-      if ( $k > 0 ) catalog[$k] = 1
-    }
-    asorti( catalog )
-    # write the variant name first to enable skipping it in the uniq command later on
-    printf( "%s %s %s %s", $2, $1, $3, $4 ) # rs,chr,cm,bp
-    for ( allele in catalog ) printf( "_%s", catalog[allele] )
-    print( "" )
-  }' | join -t ' ' -v1 - ${batchblacklist} > ${plinkinputfn}.gpz
+  sort -t ' ' -k 2,2 ${plinkinputfn}.tped \
+    | get_variant_info_from_tped \
+    | join -t ' ' -v1 - ${batchblacklist} \
+    > ${plinkinputfn}.gpz
   # get unique chr,cm,bpa entries [sort|uniq]
   # sort on rsnumbers corresponding to unique entries
   # get complementary set (duplicated vars) [join -v1]
