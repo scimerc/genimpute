@@ -2,20 +2,9 @@
 
 trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
-declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
-
-declare -r outprefix=/tmp/aligntest
-declare -r tmpprefix=${outprefix}_tmp
-declare -r debuglogfn=${tmpprefix}_debug.log
-
-declare -ar batchfiles=(
-  '/net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/asdt.bed'
-  '/net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/qwe.bed'
-)
-
-declare -r opt_mini=1
-declare -r opt_refallelesfn=""
-declare -r opt_samplewhitelist=""
+declare -r  tmpprefix=${outprefix}_tmp
+declare -r  debuglogfn=${tmpprefix}_debug.log
+declare -ra batchfiles=( ${inputfiles} )
 
 if [ -f "${outprefix}.bed" -a -f "${outprefix}.bim" -a -f "${outprefix}.fam" ] ; then
   printf "skipping aligment..\n"
@@ -71,7 +60,7 @@ get_unique_filename_from_path() {
 }
 
 
-# out: (rs, chr, cm, bp) 
+# in: plink tped; out: (rs, chr, cm, bp) 
 get_variant_info_from_tped() {
   awk '{
     delete catalog
