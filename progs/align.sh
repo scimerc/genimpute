@@ -6,6 +6,7 @@ declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 
 declare -r outprefix=/tmp/aligntest
 declare -r tmpprefix=${outprefix}_tmp
+declare -r debuglogfn=${tmpprefix}_debug.log
 
 declare -ar batchfiles=(
   '/net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/asdt.bed'
@@ -96,8 +97,6 @@ get_variant_info_for_dup_chr_cm_bpa() {
 }
 
 
-# blacklist of variants
-declare -r varblacklist=${tmpprefix}.exclude
 # whitelist of variants
 declare -r varwhitelist=${tmpprefix}.extract
 
@@ -123,7 +122,7 @@ if [ $opt_mini -eq 1 ] ; then
     esac
     declare extmp=${tmpprefix}_extmp
     # whatever format the input file is - make a bim file
-    plink ${plinkflag} ${batchfiles[$i]/%.bed/.bim} --make-just-bim --out ${extmp}
+    plink ${plinkflag} ${batchfiles[$i]/%.bed/.bim} --make-just-bim --out ${extmp} >> ${debuglogfn}
     perl -p -i -e 's/[ \t]+/\t/g' ${extmp}.bim
     if [ -s "${extmp}.bim" ] ; then
       if [ $i -eq 0 ] ; then
@@ -158,7 +157,7 @@ for i in ${!batchfiles[@]} ; do
   declare flagextract=''
   declare flagformat='--bfile'
   declare plinkinputfn=${batchfiles[$i]}
-  declare plinkoutputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )
+  declare plinkoutputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_filtered
   case "$( get_genotype_file_format "${batchfiles[$i]}" )" in
     "bed" )
       flagformat='--bfile'
@@ -188,8 +187,10 @@ for i in ${!batchfiles[@]} ; do
       "${plinkoutputfn}.bed" >&2
     exit 1
   fi
-  plink $flagformat ${plinkinputfn} ${flagextract} --recode transpose --out ${plinkoutputfn}
-  plink $flagformat ${plinkinputfn} ${flagextract} --make-bed         --out ${plinkoutputfn}
+  {
+    plink $flagformat ${plinkinputfn} ${flagextract} --recode transpose --out ${plinkoutputfn}
+    plink $flagformat ${plinkinputfn} ${flagextract} --make-bed         --out ${plinkoutputfn}
+  } >> ${debuglogfn}
   # tab-separate all human-readable plink files
   perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
   perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
@@ -211,7 +212,8 @@ done
 for i in ${!batchfiles[@]} ; do
   echo "purging and aligning batch ${batchfiles[$i]}.."
   # define input specific plink settings
-  declare plinkinputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )
+  declare plinkinputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_filtered
+  declare plinkoutputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_purged
   declare tmpvarctrl=${tmpprefix}_varctrl
   declare tmpvardups=${tmpprefix}_vardups
   declare batchblacklist=${plinkinputfn}.blacklist
@@ -314,9 +316,8 @@ for i in ${!batchfiles[@]} ; do
   if [ -s "${batchflipfile}" ] ; then
     plinkflags="${plinkflags} --flip ${batchfliplist}"
   fi
-  declare plinkoutputfn=${plinkinputfn}_ready_for_mergeattempt
   # NOTE: if plinkflags are empty we could consider "mv $plinkinputfn $plinkoutputfn"
-  plink --bfile ${plinkinputfn} ${plinkflags} --make-bed --out ${plinkoutputfn}
+  plink --bfile ${plinkinputfn} ${plinkflags} --make-bed --out ${plinkoutputfn} >> ${debuglogfn}
   # tab-separate all human-readable plink files
   perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
   perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
@@ -331,8 +332,7 @@ for i in ${!batchfiles[@]} ; do
 done
 
 
-exit 0
-
+#-------------------------------------------------------------------------------
 
 # init global blacklist
 # while true
@@ -340,220 +340,51 @@ exit 0
     # purge batchfile of global blacklist
   # attempt to merge resulting batchfiles
   # stop on success
-  # if blacklist is not empty, tell francesco
+  # if blacklist is not empty, tell francesco 
+  #   (if we run more than 2 times something might be weird)
   # append to global blacklist (derived from errors) 
 
 
+echo "merging batches.."
+declare -r varblacklist=${tmpprefix}.exclude
+declare -r mismatchlist=${tmpprefix}.mismatch
+declare -r batchlist=${tmpprefix}.batchlist
 while true ; do
-  tmpbatchfile=$( mktemp .tmpbatch.XXXXXX )
-  echo "created temporary batch file ${tmpbatchfile}."
-  echo -n > ${tmpbatchfile}
-  for batch in $( cat ${mybatchfile} ) ; do
-    echo "processing batch ${batch}.."
-    tmpfile=$( mktemp .tmpctrl.XXXXXX )
-    echo "created temporary variant control file ${tmpfile}."
-    batchctrl=${procdir}/$( basename ${batch} ).fatto
-    batchvarblacklist=${procdir}/$( basename ${batch} ).exclude
-    batchflipfile=${procdir}/$( basename ${batch} ).flip
-    if [[ -s "${varblacklist}" ]] ; then
-      sort -u ${varblacklist} >> ${batchvarblacklist}
+  > ${batchlist}
+  for i in ${!batchfiles[@]} ; do
+    declare plinkinputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_purged
+    declare plinkoutputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_ready2merge
+    plinkflag=''
+    if [ -s "${varblacklist}" ] ; then
+      plinkflag="--exclude ${varblacklist}" 
     fi
-    j=-1
-    tmpbatch=${batch}
-    echo -n "current batch is number "
-    for (( i = 0; i < ${#mybatchvec[@]}; i++ )); do
-      if [[ "${tmpbatch}" == "${mybatchvec[$i]}" ]] ; then
-        j=${i}
-      fi
-    done
-    echo $j
-    fflag='--bfile'
-    if (( j > 0 )) ; then
-      case ${myarchvec[$j]} in
-        "${bedhex}" )
-          fflag='--bfile' ;;
-        "${bcfhex}" )
-          fflag='--bcf' ;;
-        "${vcfhex}" )
-          fflag='--vcf' ;;
-      esac
-      unset myarchvec[$j]
-      unset mybatchvec[$j]
-    fi
-    if [[ ! -f "${batchctrl}" ]] ; then
-      if [[ -s "${tmpbatch}.bim" ]] ; then
-        for chr in $( cut -f 1 ${tmpbatch}.bim | sort -u ) ; do
-          flagextract="--chr ${chr}"
-          # use whitelist if existing
-          if [ -f "${varwhitelist}" ] ; then
-            flagextract="${flagextract} --extract range ${varwhitelist}"
-          fi
-          tmpvardups=$( mktemp .tmpchr${chr}.XXXXXX )
-          chrbatchprefix=${procdir}/$( basename ${tmpbatch} )_chr${chr}
-          while [[ ! -f "${chrbatchprefix}.tped" ]] ; do
-            plink $fflag ${tmpbatch} ${flagextract} --recode transpose --out ${chrbatchprefix}
-          done
-          # extract marker information corresponding to unique position-specific genotype series:
-          # identical position-specific genotype series will thereby be ignored as harmless here.
-          sort -t ' ' -u -k 4 ${chrbatchprefix}.tped | awk '{
-            delete catalog
-            for ( k = 5; k <= NF; k++ ) {
-              if ( $k > 0 ) catalog[$k] = 1
-            }
-            asorti( catalog )
-            printf( "%s %s %s %s", $1, $2, $3, $4 )
-            for ( allele in catalog ) printf( "_%s", catalog[allele] )
-            print( "" )
-          }' | sort -t ' ' -k 4,4 > ${chrbatchprefix}.gp
-          echo "extracting marker information for unique position-specific genotype series.."
-          cut -d ' ' -f 3,4 ${chrbatchprefix}.gp | sort -t ' ' | uniq -d | sort -t ' ' -k 2,2 \
-          | join -t ' ' -1 4 -2 2 ${chrbatchprefix}.gp - | cut -d ' ' -f 3 | sort -u \
-          > ${tmpvardups}
-          echo -n "$( wc -l ${tmpvardups} | cut -d ' ' -f 1 ) "
-          echo "non-coherent duplicate variants marked for deletion in chromosome ${chr}."
-          cat ${tmpvardups} >> ${batchvarblacklist}
-          sort -t ' ' -k 2,2 ${chrbatchprefix}.tped | awk '{
-            delete catalog
-            for ( k = 5; k <= NF; k++ ) {
-              if ( $k > 0 ) catalog[$k] = 1
-            }
-            asorti( catalog )
-            printf( "%s %s %s", $2, $3, $4 )
-            for ( allele in catalog ) printf( "_%s", catalog[allele] )
-            print( "" )
-          }' | join -t ' ' -v1 - ${tmpvardups} | sort -t ' ' -k 3,3 > ${chrbatchprefix}.gpz
-          echo "extracting coherent variants from the set of duplicate variants.."
-          cut -d ' ' -f 3 ${chrbatchprefix}.gpz | uniq -d \
-          | join -t ' ' -2 3 - ${chrbatchprefix}.gpz | sort -t ' ' -k 3,3r \
-          | sort -t ' ' -u -k 1,1 | cut -d ' ' -f 2 | sort -u > ${tmpvardups}
-          echo -n "$( wc -l ${tmpvardups} | cut -d ' ' -f 1 ) "
-          echo "unique coherent duplicate variants retained in chromosome ${chr}."
-          cut -d ' ' -f 3 ${chrbatchprefix}.gpz | uniq -d \
-          | join -t ' ' -2 3 - ${chrbatchprefix}.gpz | cut -d ' ' -f 2 | sort \
-          | join -t ' ' -v1 - ${tmpvardups} >> ${batchvarblacklist}
-          rm ${tmpvardups}
-        done
-      fi
-      touch ${batchflipfile} ${batchvarblacklist}
-      if [[ "${refalleles}" != "" && -s "${tmpbatch}.bim" ]] ; then
-        echo "matching variants to reference.."
-        awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${tmpbatch}.bim | sort -t $'\t' -k 7,7 \
-        | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${refalleles} - \
-        | awk -F $'\t' $AWKLOCINCLUDE \
-        -v batchvarblacklist=${batchvarblacklist} \
-        -v batchflipfile=${batchflipfile} \
-        --source 'BEGIN{
-          total_miss = 0
-          total_mism = 0
-          total_flip = 0
-          printf( "" ) >>batchvarblacklist
-          printf( "" ) >>batchflipfile
-        } {
-          if ( $5 == "-" || $6 == "-" ) {
-            print( $1 ) >>batchvarblacklist
-            total_miss++
-          }
-          else {
-            if ( !gmatchx( $2, $3, $5, $6 ) ) {
-              print( $5 ) >>batchvarblacklist
-              total_mism++
-            }
-            else if ( gflip( $2, $3, $5, $6 ) ) {
-              print( $5 ) >>batchflipfile
-              total_flip++
-            }
-          }
-        } END{
-          print( "total missing: ", total_miss )
-          print( "total mismatch: ", total_mism )
-          print( "total flipped: ", total_flip )
-          close( batchvarblacklist )
-          close( batchflipfile )
-        }'
-      fi
-      touch ${batchctrl}
-    fi
-    plinkflags=${plinkflagsdef}
-    sort -u ${batchvarblacklist} > $tmpfile
-    mv $tmpfile ${batchvarblacklist}
-    sort -u ${batchflipfile} > $tmpfile
-    mv $tmpfile ${batchflipfile}
-    echo "$( wc -l ${batchvarblacklist} ) variants to be excluded."
-    echo "$( wc -l ${batchflipfile} ) variants to be flipped."
-    if [[ -s "${batchvarblacklist}" ]] ; then
-      plinkflags="${plinkflags} --exclude ${batchvarblacklist}"
-    fi
-    if [[ -s "${batchflipfile}" ]] ; then
-      plinkflags="${plinkflags} --flip ${batchflipfile}"
-    fi
-    if [[ "${plinkflags}" != "" ]] ; then
-      mytag=""
-      echo "polishing batch ${batch}.."
-      while [[ -f "${tmpbatch}.bed" ]] ; do
-        tmpbatch=${procdir}/$( basename ${batch} )${mytag}
-        mytag="${mytag}Z"
-      done
-      plink --bfile ${batch} ${plinkflags} --make-bed --out ${tmpbatch}
-      if [[ -f "${tmpbatch}.bim" ]] ; then
-        perl -p -i -e 's/[ \t]+/\t/g' ${tmpbatch}.bim
-      fi
-      if [[ -f "${tmpbatch}.fam" ]] ; then
-        perl -p -i -e 's/[ \t]+/\t/g' ${tmpbatch}.fam
-      fi
-      tmpbatchctrl=${procdir}/$( basename ${tmpbatch} ).fatto
-      if [[ -f "${batchctrl}" && "${batchctrl}" != "${tmpbatchctrl}" ]] ; then
-        cp ${batchctrl} ${tmpbatchctrl}
-      fi
-    fi
-    if [[ -f "${tmpbatch}.bim" ]] ; then
-      perl -p -e 's/[ \t]+/\t/g' ${tmpbatch}.bim | awk -F $'\t' '{
-        OFS="\t";
-        a[1] = $5; a[2] = $6; asort(a);
-        $2 = $1":"$4"_"a[1]"_"a[2];
-        print;
-      }' ${tmpbatch}.bim > ${tmpfile}
-      mv ${tmpfile} ${tmpbatch}.bim
-    fi
-    if [[ -f "${tmpbatch}.bed" ]] ; then
-      myarchvec[$j]=${bedhex}
-      mybatchvec[$j]=${tmpbatch}
-      echo "${tmpbatch}" >> ${tmpbatchfile}
-    fi
-  done
-  if [[ -s "${tmpbatchfile}" ]] ; then
-    mv ${tmpbatchfile} ${mybatchfile}
-  elif [[ -f "${tmpbatchfile}" ]] ; then
-    rm ${tmpbatchfile}
+    plink --bfile ${plinkinputfn} ${plinkflag} --make-bed --out ${plinkoutputfn} >> ${debuglogfn}
+    echo "${plinkoutputfn}" >> ${batchlist}
+  done 
+  # NOTE: if only one batch is present plink throws a warning
+  plink --merge-list ${batchlist} --out ${outprefix}_tmp >> ${debuglogfn}
+  # extract plink's warnings about chromosome and position clashes from plink's log and add the
+  # corresponding variant names to plink's own missnp file.
+  egrep '^Warning: Multiple' ${outprefix}_tmp.log \
+    | cut -d ' ' -f 7 \
+    | tr -d "'." \
+    | sort -u \
+    >> ${mismatchlist}
+  if [[ -s "${mismatchlist}" ]] ; then
+    sort -u ${mismatchlist} >> ${outprefix}_tmp.missnp
   fi
-  misfile=${outprefix}.missnp
-  mischrfile=${outprefix}.mischr
-  if (( ${#mybatchvec[*]} > 1 )) ; then
-    plink --merge-list ${mybatchfile} --out ${outprefix}
-    if [[ -f "${outprefix}.bim" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-    fi
-    if [[ -f "${outprefix}.fam" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-    fi
-    egrep '^Warning: Multiple' ${outprefix}.log | cut -d ' ' -f 7 | tr -d "'." \
-    | sort -u >> ${mischrfile}
-    if [[ -s "${mischrfile}" ]] ; then
-      sort -u ${mischrfile} >> ${misfile}
-    fi
-  else
-    plink --bfile $( cat ${mybatchfile} ) --make-bed --out ${outprefix}
-    if [[ -f "${outprefix}.bim" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-    fi
-    if [[ -f "${outprefix}.fam" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-    fi
-  fi
+  perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}_tmp.bim
+  perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}_tmp.fam
   # are we done?
-  if [ ! -f "${misfile}" ] ; then
+  if [ ! -f "${outprefix}.missnp" ] ; then
     break
   fi
   # no! prepare to repeat loop
-  mv ${misfile} ${varblacklist}
+  mv ${outprefix}.missnp ${varblacklist}
+  echo "repeating merging attempt.."
 done
+
+mv ${outprefix}_tmp.bed ${outprefix}.bed
+mv ${outprefix}_tmp.bim ${outprefix}.bim
+mv ${outprefix}_tmp.fam ${outprefix}.fam
 
