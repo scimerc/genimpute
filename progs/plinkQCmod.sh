@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # exit on error
 trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
@@ -9,6 +9,7 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
 # get parent dir of this script
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
+export BASEDIR
 
 #-------------------------------------------------------------------------------
 
@@ -19,13 +20,16 @@ declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 
 # define vars
 
-declare -r inputfiles="$(cat << EOF
+declare -r opt_inputfiles="$(cat << EOF
 /net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/asdt.bed
 /net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/qwe.bed
 EOF
 )"
 
-declare -r outprefix=/tmp/aligntest
+# set hardy weinberg test p-value threshold for the general case
+# if [[ "${phenotypes}" == "" || ! -f "${phenotypes}" ]] ; then
+#   hweneglogp=${hweneglogp_ctrl}
+# fi
 
 declare -r opt_mini=1
 declare -r opt_refallelesfn=""
@@ -33,62 +37,54 @@ declare -r opt_samplewhitelist=""
 
 #-------------------------------------------------------------------------------
 
+# alignment
+
 # export vars
 
-export BASEDIR
-export outprefix
 export opt_mini
 export opt_refallelesfn
 export opt_samplewhitelist
-export inputfiles
+export opt_inputfiles
+export opt_outprefix=/tmp/test_aligned
+export opt_batchoutprefix=/tmp/test_filtered_batches
 
 # call align
 bash ${BASEDIR}/progs/align.sh
 
 #-------------------------------------------------------------------------------
 
-# export ...
+# biography
 
-# call ...
+# initialize sample biography file
+declare -r opt_biofile=/tmp/test.bio
+uid="000UID"
+cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
+  OFS="\t"; print( uid, "FID", "IID" )
+} { print( $1"_"$2, $0 ) }' | sort -u -k 1,1 > ${opt_biofile}
+
+# ...
+
+#-------------------------------------------------------------------------------
+# get high quality set
+
+# export vars
+
+export opt_inprefix=/tmp/test_aligned
+export opt_outprefix=/tmp/test_hqset
+export opt_biofile
+
+# call gethqset
+bash ${BASEDIR}/progs/gethqset.sh
 
 #-------------------------------------------------------------------------------
 
-exit 1
+
+exit 0
 
 
 # make directory to accommodate output prefix
 # mydir=$( dirname ${myprefix} )
 # mkdir -p ${mydir}
-
-# master:
-# files needed for batch effect qc:
-export batchoutprefix=/tmp/...
-
-# align.sh:
-plinkoutputfn=${batchoutprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_filtered
-
-# master:
-ls ${batchoutprefix}*
-
-# set hardy weinberg test p-value threshold for the general case
-# if [[ "${phenotypes}" == "" || ! -f "${phenotypes}" ]] ; then
-#   hweneglogp=${hweneglogp_ctrl}
-# fi
-
-# initialize sample biography file
-# mybiofile=${outprefix}.bio
-# uid="000UID"
-# cut -f 1,2 ${myprefix}.fam | awk -v uid=${uid} 'BEGIN{
-#   OFS="\t"; print( uid, "FID", "IID" )
-# } { print( $1"_"$2, $0 ) }' | sort -u -k 1,1 > ${mybiofile}
-
-# pre-process sex chromosomes variants
-# parcount=$( awk '$1 == 25' ${myprefix}.bim | wc -l )
-# if (( parcount == 0 )) ; then
-#   outprefix=${myprefix}_sx
-#   plink --bfile ${myprefix} --split-x ${genome} no-fail --make-bed --out ${outprefix}
-# fi
-# myprefix=${outprefix}
 
 
 AWKPATH="${AWKPATH}:${BASEDIR}/lib/awk"
@@ -225,100 +221,31 @@ join --version
 echo
 R --version
 
-mydir=$( dirname ${myprefix} )
-mkdir -p ${mydir}
+# define filenames
+# input: merged plink set
+# output: hq plink set (with imputed sex, if possible)
+# 1) get sex hq-variants from input file
+# 2) get non-sex hq-variants from input file
+# 3) extract all hq variants from input file and make hq plink set
+# 4) LD-prune hq variants from 3)
+# 5) impute sex once with all standard hq variants from 4
+# 6) if sex could be imputed for enough individuals, then
+#      impute it once again after HWE tests
+# 7) update biography file with sex information
 
-fflag='--bfile'
-outprefix=${myprefix}
-if (( ${#mybatchvec[*]} > 1 )) ; then
-  outprefix=${myprefix}_merged
-fi
-mybatchfile=${myprefix}_batches
-ls ${mybatches} | sed -r 's/[.]bed$//g;' > ${mybatchfile}
-mybatchvec=( $( cat ${mybatchfile} ) )
 
-if [[ "${phenotypes}" == "" || ! -f "${phenotypes}" ]] ; then
-  hweneglogp=${hweneglogp_ctrl}
-fi
 
-myprefix=${outprefix}
-mybiofile=${outprefix}.bio
-# initialize sample biography file
-uid="000UID"
-cut -f 1,2 ${myprefix}.fam | awk -v uid=${uid} 'BEGIN{
-  OFS="\t"; print( uid, "FID", "IID" )
-} { print( $1"_"$2, $0 ) }' | sort -u -k 1,1 > ${mybiofile}
-# pre-process sex chromosomes variants
-parcount=$( awk '$1 == 25' ${myprefix}.bim | wc -l )
-if (( parcount == 0 )) ; then
-  outprefix=${myprefix}_sx
-  plink --bfile ${myprefix} --split-x ${genome} no-fail --make-bed --out ${outprefix}
-fi
-myprefix=${outprefix}
-hqprefix=${myprefix}_hq
-hqprefixunique=${myprefix}_hq_unique
-cleanfile=${hqprefix}.clean.id
-uniquefile=${hqprefixunique}.rel.id
-excludeopt=""
-if [[ "${blacklist}" != "" ]] ; then
-  excludeopt="--exclude range ${blacklist}"
-fi
-prunehqprefix=${hqprefix}_LDpruned
-if [[ 
-    ! -f "${prunehqprefix}.bed" ||
-    ! -f "${prunehqprefix}.bim" ||
-    ! -f "${prunehqprefix}.fam"
-]] ; then
-  plink --bfile ${myprefix} --not-chr 23,24 ${excludeopt} --geno ${varmiss} --maf ${myfreq_hq} \
-    --hwe 1.E-${hweneglogp_ctrl} ${hwflag} --make-just-bim --out ${hqprefix}_nonsex
-  plink --bfile ${myprefix} --chr 23,24 ${excludeopt} --geno ${varmiss} --maf ${myfreq_hq} \
-    --make-just-bim --out ${hqprefix}_sex
-  if [[ -s "${hqprefix}_nonsex.bim" || -s "${hqprefix}_sex.bim" ]] ; then
-    cut -f 2 ${hqprefix}_*sex.bim | sort -u > ${hqprefix}.mrk
-    plink --bfile ${myprefix} --extract ${hqprefix}.mrk --make-bed --out ${hqprefix}
-  fi
-  if [[ -s "${hqprefix}.bed" ]] ; then
-    plink --bfile ${hqprefix} --indep-pairphase 500 5 0.2 --out ${hqprefix}_LD
-    plink --bfile ${hqprefix} --extract ${hqprefix}_LD.prune.in --make-bed --out ${prunehqprefix}
-  fi
-fi
-usex=''
-nosex=''
-touch ${prunehqprefix}.bim
-xcount=$( awk '$1 == 23' ${prunehqprefix}.bim | wc -l )
-if (( xcount > minvarcount )) ; then
-  touch ${prunehqprefix}_isex.fam
-  # impute sex once with all standard high quality variants
-  plink --bfile ${prunehqprefix} --impute-sex --make-bed --out ${prunehqprefix}_isex
-  xcount=$( awk '$5 == 1 || $5 == 2' ${prunehqprefix}_isex.fam | wc -l )
-  # if sex could be imputed for enough individuals impute it once again after HWE tests
-  if (( xcount > minindcount )) ; then
-    plink --bfile ${prunehqprefix}_isex --hwe 1.E-${hweneglogp_ctrl} ${hwflag} \
-      --make-just-bim --out ${prunehqprefix}_hwsex
-    xcount=$( awk '$1 == 23' ${prunehqprefix}_hwsex.bim | wc -l )
-    if (( xcount > minvarcount )) ; then
-      plink --bfile ${prunehqprefix}_isex --extract <( cut -f2 ${prunehqprefix}_hwsex.bim ) \
-        --impute-sex --make-bed --out ${prunehqprefix}_isex
-    fi
-    usex="--update-sex ${prunehqprefix}_isex.fam 3"
-    awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' \
-      ${prunehqprefix}_isex.fam > ${prunehqprefix}_isex.nosex
-    if [[ -s "${prunehqprefix}_isex.nosex" ]] ; then
-      nosex="--remove ${prunehqprefix}_isex.nosex"
-    fi
-  fi
-  tmpbiofile=$( mktemp ${mybiofile}.tmpXXXX )
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' ${prunehqprefix}_isex.sexcheck \
-  | awk -F $'\t' -v uid=${uid} '{
-    OFS="\t"
-    if ( NR>1 ) uid=$1"_"$2
-    printf( "%s", uid )
-    for ( k=3; k<=NF; k++ )
-      printf( "\t%s", $k )
-    printf( "\n" )
-  }' | sort -t $'\t' -u -k 1,1 | join -t $'\t' -a1 -e '-' ${mybiofile} - > ${tmpbiofile}
-  mv ${tmpbiofile} ${mybiofile}
-fi
+# XXX) if sex could be imputed for enough individuals, then
+#      set --remove plink flag for sex-undetermined individuals
+#      set --update-sex plink flag
+#     usex="--update-sex ${prunehqprefix}_isex.fam 3"
+#     awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' \
+#       ${prunehqprefix}_isex.fam > ${prunehqprefix}_isex.nosex
+#     if [[ -s "${prunehqprefix}_isex.nosex" ]] ; then
+#       nosex="--remove ${prunehqprefix}_isex.nosex"
+#     fi
+
+
 keepflag=''
 echo "checking sample quality.."
 if [[ ! -s "${uniquefile}" ]] ; then

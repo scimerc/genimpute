@@ -2,11 +2,13 @@
 
 trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
-declare -r  tmpprefix=${outprefix}_tmp
+declare -r  tmpprefix=${opt_outprefix}_tmp
 declare -r  debuglogfn=${tmpprefix}_debug.log
-declare -ra batchfiles=( ${inputfiles} )
+declare -ra batchfiles=( ${opt_inputfiles} )
 
-if [ -f "${outprefix}.bed" -a -f "${outprefix}.bim" -a -f "${outprefix}.fam" ] ; then
+declare -r genomebuild="b37"
+
+if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping aligment..\n"
   exit 0
 fi
@@ -183,6 +185,9 @@ for i in ${!batchfiles[@]} ; do
   # tab-separate all human-readable plink files
   perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
   perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
+  # save fam files for batch effect dectection
+  cp ${plinkoutputfn}.fam \
+    ${opt_batchoutprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} ).fam
   unset batchtped
   unset flagextract
   unset flagformat
@@ -351,29 +356,37 @@ while true ; do
     echo "${plinkoutputfn}" >> ${batchlist}
   done 
   # NOTE: if only one batch is present plink throws a warning
-  plink --merge-list ${batchlist} --out ${outprefix}_tmp >> ${debuglogfn}
+  plink --merge-list ${batchlist} --out ${tmpprefix}_tmp >> ${debuglogfn}
   # extract plink's warnings about chromosome and position clashes from plink's log and add the
   # corresponding variant names to plink's own missnp file.
-  egrep '^Warning: Multiple' ${outprefix}_tmp.log \
+  egrep '^Warning: Multiple' ${tmpprefix}_tmp.log \
     | cut -d ' ' -f 7 \
     | tr -d "'." \
     | sort -u \
     >> ${mismatchlist}
   if [[ -s "${mismatchlist}" ]] ; then
-    sort -u ${mismatchlist} >> ${outprefix}_tmp.missnp
+    sort -u ${mismatchlist} >> ${tmpprefix}_tmp.missnp
   fi
-  perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}_tmp.bim
-  perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}_tmp.fam
+  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_tmp.bim
+  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_tmp.fam
   # are we done?
-  if [ ! -f "${outprefix}.missnp" ] ; then
+  if [ ! -f "${tmpprefix}.missnp" ] ; then
     break
   fi
   # no! prepare to repeat loop
-  mv ${outprefix}.missnp ${varblacklist}
+  mv ${tmpprefix}.missnp ${varblacklist}
   echo "repeating merging attempt.."
 done
 
-mv ${outprefix}_tmp.bed ${outprefix}.bed
-mv ${outprefix}_tmp.bim ${outprefix}.bim
-mv ${outprefix}_tmp.fam ${outprefix}.fam
+# pre-process sex chromosomes variants
+plinkflag=''
+parcount=$( awk '$1 == 25' ${tmpprefix}_tmp.bim | wc -l )
+if [ $parcount -eq 0 ] ; then
+  plinkflag="--split-x ${genomebuild} no-fail" 
+fi
+plink --bfile ${tmpprefix}_tmp ${plinkflag} --make-bed --out ${tmpprefix}_tmpsx >> ${debuglogfn}$
+
+mv ${tmpprefix}_tmpsx.bed ${opt_outprefix}.bed
+mv ${tmpprefix}_tmpsx.bim ${opt_outprefix}.bim
+mv ${tmpprefix}_tmpsx.fam ${opt_outprefix}.fam
 
