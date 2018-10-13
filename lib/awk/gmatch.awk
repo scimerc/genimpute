@@ -1,3 +1,4 @@
+# include not supported by awk < 4
 # @include "nucleocode.awk"
 # @include "genotype.awk"
 function gmatch(a1,a2,b1,b2)
