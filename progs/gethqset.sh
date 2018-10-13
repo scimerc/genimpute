@@ -24,7 +24,6 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
   exit 1
 fi
 
-# define filenames
 # input: merged plink set
 # output: hq plink set (with imputed sex, if possible)
 # 1) get sex hq-variants from input file
@@ -36,12 +35,6 @@ fi
 #      impute it once again after HWE tests
 # 7) update biography file with sex information
 
-
-# hqprefix=${myprefix}_hq
-# hqprefixunique=${myprefix}_hq_unique
-# cleanfile=${hqprefix}.clean.id
-# uniquefile=${hqprefixunique}.rel.id
-# prunehqprefix=${hqprefix}_LDpruned
 
 # check if exclude file exists and is not empty
 [ -s "${cfg_regionblacklist}" ] || { printf "error: %s missing\n" ${cfg_regionblacklist}; exit 1; }
@@ -124,7 +117,7 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
             >> ${debuglogfn}
     fi
   fi
-  tmpbiofile=${tmpprefix}_tmpbio
+  tmpbiofile=${tmpprefix}.tmpbio
   sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' ${tmpprefix}_hq_LDpruned_isex.sexcheck \
     | awk -F $'\t' -v uid=${cfg_uid} '{
       OFS="\t"
@@ -143,4 +136,6 @@ fi
 mv ${tmpprefix}_hq_LDpruned_isex.bed ${opt_outprefix}.bed
 mv ${tmpprefix}_hq_LDpruned_isex.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_hq_LDpruned_isex.fam ${opt_outprefix}.fam
+
+rm ${tmpprefix}*
 

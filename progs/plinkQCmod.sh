@@ -21,7 +21,7 @@ export BASEDIR
 # define vars
 
 declare -r opt_inputfiles="$(cat << EOF
-/net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/asdt.bed
+/net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/asdtt.bed
 /net/p01-c2io-nfs/projects/p33/users/franbe/norment_2018/test/qwe.bed
 EOF
 )"
@@ -32,7 +32,7 @@ EOF
 # fi
 
 declare -r opt_mini=1
-declare -r opt_refallelesfn=""
+declare -r opt_refallelesfn="/cluster/projects/p33/data/genetics/external/1KG_Reference/phase3/alleles"
 declare -r opt_samplewhitelist=""
 
 #-------------------------------------------------------------------------------
@@ -45,8 +45,8 @@ export opt_mini
 export opt_refallelesfn
 export opt_samplewhitelist
 export opt_inputfiles
-export opt_outprefix=/tmp/test_aligned
-export opt_batchoutprefix=/tmp/test_filtered_batches
+export opt_outprefix=/tmp/test_a_aligned
+export opt_batchoutprefix=/tmp/test_a_filtered_batches
 
 # call align
 bash ${BASEDIR}/progs/align.sh
@@ -56,7 +56,7 @@ bash ${BASEDIR}/progs/align.sh
 # biography
 
 # initialize sample biography file
-declare -r opt_biofile=/tmp/test.bio
+declare -r opt_biofile=/tmp/test_0.bio
 uid="000UID"
 cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
   OFS="\t"; print( uid, "FID", "IID" )
@@ -65,16 +65,31 @@ cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
 # ...
 
 #-------------------------------------------------------------------------------
+
 # get high quality set
 
 # export vars
 
-export opt_inprefix=/tmp/test_aligned
-export opt_outprefix=/tmp/test_hqset
+export opt_inprefix=/tmp/test_a_aligned
+export opt_outprefix=/tmp/test_b_hqset
 export opt_biofile
 
 # call gethqset
 bash ${BASEDIR}/progs/gethqset.sh
+
+#-------------------------------------------------------------------------------
+
+# identify duplicate and mixup individuals
+
+# export vars
+
+export opt_inprefix=/tmp/test_a_aligned
+export opt_hqprefix=/tmp/test_b_hqset
+export opt_outprefix=/tmp/test_c_clean
+export opt_biofile
+
+# call gethqset
+bash ${BASEDIR}/progs/iddupmix.sh
 
 #-------------------------------------------------------------------------------
 
@@ -235,99 +250,13 @@ R --version
 
 
 
-# XXX) if sex could be imputed for enough individuals, then
-#      set --remove plink flag for sex-undetermined individuals
-#      set --update-sex plink flag
-#     usex="--update-sex ${prunehqprefix}_isex.fam 3"
-#     awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' \
-#       ${prunehqprefix}_isex.fam > ${prunehqprefix}_isex.nosex
-#     if [[ -s "${prunehqprefix}_isex.nosex" ]] ; then
-#       nosex="--remove ${prunehqprefix}_isex.nosex"
-#     fi
+# XXX) set --remove plink flag for sex-undetermined individuals
+# awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
+#   > ${opt_hqprefix}.nosex
+# if [ -s "${opt_hqprefix}.nosex" ] ; then
+#   nosex="--remove ${opt_hqprefix}.nosex"
+# fi
 
-
-keepflag=''
-echo "checking sample quality.."
-if [[ ! -s "${uniquefile}" ]] ; then
-  cp ${prunehqprefix}.fam ${cleanfile}
-  if [[ "${hvm}" == "on" ]] ; then
-    echo "computing individual heterozygosity and missing rates.."
-    plink --bfile ${prunehqprefix} --het --out ${hqprefix}_sq
-    plink --bfile ${prunehqprefix} --missing --out ${hqprefix}_sq
-    ${hvmscript} --args -m ${hqprefix}_sq.imiss -h ${hqprefix}_sq.het -o ${hqprefix}
-    tmpbiofile=$( mktemp ${mybiofile}.tmpXXXX )
-    (
-      cut -f 3 ${cleanfile} | sort -u | join -t $'\t' -v1 ${mybiofile} - | awk -F $'\t' '{
-        OFS="\t"
-        if ( NR == 1 ) print( $0, "het_VS_miss" )
-        else print( $0, 0 )
-      }'
-      cut -f 3 ${cleanfile} | sort -u | join -t $'\t' ${mybiofile} - | awk -F $'\t' '{
-        OFS="\t"
-        print( $0, 1 )
-      }'
-    ) | sort -t $'\t' -u -k 1,1 > ${tmpbiofile}
-    mv ${tmpbiofile} ${mybiofile}
-  fi
-  if [[ -s "${cleanfile}" ]] ; then
-    genomefile=${myprefix}.genome.gz
-    echo "identifying duplicate individuals.."
-    if [[ "${keepdups}" == "on" ]] ; then pihat=1 ; fi
-    plink --bfile ${prunehqprefix} --keep ${cleanfile} --genome gz --out ${myprefix}
-    plink --bfile ${prunehqprefix} --keep ${cleanfile} --cluster --read-genome ${genomefile} \
-        --rel-cutoff ${pihat} --out ${hqprefixunique}
-    tmpbiofile=$( mktemp ${mybiofile}.tmpXXXX )
-    zcat ${genomefile} | sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' \
-    | awk -F $'\t' -v uid=${uid} 'BEGIN{
-      OFS="\t"
-      printf( "%s\tRSHIP\n", uid )
-    } {
-      if ( NR>1 && $10>=0.1 ) {
-        uid0=$1"_"$2
-        uid1=$3"_"$4
-        if ( uid0 in relarr )
-          relarr[uid0] = relarr[uid0]","uid1"("$10")"
-        else relarr[uid0] = uid1"("$10")"
-        if ( uid1 in relarr )
-          relarr[uid1] = relarr[uid1]","uid0"("$10")"
-        else relarr[uid1] = uid0"("$10")"
-      }
-    } END{
-      for ( uid in relarr )
-        print( uid, relarr[uid] )
-    }' | sort -t $'\t' -u -k 1,1 | join -t $'\t' -a1 -e '-' ${mybiofile} - > ${tmpbiofile}
-    mv ${tmpbiofile} ${mybiofile}
-  fi
-fi
-if [[ -s "${uniquefile}" ]] ; then
-  keepflag="--keep ${uniquefile}"
-  tmpbiofile=$( mktemp ${mybiofile}.tmpXXXX )
-  (
-    awk -F $'\t' '{ print( $1"\t"$2 ); }' ${uniquefile} | sort -u \
-    | join -t $'\t' -v1 ${mybiofile} - | awk -F $'\t' '{
-      OFS="\t"
-      if ( NR == 1 ) print( $0, "duplicate" )
-      else print( $0, 1 )
-    }'
-    awk -F $'\t' '{ print( $1"\t"$2 ); }' ${uniquefile} | sort -u \
-    | join -t $'\t' ${mybiofile} - | awk -F $'\t' '{
-      OFS="\t"
-      print( $0, 1 )
-    }'
-  ) | sort -t $'\t' -u -k 1,1 > ${tmpbiofile}
-  mv ${tmpbiofile} ${mybiofile}
-fi
-outprefix=${myprefix}_clean
-if [[ ! -f "${outprefix}.bed" || ! -f "${outprefix}.bim" || ! -f "${outprefix}.fam" ]] ; then
-  plink --bfile ${myprefix} ${usex} ${keepflag} --make-bed --out ${outprefix}
-  if [[ -f "${outprefix}.bim" ]] ; then
-    perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-  fi
-  if [[ -f "${outprefix}.fam" ]] ; then
-    perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-  fi
-fi
-myprefix=${outprefix}
 
 outprefix=${myprefix}_varQC
 if [[ ! -f "${outprefix}.bed" || ! -f "${outprefix}.bim" || ! -f "${outprefix}.fam" ]] ; then

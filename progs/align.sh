@@ -79,6 +79,9 @@ get_variant_info_from_tped() {
 
 
 # in: (rs, chr, cm, bpa); out: same
+# get unique chr,cm,bpa entries [sort|uniq]
+# sort on rsnumbers corresponding to unique entries
+# get complementary set of rsnumbers (rsnumbers of duplicated vars) [join -v1 | cut]
 get_variant_info_for_dup_chr_cm_bpa() {
   local -r inputfile="$1"
   sort -k 2 ${inputfile} \
@@ -218,9 +221,6 @@ for i in ${!batchfiles[@]} ; do
     | get_variant_info_from_tped \
     | sort -t ' ' -k 1,1 \
     > ${plinkinputfn}.gp
-  # get unique chr,cm,bpa entries [sort|uniq]
-  # sort on rsnumbers corresponding to unique entries
-  # get complementary set of rsnumbers (rsnumbers of duplicated vars) [join -v1 | cut]
   get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gp \
     | cut -d ' ' -f 1 \
     | uniq \
@@ -233,34 +233,36 @@ for i in ${!batchfiles[@]} ; do
     | get_variant_info_from_tped \
     | join -t ' ' -v1 - ${batchblacklist} \
     > ${plinkinputfn}.gpz
-  # get unique chr,cm,bpa entries [sort|uniq]
-  # sort on rsnumbers corresponding to unique entries
-  # get complementary set (duplicated vars) [join -v1]
-  # get the one with highest cm from each [sort -k 3,3 | sort -u]
+  # get variant with highest cm from each set of duplicates [sort -k 3,3 | sort -u]
   # get their rsnumbers [cut | sort -u]
   get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gpz \
     | sort -t ' ' -k 3,3r \
     | sort -t ' ' -u -k 2,2 -k 4,4 \
     | cut -d ' ' -f 1 \
     | sort -u \
-    > ${tmpvardups}
-  echo -n "$( wc -l ${tmpvardups} | cut -d ' ' -f 1 ) "
-  echo "unique coherent duplicate variants retained in chromosome."
-  # get unique chr,cm,bpa entries [sort|uniq]
-  # sort on rsnumbers corresponding to unique entries
-  # get complementary set (duplicated vars) [join -v1]
-  # add rsnumbers of non-retained variants to blacklist [join -v1]
+    > ${tmpvardups}  
+  declare wl_size="$( wc -l ${tmpvardups} | cut -d ' ' -f 1 )"
+  # add rsnumbers of non-retained duplicated variants to blacklist [join -v1]
+  # (count them in the process)
+  declare bl_size_old="$( wc -l ${batchblacklist} | cut -d " " -f 1 )"
   get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gpz \
     | join -t ' ' -v1 - ${tmpvardups} \
-    >> ${batchblacklist}
+    >> ${batchblacklist} 
+  declare bl_size_new="$( wc -l ${batchblacklist} | cut -d " " -f 1 )"
   rm ${tmpvardups}
-  if [ ! -z ${opt_refallelesfn} ] ; then
-    [ ! -s ${opt_refallelesfn} ] || exit 1
+  printf "%s unique coherent duplicate variants retained [%s marked for deletion]\n" \
+    "${wl_size}" $(( bl_size_new - bl_size_old ))
+  # use ref alleles specified or if we have more than one batch
+  if [ ${#batchfiles[@]} -gt 1 -o ! -z ${opt_refallelesfn} ] ; then
     echo "matching variants to reference.."
+    [ -s ${opt_refallelesfn} ] \
+      || { printf "error: file '%s' empty or not found\n" ${opt_refallelesfn} >&2; exit 1; }
     awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${plinkinputfn}.bim \
       | sort -t $'\t' -k 7,7 \
       | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${opt_refallelesfn} - \
       | awk -F $'\t' \
+        -f ${BASEDIR}/lib/awk/nucleocode.awk \
+        -f ${BASEDIR}/lib/awk/genotype.awk \
         -f ${BASEDIR}/lib/awk/gflip.awk \
         -f ${BASEDIR}/lib/awk/gmatch.awk \
         -v batchblacklist=${batchblacklist} \
@@ -287,9 +289,9 @@ for i in ${!batchfiles[@]} ; do
               }
             }
           } END{
-            print( "total missing: ", total_miss )
+            print( "total missing:  ", total_miss )
             print( "total mismatch: ", total_mism )
-            print( "total flipped: ", total_flip )
+            print( "total flipped:  ", total_flip )
             close( batchblacklist )
             close( batchfliplist)
           }'
@@ -384,9 +386,11 @@ parcount=$( awk '$1 == 25' ${tmpprefix}_tmp.bim | wc -l )
 if [ $parcount -eq 0 ] ; then
   plinkflag="--split-x ${genomebuild} no-fail" 
 fi
-plink --bfile ${tmpprefix}_tmp ${plinkflag} --make-bed --out ${tmpprefix}_tmpsx >> ${debuglogfn}$
+plink --bfile ${tmpprefix}_tmp ${plinkflag} --make-bed --out ${tmpprefix}_outsx >> ${debuglogfn}$
 
-mv ${tmpprefix}_tmpsx.bed ${opt_outprefix}.bed
-mv ${tmpprefix}_tmpsx.bim ${opt_outprefix}.bim
-mv ${tmpprefix}_tmpsx.fam ${opt_outprefix}.fam
+mv ${tmpprefix}_outsx.bed ${opt_outprefix}.bed
+mv ${tmpprefix}_outsx.bim ${opt_outprefix}.bim
+mv ${tmpprefix}_outsx.fam ${opt_outprefix}.fam
+
+rm ${tmpprefix}*
 
