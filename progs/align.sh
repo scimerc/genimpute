@@ -250,13 +250,14 @@ for i in ${!batchfiles[@]} ; do
     >> ${batchblacklist} 
   declare bl_size_new="$( wc -l ${batchblacklist} | cut -d " " -f 1 )"
   rm ${tmpvardups}
-  printf "%s unique coherent duplicate variants retained [%s marked for deletion]\n" \
+  printf "%s unique coherent duplicate variants retained [%s marked for deletion].\n" \
     "${wl_size}" $(( bl_size_new - bl_size_old ))
   # use ref alleles specified or if we have more than one batch
   if [ ${#batchfiles[@]} -gt 1 -o ! -z ${opt_refallelesfn} ] ; then
     echo "matching variants to reference.."
     [ -s ${opt_refallelesfn} ] \
       || { printf "error: file '%s' empty or not found\n" ${opt_refallelesfn} >&2; exit 1; }
+    # get chr:bp strings from bim file and join with the corresponding field of refallelesfn 
     awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${plinkinputfn}.bim \
       | sort -t $'\t' -k 7,7 \
       | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${opt_refallelesfn} - \
@@ -275,16 +276,16 @@ for i in ${!batchfiles[@]} ; do
             printf( "" ) >>batchfliplist
           } {
             if ( $5 == "-" || $6 == "-" ) {
-              print( $1 ) >>batchblacklist
+              print( $4 ) >>batchblacklist
               total_miss++
             }
             else {
-              if ( !gmatchx( $2, $3, $5, $6 ) ) {
-                print( $5 ) >>batchblacklist
+              if ( !gmatch( $2, $3, $5, $6 ) ) {
+                print( $4 ) >>batchblacklist
                 total_mism++
               }
               else if ( gflip( $2, $3, $5, $6 ) ) {
-                print( $5 ) >>batchfliplist
+                print( $4 ) >>batchfliplist
                 total_flip++
               }
             }
@@ -309,7 +310,7 @@ for i in ${!batchfiles[@]} ; do
   if [ -s "${batchblacklist}" ] ; then
     plinkflags="${plinkflags} --exclude ${batchblacklist}"
   fi
-  if [ -s "${batchflipfile}" ] ; then
+  if [ -s "${batchfliplist}" ] ; then
     plinkflags="${plinkflags} --flip ${batchfliplist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $plinkinputfn $plinkoutputfn"
@@ -358,19 +359,19 @@ while true ; do
     echo "${plinkoutputfn}" >> ${batchlist}
   done 
   # NOTE: if only one batch is present plink throws a warning
-  plink --merge-list ${batchlist} --out ${tmpprefix}_tmp >> ${debuglogfn}
+  plink --merge-list ${batchlist} --out ${tmpprefix}_out >> ${debuglogfn}
   # extract plink's warnings about chromosome and position clashes from plink's log and add the
   # corresponding variant names to plink's own missnp file.
-  egrep '^Warning: Multiple' ${tmpprefix}_tmp.log \
+  egrep '^Warning: Multiple' ${tmpprefix}_out.log \
     | cut -d ' ' -f 7 \
     | tr -d "'." \
     | sort -u \
     >> ${mismatchlist}
   if [[ -s "${mismatchlist}" ]] ; then
-    sort -u ${mismatchlist} >> ${tmpprefix}_tmp.missnp
+    sort -u ${mismatchlist} >> ${tmpprefix}_out.missnp
   fi
-  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_tmp.bim
-  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_tmp.fam
+  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
+  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
   # are we done?
   if [ ! -f "${tmpprefix}.missnp" ] ; then
     break
@@ -382,11 +383,11 @@ done
 
 # pre-process sex chromosomes variants
 plinkflag=''
-parcount=$( awk '$1 == 25' ${tmpprefix}_tmp.bim | wc -l )
+parcount=$( awk '$1 == 25' ${tmpprefix}_out.bim | wc -l )
 if [ $parcount -eq 0 ] ; then
   plinkflag="--split-x ${genomebuild} no-fail" 
 fi
-plink --bfile ${tmpprefix}_tmp ${plinkflag} --make-bed --out ${tmpprefix}_outsx >> ${debuglogfn}$
+plink --bfile ${tmpprefix}_out ${plinkflag} --make-bed --out ${tmpprefix}_outsx >> ${debuglogfn}
 
 mv ${tmpprefix}_outsx.bed ${opt_outprefix}.bed
 mv ${tmpprefix}_outsx.bim ${opt_outprefix}.bim
