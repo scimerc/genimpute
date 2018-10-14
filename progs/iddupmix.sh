@@ -48,6 +48,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   # include non-mixup info later 
   plinkflag="--keep ${tmpprefix}.clean.id"
 fi
+# identify duplicate individuals
 echo "identifying duplicate individuals.."
 plink --bfile ${opt_hqprefix} ${plinkflag} \
       --genome gz \
@@ -104,6 +105,7 @@ mv ${tmpprefix}.tmpbio ${opt_biofile}
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.tmpbio
 mv ${tmpprefix}.tmpbio ${opt_biofile}
 # remove duplicates + update sex in input set
+echo "removing duplicate individuals and updating sex.."
 plink --bfile ${opt_inprefix} \
       --update-sex ${opt_hqprefix}.fam 3 \
       --keep ${tmpprefix}_sq.rel.id \

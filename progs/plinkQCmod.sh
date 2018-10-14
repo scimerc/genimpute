@@ -45,7 +45,7 @@ export opt_mini
 export opt_refallelesfn
 export opt_samplewhitelist
 export opt_inputfiles
-export opt_outprefix=/tmp/test_a_aligned
+export opt_outprefix=/tmp/test_a_align
 export opt_batchoutprefix=/tmp/test_a_filtered_batches
 
 # call align
@@ -70,7 +70,7 @@ cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
 
 # export vars
 
-export opt_inprefix=/tmp/test_a_aligned
+export opt_inprefix=/tmp/test_a_align
 export opt_outprefix=/tmp/test_b_hqset
 export opt_biofile
 
@@ -83,7 +83,7 @@ bash ${BASEDIR}/progs/gethqset.sh
 
 # export vars
 
-export opt_inprefix=/tmp/test_a_aligned
+export opt_inprefix=/tmp/test_a_align
 export opt_hqprefix=/tmp/test_b_hqset
 export opt_outprefix=/tmp/test_c_clean
 export opt_biofile

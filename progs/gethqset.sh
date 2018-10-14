@@ -104,17 +104,22 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
     plink --bfile ${tmpprefix}_hq_LDpruned_isex \
           --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hwflag} \
           --make-just-bim \
-          --out ${tmpprefix}_hq_LDpruned_hwsex \
+          --out ${tmpprefix}_hq_LDpruned_sexhwe \
           >> ${debuglogfn}
 
     # if there are enough X chromosome variants after HWE re-impute sex based on them
-    if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned_hwsex.bim ) -gt $cfg_minvarcount ] ; then
+    if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned_sexhwe.bim ) -gt $cfg_minvarcount ] ; then
       plink --bfile ${tmpprefix}_hq_LDpruned_isex \
-            --extract <( cut -f2 ${tmpprefix}_hq_LDpruned_hwsex.bim ) \
+            --extract <( cut -f2 ${tmpprefix}_hq_LDpruned_sexhwe.bim ) \
             --impute-sex \
             --make-bed \
-            --out ${tmpprefix}_hq_LDpruned_isex \
+            --out ${tmpprefix}_hq_LDpruned_isex_new \
             >> ${debuglogfn}
+      # replace the original sex imputation files
+      mv ${tmpprefix}_hq_LDpruned_isex_new.bed ${tmpprefix}_hq_LDpruned_isex.bed
+      mv ${tmpprefix}_hq_LDpruned_isex_new.bim ${tmpprefix}_hq_LDpruned_isex.bim
+      mv ${tmpprefix}_hq_LDpruned_isex_new.fam ${tmpprefix}_hq_LDpruned_isex.fam
+      mv ${tmpprefix}_hq_LDpruned_isex_new.sexcheck ${tmpprefix}_hq_LDpruned_isex.sexcheck
     fi
   fi
   tmpbiofile=${tmpprefix}.tmpbio
