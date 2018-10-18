@@ -3,6 +3,7 @@ export _CFGVAR_PREFIX_STATUS='_CFGVAR_STATUS_'
 export _CFGVAR_STATUS_EMPTY=0
 export _CFGVAR_STATUS_READONLY=1
 
+#-------------------------------------------------------------------------------
 
 cfgvar_is_defined() {
   local -r name=$1
@@ -13,6 +14,8 @@ cfgvar_is_defined() {
   [ ! -z "${!name+x}" ]
 }
 export -f cfgvar_is_defined
+
+#-------------------------------------------------------------------------------
 
 cfgvar_init() {
   local -r name=$1
@@ -26,10 +29,14 @@ cfgvar_init() {
 }
 export -f cfgvar_init
 
+#-------------------------------------------------------------------------------
+
 cfgvar_init_from_file() {
   _cfgvar_read_file $1 cfgvar_init
 }
 export -f cfgvar_init_from_file
+
+#-------------------------------------------------------------------------------
 
 cfgvar_set() {
   local -r name=$1
@@ -48,10 +55,21 @@ cfgvar_set() {
 }
 export -f cfgvar_set
 
+#-------------------------------------------------------------------------------
+
 cfgvar_update_from_file() {
   _cfgvar_read_file $1 cfgvar_set
 }
 export -f cfgvar_update_from_file
+
+#-------------------------------------------------------------------------------
+
+cfgvar_set_readonly() {
+  _cfgvar_set_status "$1" $_CFGVAR_STATUS_READONLY
+}
+export -f cfgvar_set_readonly
+
+#-------------------------------------------------------------------------------
 
 cfgvar_get() {
   local -r usrname=$1
@@ -64,12 +82,7 @@ cfgvar_get() {
 }
 export -f cfgvar_get
 
-
-
-cfgvar_set_readonly() {
-  _cfgvar_set_status "$1" $_CFGVAR_STATUS_READONLY
-}
-export -f cfgvar_set_readonly
+#-------------------------------------------------------------------------------
 
 _cfgvar_set_status() {
   local -r name=$1
@@ -88,8 +101,7 @@ _cfgvar_set_status() {
 }
 export -f _cfgvar_set_status
 
-
-
+#-------------------------------------------------------------------------------
 
 _cfgvar_read_file() {
   local -r filename=$1
@@ -118,10 +130,14 @@ _cfgvar_read_file() {
 }
 export -f _cfgvar_read_file
 
+#-------------------------------------------------------------------------------
+
 _cfgvar_list_names() {
   env | grep "^${_CFGVAR_PREFIX_NAME}" | sed "s/^${_CFGVAR_PREFIX_NAME}//" | sed 's/=.*$//'
 }
 export -f _cfgvar_list_names
+
+#-------------------------------------------------------------------------------
 
 cfgvar_setall_readonly() {
   for name in $( _cfgvar_list_names ) ; do
@@ -130,7 +146,7 @@ cfgvar_setall_readonly() {
 }
 export -f cfgvar_setall_readonly
 
-
+#-------------------------------------------------------------------------------
 
 cfgvar_show_config() {
   todo
