@@ -113,7 +113,10 @@ export _cfgvar_get
 #-------------------------------------------------------------------------------
 
 cfgvar_show_config() {
-  todo
+  for name in $( _cfgvar_list_names ); do
+    # use internal get() so we do not increaase read counter
+    printf "%s=%s\n" ${name} "$(_cfgvar_get ${name})"
+  done
 }
 export -f cfgvar_show_config
 
@@ -121,13 +124,14 @@ export -f cfgvar_show_config
 
 # undefine all vars and functions
 cfgvar_cleanup() {
+  # check read counters
   for name in $( _cfgvar_list_names ) ; do
-    # check read counter
     rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
     if [ ${!rcvar} -eq 0 ] ; then
       printf "warning: unused variable '%s'\n" ${name} >&2
     fi
   done
+  # cleanup vars
   for name in $(_cfgvar_list_varnames_prefix "_CFGVAR_") ; do
     unset ${name}
   done
@@ -196,6 +200,7 @@ _cfgvar_list_varnames_prefix() {
   local -r pfx="$1"
   env | grep "^${pfx}" | sed 's/=.*$//'
 }
+export -f _cfgvar_list_varnames_prefix
 
 #-------------------------------------------------------------------------------
 
