@@ -26,6 +26,51 @@ cfgvar_init() {
 }
 export -f cfgvar_init
 
+cfgvar_init_from_file() {
+  _cfgvar_read_file $1 cfgvar_init
+}
+export -f cfgvar_init_from_file
+
+cfgvar_set() {
+  local -r name=$1
+  local -r value="$2"
+  local -r varname=${_CFGVAR_PREFIX_NAME}$name
+  if ! cfgvar_is_defined $varname; then
+    printf 'variable %s is not defined.\n' $name >&2
+    return 1
+  fi
+  local -r statusname=${_CFGVAR_PREFIX_STATUS}${name}
+  if [ "${!statusname}" -eq $_CFGVAR_STATUS_READONLY ] ; then
+    printf 'variable %s is read-only.\n' $name >&2
+    return 1
+  fi
+  export ${varname}="${value}"
+}
+export -f cfgvar_set
+
+cfgvar_update_from_file() {
+  _cfgvar_read_file $1 cfgvar_set
+}
+export -f cfgvar_update_from_file
+
+cfgvar_get() {
+  local -r usrname=$1
+  local -r varname=${_CFGVAR_PREFIX_NAME}$1
+  if ! cfgvar_is_defined $varname; then
+    printf 'variable %s is not defined.\n' $usrname >&2
+    return 1
+  fi
+  echo "${!varname}"
+}
+export -f cfgvar_get
+
+
+
+cfgvar_set_readonly() {
+  _cfgvar_set_status "$1" $_CFGVAR_STATUS_READONLY
+}
+export -f cfgvar_set_readonly
+
 _cfgvar_set_status() {
   local -r name=$1
   local -r status=$2
@@ -44,10 +89,7 @@ _cfgvar_set_status() {
 export -f _cfgvar_set_status
 
 
-cfgvar_set_readonly() {
-  _cfgvar_set_status "$1" $_CFGVAR_STATUS_READONLY
-}
-export -f cfgvar_set_readonly
+
 
 _cfgvar_read_file() {
   local -r filename=$1
@@ -76,16 +118,6 @@ _cfgvar_read_file() {
 }
 export -f _cfgvar_read_file
 
-cfgvar_init_from_file() {
-  _cfgvar_read_file $1 cfgvar_init
-}
-export -f cfgvar_init_from_file
-
-cfgvar_update_from_file() {
-  _cfgvar_read_file $1 cfgvar_set
-}
-export -f cfgvar_update_from_file
-
 _cfgvar_list_names() {
   env | grep "^${_CFGVAR_PREFIX_NAME}" | sed "s/^${_CFGVAR_PREFIX_NAME}//" | sed 's/=.*$//'
 }
@@ -98,33 +130,7 @@ cfgvar_setall_readonly() {
 }
 export -f cfgvar_setall_readonly
 
-cfgvar_get() {
-  local -r usrname=$1
-  local -r varname=${_CFGVAR_PREFIX_NAME}$1
-  if ! cfgvar_is_defined $varname; then
-    printf 'variable %s is not defined.\n' $usrname >&2
-    return 1
-  fi
-  echo "${!varname}"
-}
-export -f cfgvar_get
 
-cfgvar_set() {
-  local -r name=$1
-  local -r value="$2"
-  local -r varname=${_CFGVAR_PREFIX_NAME}$name
-  if ! cfgvar_is_defined $varname; then
-    printf 'variable %s is not defined.\n' $name >&2
-    return 1
-  fi
-  local -r statusname=${_CFGVAR_PREFIX_STATUS}${name}
-  if [ "${!statusname}" -eq $_CFGVAR_STATUS_READONLY ] ; then
-    printf 'variable %s is read-only.\n' $name >&2
-    return 1
-  fi
-  export ${varname}="${value}"
-}
-export -f cfgvar_set
 
 cfgvar_show_config() {
   todo
