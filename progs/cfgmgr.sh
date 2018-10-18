@@ -1,5 +1,6 @@
 export _CFGVAR_PREFIX_NAME='_CFGVAR_NAME_'
-export _CFGVAR_PREFIX_STATUS='_CFGVAR_STATUS_'
+export _CFGVAR_PREFIX_STATUS='_CFGVAR_STATUS_' # stores read-only flag
+export _CFGVAR_PREFIX_RCOUNT='_CFGVAR_RCOUNT_' # read counter
 export _CFGVAR_STATUS_EMPTY=0
 export _CFGVAR_STATUS_READONLY=1
 
@@ -26,6 +27,7 @@ cfgvar_init() {
   fi
   export ${_CFGVAR_PREFIX_NAME}${name}="${value}"
   export ${_CFGVAR_PREFIX_STATUS}${name}=${_CFGVAR_STATUS_EMPTY}
+  export ${_CFGVAR_PREFIX_RCOUNT}${name}=0
 }
 export -f cfgvar_init
 
@@ -80,16 +82,27 @@ export -f cfgvar_setall_readonly
 
 #-------------------------------------------------------------------------------
 
-cfgvar_get() {
+_cfgvar_get() {
   local -r usrname=$1
-  local -r varname=${_CFGVAR_PREFIX_NAME}$1
+  local -r varname=${_CFGVAR_PREFIX_NAME}${usrname}
   if ! cfgvar_is_defined $varname; then
     printf 'variable %s is not defined.\n' $usrname >&2
     return 1
   fi
   printf "%s" "${!varname}"
 }
-export -f cfgvar_get
+export -f _cfgvar_get
+
+#-------------------------------------------------------------------------------
+
+cfgvar_get() {
+  local -r name=$1
+  _cfgvar_get ${name}
+  # increase read counter
+  local -r rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
+  export $rcvar=$((rcvar + 1))
+}
+export _cfgvar_get
 
 #-------------------------------------------------------------------------------
 
@@ -102,6 +115,13 @@ export -f cfgvar_show_config
 
 # undefine all vars and functions
 cfgvar_cleanup() {
+  for name in $( _cfgvar_list_names ) ; do
+    # check read counter
+    rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
+    if [ ${!rcvar} -eq 0 ] ; then
+      printf "warning: unused variable '%s'\n" ${name} >&2
+    fi
+  done
   for name in $(_cfgvar_list_varnames_prefix "_CFGVAR_") ; do
     unset ${name}
   done
