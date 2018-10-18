@@ -87,7 +87,7 @@ cfgvar_get() {
     printf 'variable %s is not defined.\n' $usrname >&2
     return 1
   fi
-  echo "${!varname}"
+  printf "%s" "${!varname}"
 }
 export -f cfgvar_get
 
