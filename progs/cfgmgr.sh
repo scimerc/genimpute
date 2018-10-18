@@ -115,7 +115,7 @@ export _cfgvar_get
 cfgvar_show_config() {
   for name in $( _cfgvar_list_names ); do
     # use internal get() so we do not increaase read counter
-    printf "%s=%s\n" ${name} "$(_cfgvar_get ${name})"
+    printf "%s = %s\n" ${name} "$(_cfgvar_get ${name})"
   done
 }
 export -f cfgvar_show_config
@@ -173,6 +173,8 @@ _cfgvar_read_file() {
     line="$( echo "${line}" | sed "s/^\ *//" )"
     # remove trailing spaces
     line="$( echo "${line}" | sed "s/\ *$//" )"
+    # remove spaces at end of name and at beginning of value
+    line="$( echo "${line}" | sed "s/\ *=\ */=/" )"
     # skip if line is empty
     if [ -z "${line}" ] ; then
       continue
@@ -181,7 +183,6 @@ _cfgvar_read_file() {
     if [[ "${line}" =~ ^# ]] ; then
       continue
     fi
-    echo "$line"
     # split line in name and value
     name=${line%%=*}
     value=${line#*=}
