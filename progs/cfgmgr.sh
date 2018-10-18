@@ -167,14 +167,14 @@ export -f _cfgvar_set_status
 _cfgvar_read_file() {
   local -r filename=$1
   local -r func=$2
+  local -r linecounter=0
   while read line; do
+    linecounter=$((linecounter + 1))
     #TODO: include tabs in the following
     # remove leading spaces
     line="$( echo "${line}" | sed "s/^\ *//" )"
     # remove trailing spaces
     line="$( echo "${line}" | sed "s/\ *$//" )"
-    # remove spaces at end of name and at beginning of value
-    line="$( echo "${line}" | sed "s/\ *=\ */=/" )"
     # skip if line is empty
     if [ -z "${line}" ] ; then
       continue
@@ -183,8 +183,12 @@ _cfgvar_read_file() {
     if [[ "${line}" =~ ^# ]] ; then
       continue
     fi
+    # TODO if line does not contain a '=' return an error
+    # remove spaces at end of name and at beginning of value
+    line="$( echo "${line}" | sed "s/\ *=\ */=/" )"
     # split line in name and value
     name=${line%%=*}
+    # TODO if name is empty return an error
     value=${line#*=}
     # do stuff with name and value
     ${func} "${name}" "${value}"
