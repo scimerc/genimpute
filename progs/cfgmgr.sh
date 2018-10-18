@@ -100,6 +100,20 @@ export -f cfgvar_show_config
 
 #-------------------------------------------------------------------------------
 
+# undefine all vars and functions
+cfgvar_cleanup() {
+  for name in $(_cfgvar_list_varnames_prefix "_CFGVAR_") ; do
+    unset name
+  done
+  # get all function names with _cfgvar or cfgvar prefix
+  local -r funcs="$(typeset -F | cut -d " " -f 3 | grep "^cfgvar_\|^_cfgvar_")"
+  for name in $funcs; do
+    unset $name
+  done
+}
+
+#-------------------------------------------------------------------------------
+
 _cfgvar_set_status() {
   local -r name=$1
   local -r status=$2
@@ -148,8 +162,13 @@ export -f _cfgvar_read_file
 
 #-------------------------------------------------------------------------------
 
+_cfgvar_list_varnames_prefix() {
+  local -r pfx="$1"
+  env | grep "^${pfx}" | sed 's/=.*$//'
+}
+
 _cfgvar_list_names() {
-  env | grep "^${_CFGVAR_PREFIX_NAME}" | sed "s/^${_CFGVAR_PREFIX_NAME}//" | sed 's/=.*$//'
+  _cfgvar_list_varnames_prefix ${_CFGVAR_PREFIX_NAME} \
+    | sed "s/^${_CFGVAR_PREFIX_NAME}//"
 }
 export -f _cfgvar_list_names
-
