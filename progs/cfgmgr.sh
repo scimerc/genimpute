@@ -76,6 +76,9 @@ export -f cfgvar_set_readonly
 cfgvar_setall_readonly() {
   for name in $( _cfgvar_list_names ) ; do
     cfgvar_set_readonly ${name}
+    if [ $? -ne 0 ] ; then
+      return 1
+    fi
   done
 }
 export -f cfgvar_setall_readonly
@@ -98,6 +101,9 @@ export -f _cfgvar_get
 cfgvar_get() {
   local -r name=$1
   _cfgvar_get ${name}
+  if [ $? -ne 0 ] ; then
+    return 1
+  fi
   # increase read counter
   local -r rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
   export $rcvar=$((rcvar + 1))
@@ -177,6 +183,9 @@ _cfgvar_read_file() {
     value=${line#*=}
     # do stuff with name and value
     ${func} "${name}" "${value}"
+    if [ $? -ne 0 ] ; then
+      return 1
+    fi
   done < <( cat ${filename} )
 }
 export -f _cfgvar_read_file
