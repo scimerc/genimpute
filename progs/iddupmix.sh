@@ -31,7 +31,10 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   plink --bfile ${opt_hqprefix} --missing --out ${tmpprefix}_sq >> ${debuglogfn}
   ${BASEDIR}/progs/het_vs_miss.Rscript -m ${tmpprefix}_sq.imiss -h ${tmpprefix}_sq.het \
     -o ${tmpprefix} >> ${debuglogfn}
-  [ -s "${tmpprefix}.clean.id" ] || { printf "error: in '%s'\n" ${tmpprefix}.clean.id; exit 1; }
+  [ -s "${tmpprefix}.clean.id" ] || {
+    printf "error: file '%s' empty or not found.\n" ${tmpprefix}.clean.id >&2;
+    exit 1;
+  }
   # update biography file with potential mixup information
   {
     cut -f 3 ${tmpprefix}.clean.id | sort -u | join -t $'\t' -v1 ${opt_biofile} - | awk -F $'\t' '{
@@ -112,8 +115,8 @@ plink --bfile ${opt_inprefix} \
       --make-bed \
       --out ${tmpprefix}_out \
       >> ${debuglogfn}
-perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 
 mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 mv ${tmpprefix}_out.bim ${opt_outprefix}.bim

@@ -6,7 +6,7 @@ declare -r  tmpprefix=${opt_outprefix}_tmp
 declare -r  debuglogfn=${tmpprefix}_debug.log
 declare -ra batchfiles=( ${opt_inputfiles} )
 
-declare -r genomebuild="b37"
+declare -r genomebuild="$( cfgvar_get genomebuild )"
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping aligment..\n"
@@ -117,7 +117,7 @@ if [ $opt_mini -eq 1 ] ; then
     declare extmp=${tmpprefix}_extmp
     # whatever format the input file is - make a bim file
     plink ${plinkflag} ${batchfiles[$i]/%.bed/.bim} --make-just-bim --out ${extmp} >> ${debuglogfn}
-    perl -p -i -e 's/[ \t]+/\t/g' ${extmp}.bim
+    sed -i -r 's/[ \t]+/\t/g' ${extmp}.bim
     if [ -s "${extmp}.bim" ] ; then
       if [ $i -eq 0 ] ; then
         # make the other type (non-plink) of bed file from the bim file
@@ -186,8 +186,8 @@ for i in ${!batchfiles[@]} ; do
     plink $flagformat ${plinkinputfn} ${flagextract} --make-bed         --out ${plinkoutputfn}
   } >> ${debuglogfn}
   # tab-separate all human-readable plink files
-  perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
-  perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
+  sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
+  sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
   # save fam files for batch effect dectection
   cp ${plinkoutputfn}.fam \
     ${opt_batchoutprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} ).fam
@@ -255,8 +255,10 @@ for i in ${!batchfiles[@]} ; do
   # use ref alleles specified or if we have more than one batch
   if [ ${#batchfiles[@]} -gt 1 -o ! -z ${opt_refallelesfn} ] ; then
     echo "matching variants to reference.."
-    [ -s ${opt_refallelesfn} ] \
-      || { printf "error: file '%s' empty or not found\n" ${opt_refallelesfn} >&2; exit 1; }
+    [ -s ${opt_refallelesfn} ] || {
+      printf "error: file '%s' empty or not found.\n" ${opt_refallelesfn} >&2;
+      exit 1;
+    }
     # get chr:bp strings from bim file and join with the corresponding field of refallelesfn 
     awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${plinkinputfn}.bim \
       | sort -t $'\t' -k 7,7 \
@@ -316,8 +318,8 @@ for i in ${!batchfiles[@]} ; do
   # NOTE: if plinkflags are empty we could consider "mv $plinkinputfn $plinkoutputfn"
   plink --bfile ${plinkinputfn} ${plinkflags} --make-bed --out ${plinkoutputfn} >> ${debuglogfn}
   # tab-separate all human-readable plink files
-  perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
-  perl -p -i -e 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
+  sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
+  sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
   # rename variants to universal code chr:bp_a1_a2
   awk -F $'\t' '{
     OFS="\t";
@@ -370,8 +372,6 @@ while true ; do
   if [[ -s "${mismatchlist}" ]] ; then
     sort -u ${mismatchlist} >> ${tmpprefix}_out.missnp
   fi
-  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-  perl -p -i -e 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
   # are we done?
   if [ ! -f "${tmpprefix}.missnp" ] ; then
     break
@@ -388,6 +388,8 @@ if [ $parcount -eq 0 ] ; then
   plinkflag="--split-x ${genomebuild} no-fail" 
 fi
 plink --bfile ${tmpprefix}_out ${plinkflag} --make-bed --out ${tmpprefix}_outsx >> ${debuglogfn}
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_outsx.bim
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_outsx.fam
 
 mv ${tmpprefix}_outsx.bed ${opt_outprefix}.bed
 mv ${tmpprefix}_outsx.bim ${opt_outprefix}.bim

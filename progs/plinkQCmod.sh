@@ -11,6 +11,10 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 export BASEDIR
 
+source ${BASEDIR}/progs/cfgmgr.sh
+
+cfgvar_init_from_file ${BASEDIR}/progs/config.default
+
 #-------------------------------------------------------------------------------
 
 # set user options
@@ -45,8 +49,8 @@ export opt_mini
 export opt_refallelesfn
 export opt_samplewhitelist
 export opt_inputfiles
-export opt_outprefix=/tmp/test_a_align
-export opt_batchoutprefix=/tmp/test_a_filtered_batches
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_a_align
+export opt_batchoutprefix=/cluster/projects/p33/nobackup/tmp/test_a_filtered_batches
 
 # call align
 bash ${BASEDIR}/progs/align.sh
@@ -56,7 +60,7 @@ bash ${BASEDIR}/progs/align.sh
 # biography
 
 # initialize sample biography file
-declare -r opt_biofile=/tmp/test_0.bio
+declare -r opt_biofile=/cluster/projects/p33/nobackup/tmp/test_0.bio
 uid="000UID"
 cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
   OFS="\t"; print( uid, "FID", "IID" )
@@ -70,8 +74,8 @@ cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
 
 # export vars
 
-export opt_inprefix=/tmp/test_a_align
-export opt_outprefix=/tmp/test_b_hqset
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_a_align
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
 export opt_biofile
 
 # call gethqset
@@ -83,13 +87,26 @@ bash ${BASEDIR}/progs/gethqset.sh
 
 # export vars
 
-export opt_inprefix=/tmp/test_a_align
-export opt_hqprefix=/tmp/test_b_hqset
-export opt_outprefix=/tmp/test_c_clean
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_a_align
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_c_clean
 export opt_biofile
 
-# call gethqset
+# call iddupmix.sh
 bash ${BASEDIR}/progs/iddupmix.sh
+
+#-------------------------------------------------------------------------------
+
+# perform standard variant QC
+
+# export vars
+
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_c_clean
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_d_varqc
+
+# call qcvar.sh
+bash ${BASEDIR}/progs/qcvar.sh
 
 #-------------------------------------------------------------------------------
 
@@ -258,31 +275,6 @@ R --version
 # fi
 
 
-outprefix=${myprefix}_varQC
-if [[ ! -f "${outprefix}.bed" || ! -f "${outprefix}.bim" || ! -f "${outprefix}.fam" ]] ; then
-  tmpvarmiss=${varmiss}
-  N=$( wc -l ${myprefix}.fam | cut -d ' ' -f 1 )
-  if (( N < minindcount )) ; then tmpvarmiss=0.1 ; fi
-  hweneglogp_sex=$(( hweneglogp*2 ))
-  if (( hweneglogp_sex > 12 )) ; then hweneglogp_sex=12 ; fi
-  plink --bfile ${myprefix} ${nosex} --not-chr 23,24 --geno ${tmpvarmiss} --maf ${myfreq_std} \
-    --hwe 1.E-${hweneglogp} ${hwflag} --make-just-bim --out ${outprefix}_nonsex
-  plink --bfile ${myprefix} ${nosex} --chr 23,24 --geno ${tmpvarmiss} --maf ${myfreq_std} \
-    --hwe 1.E-${hweneglogp_sex} ${hwflag} --make-just-bim --out ${outprefix}_sex
-  if [[ -s "${outprefix}_nonsex.bim" || -s "${outprefix}_sex.bim" ]] ; then
-    cut -f 2 ${outprefix}_*sex.bim | sort -u > ${outprefix}.mrk
-  fi
-  if [[ -s "${outprefix}.mrk" ]] ; then
-    plink --bfile ${myprefix} --extract ${outprefix}.mrk --make-bed --out ${outprefix}
-    if [[ -f "${outprefix}.bim" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-    fi
-    if [[ -f "${outprefix}.fam" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-    fi
-  fi
-fi
-myprefix=${outprefix}
 
 outprefix=${myprefix}_sampleQC
 if [[ ! -f "${outprefix}.bed" || ! -f "${outprefix}.bim" || ! -f "${outprefix}.fam" ]] ; then

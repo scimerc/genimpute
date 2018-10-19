@@ -37,7 +37,10 @@ fi
 
 
 # check if exclude file exists and is not empty
-[ -s "${cfg_regionblacklist}" ] || { printf "error: %s missing\n" ${cfg_regionblacklist}; exit 1; }
+[ -s "${cfg_regionblacklist}" ] || {
+  printf "error: file '%s' empty or not found.\n" ${cfg_regionblacklist} >&2;
+  exit 1;
+}
 declare -r excludeopt="--exclude range ${cfg_regionblacklist}"
 
 # get sex hq-variants from input file
@@ -61,8 +64,10 @@ plink --bfile ${opt_inprefix} \
 
 
 # check if we have anything of high quality
-[ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] \
-  || { printf "error: nothing in hq"; exit 1; }
+[ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
+  printf "error: no variants left in high quality set." >&2;
+  exit 1;
+}
 
 # extract all hq variants from input file and make hq plink set
 cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}_hq.mrk
