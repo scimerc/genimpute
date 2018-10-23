@@ -119,7 +119,7 @@ export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
 export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_e_indqc
 export opt_biofile
 
-# call qcvar.sh
+# call qcind.sh
 bash ${BASEDIR}/progs/qcind.sh
 
 #-------------------------------------------------------------------------------
