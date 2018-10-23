@@ -78,10 +78,10 @@ get_variant_info_from_tped() {
 }
 
 
-# in: (rs, chr, cm, bpa); out: same
+# in: (rs, chr, cm, bpa) sorted on rs; out: same
 # get unique chr,cm,bpa entries [sort|uniq]
 # sort on rsnumbers corresponding to unique entries
-# get complementary set of rsnumbers (rsnumbers of duplicated vars) [join -v1 | cut]
+# get complementary set of entries (duplicated vars) [join -v1]
 get_variant_info_for_dup_chr_cm_bpa() {
   local -r inputfile="$1"
   sort -k 2 ${inputfile} \
@@ -120,7 +120,7 @@ if [ $opt_mini -eq 1 ] ; then
     sed -i -r 's/[ \t]+/\t/g' ${extmp}.bim
     if [ -s "${extmp}.bim" ] ; then
       if [ $i -eq 0 ] ; then
-        # make the other type (non-plink) of bed file from the bim file
+        # make the other type of (non-plink) bed file from the bim file
         awk -F $'\t' '{ OFS="\t"; print( $1, $4 - 1, $4, $2 ); }' ${extmp}.bim > ${extmp}.bed
       else
         bedtools intersect \
@@ -172,8 +172,10 @@ for i in ${!batchfiles[@]} ; do
   if [ ! -z "${opt_samplewhitelist}" ] ; then
     flagextract="${flagextract} --keep ${opt_samplewhitelist}"
   fi
+  declare bedflag="${flagextract}"
+  declare pedflag="${flagextract}"
   if [ ! -z "${varwhitelist}" ] ; then
-    flagextract="${flagextract} --extract range ${varwhitelist}"
+    bedflag="${bedflag} --extract range ${varwhitelist}"
   fi
   # check for hash collisions
   if [ -f "${plinkoutputfn}.bed" ]; then
@@ -181,10 +183,14 @@ for i in ${!batchfiles[@]} ; do
       "${plinkoutputfn}.bed" >&2
     exit 1
   fi
-  {
-    plink $flagformat ${plinkinputfn} ${flagextract} --recode transpose --out ${plinkoutputfn}
-    plink $flagformat ${plinkinputfn} ${flagextract} --make-bed         --out ${plinkoutputfn}
-  } >> ${debuglogfn}
+  plink $flagformat ${plinkinputfn} ${bedflag} \
+    --make-bed --out ${plinkoutputfn} \
+    >> ${debuglogfn}
+  awk '{ print( $2, $1, $3, $4 ); }' ${plinkoutputfn}.bim | sort -k 1,1 > ${plinkinputfn}.gp
+  get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gp | cut -f 1 > ${plinkinputfn}.coloc.mrk
+  plink $flagformat ${plinkinputfn} ${pedflag} \
+    --recode transpose --out ${plinkoutputfn} \
+    >> ${debuglogfn}
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
   sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
