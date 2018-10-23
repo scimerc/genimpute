@@ -46,8 +46,8 @@ if [ ${cfg_hvm} -eq 1 ] ; then
       OFS="\t"
       print( $0, 1 )
     }'
-  } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.tmpbio
-  mv ${tmpprefix}.tmpbio ${opt_biofile}
+  } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.bio
+  mv ${tmpprefix}.bio ${opt_biofile}
   # include non-mixup info later 
   plinkflag="--keep ${tmpprefix}.clean.id"
 fi
@@ -86,8 +86,8 @@ zcat ${tmpprefix}_sq.genome.gz \
     }' \
   | sort -t $'\t' -u -k 1,1 \
   | join -t $'\t' -a1 -e '-' ${opt_biofile} - \
-  > ${tmpprefix}.tmpbio
-mv ${tmpprefix}.tmpbio ${opt_biofile}
+  > ${tmpprefix}.bio
+mv ${tmpprefix}.bio ${opt_biofile}
 # update biography file with duplicates
 {
   awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.rel.id \
@@ -105,8 +105,8 @@ mv ${tmpprefix}.tmpbio ${opt_biofile}
         OFS="\t"
         print( $0, 1 )
       }'
-} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.tmpbio
-mv ${tmpprefix}.tmpbio ${opt_biofile}
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.bio
+mv ${tmpprefix}.bio ${opt_biofile}
 # remove duplicates + update sex in input set
 echo "removing duplicate individuals and updating sex.."
 plink --bfile ${opt_inprefix} \

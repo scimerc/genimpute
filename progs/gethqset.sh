@@ -127,7 +127,7 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
       mv ${tmpprefix}_hq_LDpruned_isex_new.sexcheck ${tmpprefix}_hq_LDpruned_isex.sexcheck
     fi
   fi
-  tmpbiofile=${tmpprefix}.tmpbio
+  tmpbiofile=${tmpprefix}.bio
   sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' ${tmpprefix}_hq_LDpruned_isex.sexcheck \
     | awk -F $'\t' -v uid=${cfg_uid} '{
       OFS="\t"

@@ -36,7 +36,7 @@ EOF
 # fi
 
 declare -r opt_mini=1
-declare -r opt_refallelesfn="/cluster/projects/p33/data/genetics/external/1KG_Reference/phase3/alleles"
+declare -r opt_refallelesfn="/cluster/projects/p33/nobackup/tmp/refalleles.txt"
 declare -r opt_samplewhitelist=""
 
 #-------------------------------------------------------------------------------
@@ -97,7 +97,7 @@ bash ${BASEDIR}/progs/iddupmix.sh
 
 #-------------------------------------------------------------------------------
 
-# perform standard variant QC
+# perform standard variant-level QC
 
 # export vars
 
@@ -107,6 +107,20 @@ export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_d_varqc
 
 # call qcvar.sh
 bash ${BASEDIR}/progs/qcvar.sh
+
+#-------------------------------------------------------------------------------
+
+# perform standard individual-level QC
+
+# export vars
+
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_d_varqc
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_e_indqc
+export opt_biofile
+
+# call qcvar.sh
+bash ${BASEDIR}/progs/qcind.sh
 
 #-------------------------------------------------------------------------------
 
@@ -276,35 +290,6 @@ R --version
 
 
 
-outprefix=${myprefix}_sampleQC
-if [[ ! -f "${outprefix}.bed" || ! -f "${outprefix}.bim" || ! -f "${outprefix}.fam" ]] ; then
-  tmpsamplemiss=${samplemiss}
-  N=$( wc -l ${myprefix}.bim | cut -d ' ' -f 1 )
-  if (( N < minindcount )) ; then tmpsamplemiss=0.1 ; fi
-  plink --bfile ${myprefix} --mind ${tmpsamplemiss} --make-bed --out ${outprefix}
-  if [[ -f "${outprefix}.bim" ]] ; then
-    perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-  fi
-  if [[ -f "${outprefix}.fam" ]] ; then
-    perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-  fi
-  tmpbiofile=$( mktemp ${mybiofile}.tmpXXXX )
-  (
-    awk -F $'\t' '{ print( $1"\t"$2 ); }' ${outprefix}.fam | sort -u \
-    | join -t $'\t' -v1 ${mybiofile} - | awk -F $'\t' '{
-      OFS="\t"
-      if ( NR == 1 ) print( $0, "coverage" )
-      else print( $0, 0 )
-    }'
-    awk -F $'\t' '{ print( $1"\t"$2 ); }' ${outprefix}.fam | sort -u \
-    | join -t $'\t' ${mybiofile} - | awk -F $'\t' '{
-      OFS="\t"
-      print( $0, 1 )
-    }'
-  ) | sort -t $'\t' -u -k 1,1 > ${tmpbiofile}
-  mv ${tmpbiofile} ${mybiofile}
-fi
-myprefix=${outprefix}
 
 if [[ "${phenotypes}" != "" && -f "${phenotypes}" ]] ; then
   outprefix=${myprefix}_pheno
