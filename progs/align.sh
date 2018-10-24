@@ -184,13 +184,23 @@ for i in ${!batchfiles[@]} ; do
     exit 1
   fi
   plink $flagformat ${plinkinputfn} ${bedflag} \
-    --make-bed --out ${plinkoutputfn} \
+    --make-bed \
+    --out ${plinkoutputfn} \
     >> ${debuglogfn}
-  awk '{ print( $2, $1, $3, $4 ); }' ${plinkoutputfn}.bim | sort -k 1,1 > ${plinkinputfn}.gp
-  get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gp | cut -f 1 > ${plinkinputfn}.coloc.mrk
-  plink $flagformat ${plinkinputfn} ${pedflag} \
-    --recode transpose --out ${plinkoutputfn} \
-    >> ${debuglogfn}
+  awk '{ print( $2, $1, $3, $4 ); }' ${plinkoutputfn}.bim \
+    | sort -k 1,1 > ${plinkinputfn}.gp
+  get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gp \
+    | cut -d ' ' -f 1 > ${plinkinputfn}.coloc.mrk
+  touch ${plinkoutputfn}.tped ${plinkoutputfn}.tfam
+  if [ -s "${plinkinputfn}.coloc.mrk" ] ; then
+    pedflag="${pedflag} --extract ${plinkinputfn}.coloc.mrk"
+    plink $flagformat ${plinkinputfn} ${pedflag} \
+      --recode transpose \
+      --out ${plinkoutputfn} \
+      >> ${debuglogfn}
+  else
+    echo 'no colocalized variants found. skipping tped recoding..'
+  fi
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
   sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
