@@ -90,6 +90,24 @@ plink --bfile ${tmpprefix}_hq \
       --out ${tmpprefix}_hq_LDpruned \
       >> ${debuglogfn}
 
+tabulate() {
+  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
+}
+
+paste_sample_ids() {
+  local -r infile="$1"
+  tabulate < "${infile}" \
+    | awk -F $'\t' -v uid=${cfg_uid} '{
+        OFS="\t"
+        if ( NR>1 ) uid=$1"_"$2
+        printf( "%s", uid )
+        for ( k=3; k<=NF; k++ )
+          printf( "\t%s", $k )
+        printf( "\n" )
+      }' \
+    | sort -t $'\t' -u -k 1,1
+}
+
 get_xvar_count() {
   awk '$1 == 23' $1 | wc -l
 }
@@ -127,25 +145,26 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
       mv ${tmpprefix}_hq_LDpruned_isex_new.sexcheck ${tmpprefix}_hq_LDpruned_isex.sexcheck
     fi
   fi
-  tmpbiofile=${tmpprefix}.bio
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' ${tmpprefix}_hq_LDpruned_isex.sexcheck \
-    | awk -F $'\t' -v uid=${cfg_uid} '{
-      OFS="\t"
-      if ( NR>1 ) uid=$1"_"$2
-      printf( "%s", uid )
-      for ( k=3; k<=NF; k++ )
-        printf( "\t%s", $k )
-      printf( "\n" )
-    }' \
-    | sort -t $'\t' -u -k 1,1 \
-    | join -t $'\t' -a1 -e '-' ${opt_biofile} - \
-    > ${tmpbiofile}
-  mv ${tmpbiofile} ${opt_biofile}
+  {
+    paste_sample_ids ${tmpprefix}_hq_LDpruned_isex.sexcheck \
+      | join -t $'\t' ${opt_biofile} - \
+      | tee ${tmpprefix}.0.bio
+    TNF=$( wc -l ${tmpprefix}.0.bio | tabulate | cut -f 1 )
+    paste_sample_ids ${tmpprefix}_hq_LDpruned_isex.sexcheck \
+      | join -t $'\t' -v1 ${opt_biofile} - \
+      | awk -F $'\t' -v TNF=${TNF} '{
+        OFS="\t"
+        printf($0)
+        for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
+        printf("\n")
+      }'
+  } | sort -u -k 1,1 > ${tmpprefix}.1.bio
+  cp ${tmpprefix}.1.bio ${opt_biofile}
 fi
 
 mv ${tmpprefix}_hq_LDpruned_isex.bed ${opt_outprefix}.bed
 mv ${tmpprefix}_hq_LDpruned_isex.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_hq_LDpruned_isex.fam ${opt_outprefix}.fam
 
-rm ${tmpprefix}*
+# rm ${tmpprefix}*
 

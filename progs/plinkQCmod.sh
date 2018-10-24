@@ -61,7 +61,8 @@ bash ${BASEDIR}/progs/align.sh
 
 # initialize sample biography file
 declare -r opt_biofile=/cluster/projects/p33/nobackup/tmp/test_0.bio
-uid="000UID"
+declare -r uid="000UID"
+export uid
 cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
   OFS="\t"; print( uid, "FID", "IID" )
 } { print( $1"_"$2, $0 ) }' | sort -u -k 1,1 > ${opt_biofile}

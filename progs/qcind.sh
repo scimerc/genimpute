@@ -38,8 +38,11 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' '{
       OFS="\t"
-      if ( NR == 1 ) print( $0, "coverage" )
-      else print( $0, 0 )
+      if ( NR == 1 ) print( $0, "COV" )
+      else {
+        if ( $(NF) != 1 && $(NF-2) != 1 ) print( $0, 0 )
+        else print( $0, 1 )
+      }
     }'
   awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_out.fam \
     | sort -u \
@@ -49,11 +52,11 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
       print( $0, 1 )
     }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.bio
-mv ${tmpprefix}.bio ${opt_biofile}
+cp ${tmpprefix}.bio ${opt_biofile}
 
 mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
 
-rm ${tmpprefix}*
+# rm ${tmpprefix}*
 
