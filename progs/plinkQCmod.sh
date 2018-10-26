@@ -3,7 +3,7 @@
 # exit on error
 trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # define defaults
 
@@ -15,12 +15,12 @@ source ${BASEDIR}/progs/cfgmgr.sh
 
 cfgvar_init_from_file ${BASEDIR}/progs/config.default
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # set user options
 
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # define vars
 
@@ -30,16 +30,11 @@ declare -r opt_inputfiles="$(cat << EOF
 EOF
 )"
 
-# set hardy weinberg test p-value threshold for the general case
-# if [[ "${phenotypes}" == "" || ! -f "${phenotypes}" ]] ; then
-#   hweneglogp=${hweneglogp_ctrl}
-# fi
-
 declare -r opt_mini=1
 declare -r opt_refallelesfn="/cluster/projects/p33/nobackup/tmp/refalleles.txt"
 declare -r opt_samplewhitelist=""
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # alignment
 
@@ -55,7 +50,7 @@ export opt_batchoutprefix=/cluster/projects/p33/nobackup/tmp/test_a_filtered_bat
 # call align
 bash ${BASEDIR}/progs/align.sh
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # biography
 
@@ -69,7 +64,7 @@ cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
 
 # ...
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # get high quality set
 
@@ -82,7 +77,7 @@ export opt_biofile
 # call gethqset
 bash ${BASEDIR}/progs/gethqset.sh
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # identify duplicate and mixup individuals
 
@@ -96,7 +91,7 @@ export opt_biofile
 # call iddupmix.sh
 bash ${BASEDIR}/progs/iddupmix.sh
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # perform standard variant-level QC
 
@@ -109,7 +104,7 @@ export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_d_varqc
 # call qcvar.sh
 bash ${BASEDIR}/progs/qcvar.sh
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # perform standard individual-level QC
 
@@ -123,7 +118,21 @@ export opt_biofile
 # call qcind.sh
 bash ${BASEDIR}/progs/qcind.sh
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
+
+# perform final QC (control HWE? batch effects?)
+
+# export vars
+
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_e_indqc
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_f_finqc
+export opt_batchoutprefix=/cluster/projects/p33/nobackup/tmp/test_a_filtered_batches
+
+# call qcfinal.sh
+bash ${BASEDIR}/progs/qcfinal.sh
+
+#---------------------------------------------------------------------------------------------------
 
 
 exit 0
@@ -291,103 +300,6 @@ R --version
 
 
 
-
-if [[ "${phenotypes}" != "" && -f "${phenotypes}" ]] ; then
-  outprefix=${myprefix}_pheno
-  if [[ ! -f "${outprefix}.bed" || ! -f "${outprefix}.bim" || ! -f "${outprefix}.fam" ]] ; then
-    plink --bfile ${myprefix} --make-pheno ${phenotypes} affected --make-bed \
-      --out ${outprefix}
-    if [[ -f "${outprefix}.bim" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-    fi
-    if [[ -f "${outprefix}.fam" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-    fi
-  fi
-  myprefix=${outprefix}
-  outprefix=${myprefix}_hwe_ctrl
-  if [[ ! -f "${outprefix}.bed" || ! -f "${outprefix}.bim" || ! -f "${outprefix}.fam" ]] ; then
-    hweneglogp_ctrl_sex=$(( hweneglogp_ctrl/2 ))
-    if (( hweneglogp_ctrl_sex < 12 )) ; then hweneglogp_ctrl_sex=12 ; fi
-    plink --bfile ${myprefix} ${nosex} --not-chr 23,24 --hwe 1.E-${hweneglogp_ctrl} \
-      --make-just-bim --out ${outprefix}_nonsex
-    plink --bfile ${myprefix} ${nosex} --chr 23,24 --hwe 1.E-${hweneglogp_ctrl_sex} \
-      --make-just-bim --out ${outprefix}_sex
-    if [[ -s "${outprefix}_nonsex.bim" || -s "${outprefix}_sex.bim" ]] ; then
-      cut -f 2 ${outprefix}_*sex.bim | sort -u > ${outprefix}.mrk
-    fi
-    if [[ -s "${outprefix}.mrk" ]] ; then
-      plink --bfile ${myprefix} --extract ${outprefix}.mrk --make-bed --out ${outprefix}
-      if [[ -f "${outprefix}.bim" ]] ; then
-        perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-      fi
-      if [[ -f "${outprefix}.fam" ]] ; then
-        perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-      fi
-    fi
-  fi
-  myprefix=${outprefix}
-  mycontrols=${mydir}/$( basename ${phenotypes} .txt )_ctrl.txt
-  mycontrols_with_batch=${mydir}/$( basename ${phenotypes} .txt )_ctrl.batch
-  awk -F $'\t' '{ if ( tolower($3) == "control" ) print; }' ${phenotypes} > ${mycontrols}
-else
-  mycontrols=${myprefix}_ctrl.txt
-  mycontrols_with_batch=${myprefix}_ctrl.batch
-  cut -f 1,2,6 ${myprefix}.fam | perl -p -e 's/[ \t]+/\t/g' > ${mycontrols}
-fi
-
-if (( ${#mybatchvec[*]} > 1 )) ; then
-  tmpfile=$( mktemp .tmpbcXXXXX )
-  echo "created temporary batch control file ${tmpfile}."
-  echo -n > ${mycontrols_with_batch}
-  for batch in $( cat ${mybatchfile} ) ; do
-    tmpbatch=${mydir}/$( basename ${batch} )_ctrl
-    plink --bfile ${batch} --keep ${mycontrols} --make-bed --out ${tmpbatch}
-    if [[ -f "${tmpbatch}.bim" && -f "${tmpbatch}.fam" ]] ; then
-      perl -p -i -e 's/[ \t]+/\t/g' ${tmpbatch}.bim ${tmpbatch}.fam
-      awk -F $'\t' -v batch=$( basename ${batch} ) '{ OFS="\t"; print( $1, $2, batch ) }' \
-        ${tmpbatch}.fam >> ${mycontrols_with_batch}
-    fi
-  done
-  sort -u -k 1,2 ${mycontrols_with_batch} > ${tmpfile}
-  mv ${tmpfile} ${mycontrols_with_batch}
-  tmpfile=$( mktemp .tmpmodXXXXX )
-  echo "created temporary model file ${tmpfile}."
-  bevarfile=${myprefix}.exclude
-  echo -n > ${bevarfile}
-  for bbatch in $( cat ${mybatchfile} ) ; do
-    batch=$( basename ${bbatch} )
-    echo "assessing batch effects for '${batch}'.."
-    plinkfile=${mydir}/plink_${batch}
-    plink --bfile ${myprefix} --make-pheno ${mycontrols_with_batch} ${batch} --model \
-      --out ${plinkfile}
-    if [[ -f "${plinkfile}.model" ]] ; then
-      perl -p -e 's/^[ \t]+//g;' ${plinkfile}.model | perl -p -e 's/[ \t]+/\t/g' > ${tmpfile}
-      mv ${tmpfile} ${plinkfile}.model
-      for atest in $( cut -f 5 ${plinkfile}.model | tail -n +2 | sort -u ) ; do
-        echo "summarizing ${atest} tests.."
-        awk -F $'\t' -v atest=${atest} 'NR > 1 && $5 == atest' ${plinkfile}.model \
-        | cut -f 2,10 | ${fdrscript} > ${tmpfile}
-        awk -F $'\t' '{ if ( $2 < 0.9 ) print( $1 ); }' ${tmpfile} >> ${bevarfile}
-      done
-    fi
-  done
-  sort -u ${bevarfile} > ${tmpfile}
-  mv ${tmpfile} ${bevarfile}
-  outprefix=${myprefix}_nbe
-  plink --bfile ${myprefix} --exclude ${bevarfile} --make-bed --out ${outprefix}
-  if [[ -f "${outprefix}.bim" ]] ; then
-    perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.bim
-  fi
-  if [[ -f "${outprefix}.fam" ]] ; then
-    perl -p -i -e 's/[ \t]+/\t/g' ${outprefix}.fam
-  fi
-fi
-if [[ -f "${outprefix}.fam" ]] ; then
-  cp ${outprefix}.fam ${outprefix}.fam.org
-  awk '{ OFS="\t"; for ( k = 1; k < 5; k++ ) gsub( "[/+-]", "_", $k ); print; }' \
-  ${outprefix}.fam.org > ${outprefix}.fam
-fi
 
 hqprefix=${outprefix}_hq
 genomefile=${hqprefix}.genome.gz
