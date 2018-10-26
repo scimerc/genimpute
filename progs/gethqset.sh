@@ -5,10 +5,11 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
+
 declare -r cfg_regionblacklist=${BASEDIR}/data/highLD_b37.bed
 declare -r cfg_varmiss=0.05
 declare -r cfg_freqhq=0.2
-declare -r cfg_hweneglogp_ctrl=12
+declare -r cfg_hweneglogp_ctrl=4
 declare -r cfg_hweflag='midp include-nonctrl'
 declare -r cfg_minindcount=100
 declare -r cfg_minvarcount=100

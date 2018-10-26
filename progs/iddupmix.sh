@@ -5,6 +5,7 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
+
 declare -r cfg_hvm=1
 declare -r cfg_pihat=0.9
 declare -r cfg_uid=000UID
@@ -24,10 +25,8 @@ fi
 
 
 declare plinkflag=''
-
 # run 'het_VS_miss.Rscript' to find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
-
   echo "computing individual heterozygosity and missing rates.."
   plink --bfile ${opt_hqprefix} --het     --out ${tmpprefix}_sq >> ${debuglogfn}
   plink --bfile ${opt_hqprefix} --missing --out ${tmpprefix}_sq >> ${debuglogfn}
@@ -37,24 +36,27 @@ if [ ${cfg_hvm} -eq 1 ] ; then
     printf "error: file '%s' empty or not found.\n" ${tmpprefix}.clean.id >&2;
     exit 1;
   }
-
   # update biography file with potential mixup information
   {
-    cut -f 3 ${tmpprefix}.clean.id | sort -u | join -t $'\t' -v1 ${opt_biofile} - | awk -F $'\t' '{
-      OFS="\t"
-      if ( NR == 1 ) print( $0, "MIXUP" )
-      else print( $0, "PROBLEM" )
-    }'
-    cut -f 3 ${tmpprefix}.clean.id | sort -u | join -t $'\t'     ${opt_biofile} - | awk -F $'\t' '{
-      OFS="\t"
-      print( $0, "OK" )
-    }'
+    cut -f 3 ${tmpprefix}.clean.id \
+      | sort -u \
+      | join -t $'\t' -v1 ${opt_biofile} - \
+      | awk -F $'\t' '{
+        OFS="\t"
+        if ( NR == 1 ) print( $0, "MIXUP" )
+        else print( $0, "PROBLEM" )
+      }'
+    cut -f 3 ${tmpprefix}.clean.id \
+      | sort -u \
+      | join -t $'\t'     ${opt_biofile} - \
+      | awk -F $'\t' '{
+        OFS="\t"
+        print( $0, "OK" )
+      }'
   } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.1.bio
   cp ${tmpprefix}.1.bio ${opt_biofile}
-
   # include non-mixup info later 
   plinkflag="--keep ${tmpprefix}.clean.id"
-
 fi
 
 # identify duplicate individuals
@@ -69,6 +71,8 @@ plink --bfile ${opt_hqprefix} ${plinkflag} \
       --rel-cutoff ${pihat} \
       --out ${tmpprefix}_sq \
       >> ${debuglogfn}
+
+unset plinkflag
 
 tabulate() {
   sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'

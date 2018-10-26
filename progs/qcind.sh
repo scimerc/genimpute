@@ -5,6 +5,7 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
+
 declare -r cfg_minvarcount=100
 declare -r cfg_samplemiss=0.05
 
@@ -21,6 +22,7 @@ fi
 # input: variant qc'd plink set
 # output: plink genotype set for individuals passing QC criteria:
 #         - good coverage
+
 
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l ${opt_inprefix}.bim | cut -d ' ' -f 1 )

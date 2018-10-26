@@ -6,7 +6,7 @@ declare -r  tmpprefix=${opt_outprefix}_tmp
 declare -r  debuglogfn=${tmpprefix}_debug.log
 declare -ra batchfiles=( ${opt_inputfiles} )
 
-declare -r genomebuild="$( cfgvar_get genomebuild )"
+declare -r cfg_genomebuild="$( cfgvar_get genomebuild )"
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping aligment..\n"
@@ -25,7 +25,6 @@ fi
 
 
 get_genotype_file_format()  {
-  
   local -r inputfile=$1
   #TODO implement plink2 native .gen format
   local -r bedhex='0x6c 0x1b'
@@ -50,7 +49,6 @@ get_genotype_file_format()  {
       return 1 ;;
   esac
   return 0
-
 }
 
 
@@ -199,7 +197,8 @@ for i in ${!batchfiles[@]} ; do
       --out ${plinkoutputfn} \
       >> ${debuglogfn}
   else
-    echo 'no colocalized variants found. skipping tped recoding..'
+    echo "no colocalized variants found."
+    echo "skipping batch '${batchfiles[$i]}' tped recoding.."
   fi
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
@@ -333,6 +332,7 @@ for i in ${!batchfiles[@]} ; do
   fi
   # NOTE: if plinkflags are empty we could consider "mv $plinkinputfn $plinkoutputfn"
   plink --bfile ${plinkinputfn} ${plinkflags} --make-bed --out ${plinkoutputfn} >> ${debuglogfn}
+  unset plinkflags
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.bim
   sed -i -r 's/[ \t]+/\t/g' ${plinkoutputfn}.fam
@@ -355,9 +355,9 @@ done
     # purge batchfile of global blacklist
   # attempt to merge resulting batchfiles
   # stop on success
-  # if blacklist is not empty, tell francesco 
+  # if blacklist is not empty, tell francesco
   #   (if we run more than 2 times something might be weird)
-  # append to global blacklist (derived from errors) 
+  # append to global blacklist (derived from errors)
 
 
 echo "merging batches.."
@@ -367,15 +367,20 @@ declare -r batchlist=${tmpprefix}.batchlist
 while true ; do
   > ${batchlist}
   for i in ${!batchfiles[@]} ; do
-    declare plinkinputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_purged
-    declare plinkoutputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_ready2merge
-    plinkflag=''
+    declare plinkinputfn=${tmpprefix}_$( \
+      get_unique_filename_from_path ${batchfiles[$i]}
+    )_purged
+    declare plinkoutputfn=${tmpprefix}_$( \
+      get_unique_filename_from_path ${batchfiles[$i]}
+    )_mergend
+    declare plinkflag=''
     if [ -s "${varblacklist}" ] ; then
       plinkflag="--exclude ${varblacklist}" 
     fi
     plink --bfile ${plinkinputfn} ${plinkflag} --make-bed --out ${plinkoutputfn} >> ${debuglogfn}
     echo "${plinkoutputfn}" >> ${batchlist}
-  done 
+  done
+  unset plinkflag
   # NOTE: if only one batch is present plink throws a warning
   plink --merge-list ${batchlist} --out ${tmpprefix}_out >> ${debuglogfn}
   # extract plink's warnings about chromosome and position clashes from plink's log and add the
@@ -398,12 +403,13 @@ while true ; do
 done
 
 # pre-process sex chromosomes variants
-plinkflag=''
+declare plinkflag=''
 parcount=$( awk '$1 == 25' ${tmpprefix}_out.bim | wc -l )
 if [ $parcount -eq 0 ] ; then
-  plinkflag="--split-x ${genomebuild} no-fail" 
+  plinkflag="--split-x ${cfg_genomebuild} no-fail" 
 fi
 plink --bfile ${tmpprefix}_out ${plinkflag} --make-bed --out ${tmpprefix}_outsx >> ${debuglogfn}
+unset plinkflag
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_outsx.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_outsx.fam
 

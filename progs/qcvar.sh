@@ -5,10 +5,13 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
+
 declare -r cfg_freqstd=0.01
 declare -r cfg_hweflag='midp include-nonctrl'
-declare -r cfg_hweneglogp=12
+declare    cfg_hweneglogp=12
+declare    cfg_hweneglogp_ctrl=4
 declare -r cfg_minindcount=100
+declare -r cfg_phenotypes='/cluster/projects/p33/users/franbe/norment_2018/test/phenotypes.txt'
 declare -r cfg_varmiss=0.05
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
@@ -27,13 +30,13 @@ fi
 #         - sufficient minor allele frequency
 #         - HW equilibrium (possibly different for sex and non-sex chromosomes)
 
+
+# set Hardy-Weinberg test p-value threshold in case of no phenotypic information
+[ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] || cfg_hweneglogp=${cfg_hweneglogp_ctrl}
+
 tmp_varmiss=${cfg_varmiss}
 n=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
-sex_hweneglogp=$(( cfg_hweneglogp*2 ))
-if [ $sex_hweneglogp -gt 12 ] ; then
-  sex_hweneglogp=12
-fi
 plink --bfile ${opt_inprefix} \
       --not-chr 23,24 \
       --geno ${tmp_varmiss} \
@@ -47,6 +50,10 @@ awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fa
   > ${opt_hqprefix}.nosex
 if [ -s "${opt_hqprefix}.nosex" ] ; then
   nosex_flag="--remove ${opt_hqprefix}.nosex"
+fi
+sex_hweneglogp=$(( cfg_hweneglogp/2 ))
+if [ $sex_hweneglogp -lt 12 ] ; then
+  sex_hweneglogp=12
 fi
 plink --bfile ${opt_inprefix} ${nosex_flag} \
       --chr 23,24 \
