@@ -139,3 +139,5 @@ awk '{
   print
 }' ${tmpprefix}_out.fam > ${opt_outprefix}.fam
 
+rm ${tmpprefix}*
+

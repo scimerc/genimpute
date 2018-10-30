@@ -138,5 +138,5 @@ mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 mv ${tmpprefix}_out.sexcheck ${opt_outprefix}.sexcheck
 
-# rm ${tmpprefix}*
+rm ${tmpprefix}*
 

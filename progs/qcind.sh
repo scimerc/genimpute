@@ -60,5 +60,5 @@ mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
 
-# rm ${tmpprefix}*
+rm ${tmpprefix}*
 

@@ -138,6 +138,16 @@ bash ${BASEDIR}/progs/gethqset.sh
 
 #---------------------------------------------------------------------------------------------------
 
+# compute genetic PCs
+
+# export vars
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_e_finqc
+
+# call getpcs.sh
+bash ${BASEDIR}/progs/getpcs.sh
+
+#---------------------------------------------------------------------------------------------------
+
 
 exit 0
 
@@ -285,14 +295,6 @@ R --version
 
 
 
-hqprefix=${outprefix}_hq
-genomefile=${hqprefix}.genome.gz
-plink --bfile ${outprefix} ${excludeopt} --maf ${myfreq_hq} --make-bed --out ${hqprefix}
-plink --bfile ${hqprefix} --indep-pairphase 500 5 0.2 --out ${hqprefix}_LD
-plink --bfile ${hqprefix} --extract ${hqprefix}_LD.prune.in --make-bed --out ${hqprefix}_LDpruned
-plink --bfile ${hqprefix}_LDpruned --genome gz --out ${hqprefix}
-plink --bfile ${hqprefix}_LDpruned --cluster --read-genome ${genomefile} \
-    --pca header tabs var-wts --out ${hqprefix}
 
 echo -e "\nall done. check your output files out."
 echo -e "\n================================================================================\n"
