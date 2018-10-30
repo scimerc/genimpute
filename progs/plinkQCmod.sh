@@ -39,7 +39,6 @@ declare -r opt_samplewhitelist=""
 # alignment
 
 # export vars
-
 export opt_mini
 export opt_refallelesfn
 export opt_samplewhitelist
@@ -69,10 +68,8 @@ cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{
 # get high quality set
 
 # export vars
-
 export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_a_align
-export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
-export opt_biofile
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_a_hqset
 
 # call gethqset
 bash ${BASEDIR}/progs/gethqset.sh
@@ -82,10 +79,9 @@ bash ${BASEDIR}/progs/gethqset.sh
 # identify duplicate and mixup individuals
 
 # export vars
-
 export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_a_align
-export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
-export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_c_clean
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_a_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_b_clean
 export opt_biofile
 
 # call iddupmix.sh
@@ -96,10 +92,9 @@ bash ${BASEDIR}/progs/iddupmix.sh
 # perform standard variant-level QC
 
 # export vars
-
-export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_c_clean
-export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
-export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_d_varqc
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_b_clean
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_a_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_c_varqc
 
 # call qcvar.sh
 bash ${BASEDIR}/progs/qcvar.sh
@@ -109,10 +104,9 @@ bash ${BASEDIR}/progs/qcvar.sh
 # perform standard individual-level QC
 
 # export vars
-
-export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_d_varqc
-export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
-export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_e_indqc
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_c_varqc
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_a_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_d_indqc
 export opt_biofile
 
 # call qcind.sh
@@ -123,14 +117,24 @@ bash ${BASEDIR}/progs/qcind.sh
 # perform final QC (control HWE? batch effects?)
 
 # export vars
-
-export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_e_indqc
-export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_b_hqset
-export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_f_finqc
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_d_indqc
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_a_hqset
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_e_finqc
 export opt_batchoutprefix=/cluster/projects/p33/nobackup/tmp/test_a_filtered_batches
 
 # call qcfinal.sh
 bash ${BASEDIR}/progs/qcfinal.sh
+
+#---------------------------------------------------------------------------------------------------
+
+# get high quality set
+
+# export vars
+export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_e_finqc
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_e_hqset
+
+# call gethqset.sh
+bash ${BASEDIR}/progs/gethqset.sh
 
 #---------------------------------------------------------------------------------------------------
 
@@ -277,26 +281,6 @@ join --version
 echo
 R --version
 
-# define filenames
-# input: merged plink set
-# output: hq plink set (with imputed sex, if possible)
-# 1) get sex hq-variants from input file
-# 2) get non-sex hq-variants from input file
-# 3) extract all hq variants from input file and make hq plink set
-# 4) LD-prune hq variants from 3)
-# 5) impute sex once with all standard hq variants from 4
-# 6) if sex could be imputed for enough individuals, then
-#      impute it once again after HWE tests
-# 7) update biography file with sex information
-
-
-
-# XXX) set --remove plink flag for sex-undetermined individuals
-# awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
-#   > ${opt_hqprefix}.nosex
-# if [ -s "${opt_hqprefix}.nosex" ] ; then
-#   nosex="--remove ${opt_hqprefix}.nosex"
-# fi
 
 
 

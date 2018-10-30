@@ -34,7 +34,6 @@ fi
 # 5) impute sex once with all standard hq variants from 4
 # 6) if sex could be imputed for enough individuals, then
 #      impute it once again after HWE tests
-# 7) update biography file with sex information
 
 
 # check if exclude file exists and is not empty
@@ -91,24 +90,6 @@ plink --bfile ${tmpprefix}_hq \
       --out ${tmpprefix}_hq_LDpruned \
       >> ${debuglogfn}
 
-tabulate() {
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
-}
-
-paste_sample_ids() {
-  local -r infile="$1"
-  tabulate < "${infile}" \
-    | awk -F $'\t' -v uid=${cfg_uid} '{
-        OFS="\t"
-        if ( NR>1 ) uid=$1"_"$2
-        printf( "%s", uid )
-        for ( k=3; k<=NF; k++ )
-          printf( "\t%s", $k )
-        printf( "\n" )
-      }' \
-    | sort -t $'\t' -u -k 1,1
-}
-
 get_xvar_count() {
   awk '$1 == 23' $1 | wc -l
 }
@@ -121,51 +102,41 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
         --make-bed \
         --out ${tmpprefix}_hq_LDpruned_isex \
         >> ${debuglogfn}
+  mv ${tmpprefix}_hq_LDpruned_isex.bed ${tmpprefix}_out.bed
+  mv ${tmpprefix}_hq_LDpruned_isex.bim ${tmpprefix}_out.bim
+  mv ${tmpprefix}_hq_LDpruned_isex.fam ${tmpprefix}_out.fam
+  mv ${tmpprefix}_hq_LDpruned_isex.sexcheck ${tmpprefix}_out.sexcheck
 
-  declare -r xindcount=$( awk '$5 == 1 || $5 == 2' ${tmpprefix}_hq_LDpruned_isex.fam | wc -l )
+  declare -r xindcount=$( awk '$5 == 1 || $5 == 2' ${tmpprefix}_out.fam | wc -l )
   # if sex could be imputed for enough individuals impute it once again after HWE tests
   if (( xindcount > minindcount )) ; then
-    plink --bfile ${tmpprefix}_hq_LDpruned_isex \
+    plink --bfile ${tmpprefix}_out \
           --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hwflag} \
           --make-just-bim \
-          --out ${tmpprefix}_hq_LDpruned_sexhwe \
+          --out ${tmpprefix}_sexhwe \
           >> ${debuglogfn}
 
     # if there are enough X chromosome variants after HWE re-impute sex based on them
-    if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned_sexhwe.bim ) -gt $cfg_minvarcount ] ; then
-      plink --bfile ${tmpprefix}_hq_LDpruned_isex \
-            --extract <( cut -f2 ${tmpprefix}_hq_LDpruned_sexhwe.bim ) \
+    if [ $( get_xvar_count ${tmpprefix}_sexhwe.bim ) -gt $cfg_minvarcount ] ; then
+      plink --bfile ${tmpprefix}_out \
+            --extract <( cut -f 2 ${tmpprefix}_sexhwe.bim ) \
             --impute-sex \
             --make-bed \
             --out ${tmpprefix}_hq_LDpruned_isex_new \
             >> ${debuglogfn}
       # replace the original sex imputation files
-      mv ${tmpprefix}_hq_LDpruned_isex_new.bed ${tmpprefix}_hq_LDpruned_isex.bed
-      mv ${tmpprefix}_hq_LDpruned_isex_new.bim ${tmpprefix}_hq_LDpruned_isex.bim
-      mv ${tmpprefix}_hq_LDpruned_isex_new.fam ${tmpprefix}_hq_LDpruned_isex.fam
-      mv ${tmpprefix}_hq_LDpruned_isex_new.sexcheck ${tmpprefix}_hq_LDpruned_isex.sexcheck
+      mv ${tmpprefix}_hq_LDpruned_isex_new.bed ${tmpprefix}_out.bed
+      mv ${tmpprefix}_hq_LDpruned_isex_new.bim ${tmpprefix}_out.bim
+      mv ${tmpprefix}_hq_LDpruned_isex_new.fam ${tmpprefix}_out.fam
+      mv ${tmpprefix}_hq_LDpruned_isex_new.sexcheck ${tmpprefix}_out.sexcheck
     fi
   fi
-  {
-    paste_sample_ids ${tmpprefix}_hq_LDpruned_isex.sexcheck \
-      | join -t $'\t' ${opt_biofile} - \
-      | tee ${tmpprefix}.0.bio
-    TNF=$( wc -l ${tmpprefix}.0.bio | tabulate | cut -f 1 )
-    paste_sample_ids ${tmpprefix}_hq_LDpruned_isex.sexcheck \
-      | join -t $'\t' -v1 ${opt_biofile} - \
-      | awk -F $'\t' -v TNF=${TNF} '{
-        OFS="\t"
-        printf($0)
-        for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
-        printf("\n")
-      }'
-  } | sort -u -k 1,1 > ${tmpprefix}.1.bio
-  cp ${tmpprefix}.1.bio ${opt_biofile}
 fi
 
-mv ${tmpprefix}_hq_LDpruned_isex.bed ${opt_outprefix}.bed
-mv ${tmpprefix}_hq_LDpruned_isex.bim ${opt_outprefix}.bim
-mv ${tmpprefix}_hq_LDpruned_isex.fam ${opt_outprefix}.fam
+mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
+mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
+mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
+mv ${tmpprefix}_out.sexcheck ${opt_outprefix}.sexcheck
 
 # rm ${tmpprefix}*
 

@@ -24,6 +24,41 @@ fi
 # output: clean plink set (with imputed sex from hq set, no duplicates and no mixups)
 
 
+tabulate() {
+  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
+}
+
+paste_sample_ids() {
+  local -r infile="$1"
+  tabulate < "${infile}" \
+    | awk -F $'\t' -v uid=${cfg_uid} '{
+        OFS="\t"
+        if ( NR>1 ) uid=$1"_"$2
+        printf( "%s", uid )
+        for ( k=3; k<=NF; k++ )
+          printf( "\t%s", $k )
+        printf( "\n" )
+      }' \
+    | sort -t $'\t' -u -k 1,1
+}
+
+# update biography file with sex information
+{
+  paste_sample_ids ${opt_hqprefix}.sexcheck \
+    | join -t $'\t' ${opt_biofile} - \
+    | tee ${tmpprefix}.0.bio
+  TNF=$( wc -l ${tmpprefix}.0.bio | tabulate | cut -f 1 )
+  paste_sample_ids ${opt_hqprefix}.sexcheck \
+    | join -t $'\t' -v1 ${opt_biofile} - \
+    | awk -F $'\t' -v TNF=${TNF} '{
+      OFS="\t"
+      printf($0)
+      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
+      printf("\n")
+    }'
+} | sort -u -k 1,1 > ${tmpprefix}.1.bio
+cp ${tmpprefix}.1.bio ${opt_biofile}
+
 declare plinkflag=''
 # run 'het_VS_miss.Rscript' to find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
@@ -53,8 +88,8 @@ if [ ${cfg_hvm} -eq 1 ] ; then
         OFS="\t"
         print( $0, "OK" )
       }'
-  } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.1.bio
-  cp ${tmpprefix}.1.bio ${opt_biofile}
+  } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.2.bio
+  cp ${tmpprefix}.2.bio ${opt_biofile}
   # include non-mixup info later 
   plinkflag="--keep ${tmpprefix}.clean.id"
 fi
@@ -73,10 +108,6 @@ plink --bfile ${opt_hqprefix} ${plinkflag} \
       >> ${debuglogfn}
 
 unset plinkflag
-
-tabulate() {
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
-}
 
 extract_related_lists_from_grm_file() {
   local -r infile="$1"
@@ -121,8 +152,8 @@ extract_related_lists_from_grm_file() {
       OFS="\t"
       print( $0, "__NA__" )
     }'
-} | sort -u -k 1,1 > ${tmpprefix}.2.bio
-cp ${tmpprefix}.2.bio ${opt_biofile}
+} | sort -u -k 1,1 > ${tmpprefix}.3.bio
+cp ${tmpprefix}.3.bio ${opt_biofile}
 
 # update biography file with duplicates
 {
@@ -144,8 +175,8 @@ cp ${tmpprefix}.2.bio ${opt_biofile}
         OFS="\t"
         print( $0, 0 )
       }'
-} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.3.bio
-cp ${tmpprefix}.3.bio ${opt_biofile}
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.4.bio
+cp ${tmpprefix}.4.bio ${opt_biofile}
 
 # remove duplicates + update sex in input set
 echo "removing duplicate individuals and updating sex.."

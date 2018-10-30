@@ -29,7 +29,7 @@ fi
 
 
 # if there are any annotated controls in the original file use those
-cut -f 1,2,6 ${opt_inprefix}.fam | sed -r 's/[ \t]+/\t/g' > ${tmpprefix}_ctrl.txt
+cut -f 1,2,6 ${opt_inprefix}.fam | sed -r 's/[ \t]+/\t/g' | sort -u > ${tmpprefix}_ctrl.txt
 
 declare Nctrl=0
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
@@ -38,7 +38,7 @@ fi
 declare plinkflag=''
 if [ $Nctrl -ge $cfg_minindcount ] ; then
   # overwrite control set with the provided custom list
-  awk -F $'\t' 'tolower($3) == "control"' ${cfg_phenotypes} > ${tmpprefix}_ctrl.txt
+  awk -F $'\t' 'tolower($3) == "control"' ${cfg_phenotypes} | sort -u > ${tmpprefix}_ctrl.txt
   # redefine phenotypes in the input plink set
   plink --bfile ${opt_inprefix} \
         --make-pheno ${cfg_phenotypes} affected \
