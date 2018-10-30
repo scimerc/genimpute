@@ -141,7 +141,8 @@ bash ${BASEDIR}/progs/gethqset.sh
 # compute genetic PCs
 
 # export vars
-export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_e_finqc
+export opt_hqprefix=/cluster/projects/p33/nobackup/tmp/test_e_hqset
+export opt_biofile
 
 # call getpcs.sh
 bash ${BASEDIR}/progs/getpcs.sh

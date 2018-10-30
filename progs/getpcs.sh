@@ -3,9 +3,11 @@
 # exit on error
 trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
-declare -r  debuglogfn=${opt_outprefix}_tmp_debug.log
+declare -r tmpprefix=${opt_outprefix}_tmp
+declare -r debuglogfn=${tmpprefix}_debug.log
+declare -r cfg_uid=000UID
 
-if [ -f "${opt_hqprefix}.genome.gz" -a -f "${opt_hqprefix}.eigenvec" ] ; then
+if [ -f "${opt_hqprefix}.eigenvec" -a -f "${opt_hqprefix}.eigenvec.var" ] ; then
   printf "skipping PCA..\n"
   exit 0
 fi
@@ -22,4 +24,41 @@ plink --bfile ${opt_hqprefix} \
       --pca header tabs var-wts \
       --out ${opt_hqprefix} \
       >> ${debuglogfn}
+
+tabulate() {
+  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
+}
+
+paste_sample_ids() {
+  local -r infile="$1"
+  tabulate < "${infile}" \
+    | awk -F $'\t' -v uid=${cfg_uid} '{
+        OFS="\t"
+        if ( NR>1 ) uid=$1"_"$2
+        printf( "%s", uid )
+        for ( k=3; k<=NF; k++ )
+          printf( "\t%s", $k )
+        printf( "\n" )
+      }' \
+    | sort -t $'\t' -u -k 1,1
+}
+
+# update biography file with genetic PCs
+{
+  paste_sample_ids ${opt_hqprefix}.eigenvec \
+    | join -t $'\t' ${opt_biofile} - \
+    | tee ${tmpprefix}.0.bio
+  TNF=$( wc -l ${tmpprefix}.0.bio | tabulate | cut -f 1 )
+  paste_sample_ids ${opt_hqprefix}.eigenvec \
+    | join -t $'\t' -v1 ${opt_biofile} - \
+    | awk -F $'\t' -v TNF=${TNF} '{
+      OFS="\t"
+      printf($0)
+      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
+      printf("\n")
+    }'
+} | sort -u -k 1,1 > ${tmpprefix}.1.bio
+cp ${tmpprefix}.1.bio ${opt_biofile}
+
+rm ${tmpprefix}*
 
