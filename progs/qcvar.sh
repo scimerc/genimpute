@@ -6,13 +6,13 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_freqstd=0.01
-declare -r cfg_hweflag='midp include-nonctrl'
-declare    cfg_hweneglogp=12
-declare    cfg_hweneglogp_ctrl=4
-declare -r cfg_minindcount=100
-declare -r cfg_phenotypes='/cluster/projects/p33/users/franbe/norment_2018/test/phenotypes.txt'
-declare -r cfg_varmiss=0.05
+declare -r cfg_freqstd=$( cfgvar_get freqstd )
+declare -r cfg_hweflag=$( cfgvar_get hweflag )
+declare    cfg_hweneglogp=$( cfgvar_get hweneglogp )
+declare    cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
+declare -r cfg_minindcount=$( cfgvar_get minindcount )
+declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
+declare -r cfg_varmiss=$( cfgvar_get varmiss )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping variant QC step..\n"

@@ -7,10 +7,9 @@ declare -r  tmpprefix=${opt_outprefix}_tmp
 declare -r  debuglogfn=${tmpprefix}_debug.log
 declare -ra batchfamfiles=( $( ls ${opt_batchoutprefix}*.fam ) )
 
-declare -r cfg_hweneglogp_ctrl=4
-declare -r cfg_minindcount=100
-declare -r cfg_phenotypes='/cluster/projects/p33/users/franbe/norment_2018/test/phenotypes.txt'
-declare -r cfg_samplemiss=0.05
+declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
+declare -r cfg_minindcount=$( cfgvar_get minindcount )
+declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping final QC step..\n"

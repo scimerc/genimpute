@@ -5,7 +5,8 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
-declare -r cfg_uid=000UID
+
+declare -r cfg_uid=$( cfgvar_get uid )
 
 if [ -f "${opt_hqprefix}.eigenvec" -a -f "${opt_hqprefix}.eigenvec.var" ] ; then
   printf "skipping PCA..\n"

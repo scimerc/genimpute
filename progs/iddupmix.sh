@@ -6,9 +6,9 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_hvm=1
-declare -r cfg_pihat=0.9
-declare -r cfg_uid=000UID
+declare -r cfg_hvm=$( cfgvar_get hvm )
+declare -r cfg_pihat=$( cfgvar_get pihat )
+declare -r cfg_uid=$( cfgvar_get uid )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping dup&mix step..\n"

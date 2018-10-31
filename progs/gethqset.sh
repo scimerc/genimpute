@@ -6,14 +6,14 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_varmiss=0.05
-declare -r cfg_freqhq=0.2
-declare -r cfg_genomeblacklist='highLD_b37.bed'
-declare -r cfg_hweneglogp_ctrl=4
-declare -r cfg_hweflag='midp include-nonctrl'
-declare -r cfg_minindcount=100
-declare -r cfg_minvarcount=100
-declare -r cfg_uid=000UID
+declare -r cfg_varmiss=$( cfgvar_get varmiss )
+declare -r cfg_freqhq=$( cfgvar_get freqhq )
+declare -r cfg_genomeblacklist=$( cfgvar_get genomeblacklist )
+declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
+declare -r cfg_hweflag=$( cfgvar_get hweflag )
+declare -r cfg_minindcount=$( cfgvar_get minindcount )
+declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
+declare -r cfg_uid=$( cfgvar_get uid )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping hq step..\n"

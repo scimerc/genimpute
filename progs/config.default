@@ -1,0 +1,54 @@
+# default configuration parameters
+
+
+# minimum minor allele frequency for high quality sets
+freqhq=0.2
+
+# minimum minor allele frequency for standard sets
+freqstd=0.01
+
+# genomic build
+genomebuild='b37'
+
+# genomic blacklist (complex LD structure)
+genomeblacklist='highLD_b37.bed'
+
+# perform heterozygosity VS missingness test?
+hvm=1
+
+# Hardy-Weinberg equilibrium test options
+hweflag='midp include-nonctrl'
+
+# Hardy-Weinberg equilibrium p-value (all individuals)
+hweneglogp=12
+
+# Hardy-Weinberg equilibrium p-value (control individuals only)
+hweneglogp_ctrl=4
+
+# minimum number of individuals required for some tests
+minindcount=100
+
+# minimum number of variants required for some tests
+minvarcount=100
+
+# list of individuals with eventual affected/control status
+phenotypes='/cluster/projects/p33/users/franbe/norment_2018/test/phenotypes.txt'
+
+# pihat threshold for establishing identity between idividuals
+pihat=0.9
+
+# variant alleles reference file
+refallelesfn='/cluster/projects/p33/nobackup/tmp/refalleles.txt'
+
+# maximum missingness for an individual
+samplemiss=0.05
+
+# eventual set of individuals to restrict the quality control to
+samplewhitelist=''
+
+# universal (FID_IID) ID tag; should be such that the sorting algorithm places it on top
+uid=000UID
+
+# maximum missingness for a variant
+varmiss=0.05
+

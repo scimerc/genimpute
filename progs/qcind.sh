@@ -6,8 +6,8 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_minvarcount=100
-declare -r cfg_samplemiss=0.05
+declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
+declare -r cfg_samplemiss=$( cfgvar_get samplemiss )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping individual QC step..\n"
