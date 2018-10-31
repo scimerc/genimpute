@@ -30,8 +30,8 @@ declare -r opt_inputfiles="$(cat << EOF
 EOF
 )"
 
-declare -r opt_mini=1
-declare -r opt_refallelesfn="/cluster/projects/p33/nobackup/tmp/refalleles.txt"
+declare -r opt_minivarset=1
+
 declare -r opt_samplewhitelist=""
 
 #---------------------------------------------------------------------------------------------------
@@ -39,12 +39,11 @@ declare -r opt_samplewhitelist=""
 # alignment
 
 # export vars
-export opt_mini
-export opt_refallelesfn
-export opt_samplewhitelist
 export opt_inputfiles
-export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_a_align
+export opt_minivarset
+export opt_samplewhitelist
 export opt_batchoutprefix=/cluster/projects/p33/nobackup/tmp/test_a_filtered_batches
+export opt_outprefix=/cluster/projects/p33/nobackup/tmp/test_a_align
 
 # call align
 bash ${BASEDIR}/progs/align.sh
@@ -54,7 +53,7 @@ bash ${BASEDIR}/progs/align.sh
 # biography
 
 # initialize sample biography file
-declare -r opt_biofile=/cluster/projects/p33/nobackup/tmp/test_0.bio
+declare -r opt_biofile=/cluster/projects/p33/nobackup/tmp/test.bio
 declare -r uid="000UID"
 export uid
 cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${uid} 'BEGIN{

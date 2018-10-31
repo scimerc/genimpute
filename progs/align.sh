@@ -7,6 +7,7 @@ declare -r  debuglogfn=${tmpprefix}_debug.log
 declare -ra batchfiles=( ${opt_inputfiles} )
 
 declare -r cfg_genomebuild="$( cfgvar_get genomebuild )"
+declare -r cfg_refallelesfn="$( cfgvar_get refallelesfn )"
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping aligment..\n"
@@ -94,7 +95,7 @@ declare -r varwhitelist=${tmpprefix}.extract
 
 
 # compute whitelist?
-if [ $opt_mini -eq 1 ] ; then
+if [ $opt_minivarset -eq 1 ] ; then
   for i in ${!batchfiles[@]} ; do
     declare plinkflag=""
     case "$( get_genotype_file_format "${batchfiles[$i]}" )" in
@@ -268,16 +269,16 @@ for i in ${!batchfiles[@]} ; do
   printf "%s unique coherent duplicate variants retained [%s marked for deletion].\n" \
     "${wl_size}" $(( bl_size_new - bl_size_old ))
   # use ref alleles specified or if we have more than one batch
-  if [ ${#batchfiles[@]} -gt 1 -o ! -z ${opt_refallelesfn} ] ; then
+  if [ ${#batchfiles[@]} -gt 1 -o ! -z ${cfg_refallelesfn} ] ; then
     echo "matching variants to reference.."
-    [ -s ${opt_refallelesfn} ] || {
-      printf "error: file '%s' empty or not found.\n" ${opt_refallelesfn} >&2;
+    [ -s ${cfg_refallelesfn} ] || {
+      printf "error: file '%s' empty or not found.\n" ${cfg_refallelesfn} >&2;
       exit 1;
     }
     # get chr:bp strings from bim file and join with the corresponding field of refallelesfn 
     awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${plinkinputfn}.bim \
       | sort -t $'\t' -k 7,7 \
-      | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${opt_refallelesfn} - \
+      | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${cfg_refallelesfn} - \
       | awk -F $'\t' \
         -f ${BASEDIR}/lib/awk/nucleocode.awk \
         -f ${BASEDIR}/lib/awk/genotype.awk \

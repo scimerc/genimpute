@@ -162,9 +162,9 @@ _cfgvar_read_file() {
     linecounter=$((linecounter + 1))
     #TODO: include tabs in the following
     # remove leading spaces
-    line="$( echo "${line}" | sed "s/^\ *//" )"
+    line="$( echo "${line}" | sed 's/^\ *//g;' )"
     # remove trailing spaces
-    line="$( echo "${line}" | sed "s/\ *$//" )"
+    line="$( echo "${line}" | sed 's/\ *$//g;' )"
     # skip if line is empty
     if [ -z "${line}" ] ; then
       continue
@@ -175,12 +175,13 @@ _cfgvar_read_file() {
     fi
     # TODO if line does not contain a '=' return an error
     # remove spaces at end of name and at beginning of value
-    line="$( echo "${line}" | sed "s/\ *=\ */=/" )"
+    line="$( printf '%s' "${line}" | sed 's/\ *=\ */=/g;' )"
     # split line in name and value
     name=${line%%=*}
     # TODO if name is empty return an error
     value=${line#*=}
     # do stuff with name and value
+    value="$( printf '%s' "${value}" | sed 's/^["'\'']//g;''s/["'\'']$//g;' )"
     ${function} "${name}" "${value}"
     if [ $? -ne 0 ] ; then
       return 1

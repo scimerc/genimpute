@@ -6,9 +6,9 @@ trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_regionblacklist=${BASEDIR}/data/highLD_b37.bed
 declare -r cfg_varmiss=0.05
 declare -r cfg_freqhq=0.2
+declare -r cfg_genomeblacklist='highLD_b37.bed'
 declare -r cfg_hweneglogp_ctrl=4
 declare -r cfg_hweflag='midp include-nonctrl'
 declare -r cfg_minindcount=100
@@ -36,12 +36,13 @@ fi
 #      impute it once again after HWE tests
 
 
+declare -r regionblacklist=${BASEDIR}/data/${cfg_genomeblacklist}
 # check if exclude file exists and is not empty
-[ -s "${cfg_regionblacklist}" ] || {
-  printf "error: file '%s' empty or not found.\n" ${cfg_regionblacklist} >&2;
+[ -s "${regionblacklist}" ] || {
+  printf "error: file '%s' empty or not found.\n" ${regionblacklist} >&2;
   exit 1;
 }
-declare -r excludeopt="--exclude range ${cfg_regionblacklist}"
+declare -r excludeopt="--exclude range ${regionblacklist}"
 
 # get sex hq-variants from input file
 plink --bfile ${opt_inprefix} \
