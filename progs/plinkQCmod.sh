@@ -114,7 +114,7 @@ bash ${BASEDIR}/progs/qcind.sh
 
 #---------------------------------------------------------------------------------------------------
 
-# perform final QC (control HWE? batch effects?)
+# perform final QC (control-HWE? batch effects?)
 
 # export vars
 export opt_inprefix=/cluster/projects/p33/nobackup/tmp/test_d_indqc

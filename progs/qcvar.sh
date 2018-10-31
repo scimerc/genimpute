@@ -39,6 +39,7 @@ n=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
 plink --bfile ${opt_inprefix} \
       --not-chr 23,24 \
+      --set-hh-missing \
       --geno ${tmp_varmiss} \
       --maf ${cfg_freqstd} \
       --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
@@ -57,6 +58,7 @@ if [ $sex_hweneglogp -lt 12 ] ; then
 fi
 plink --bfile ${opt_inprefix} ${nosex_flag} \
       --chr 23,24 \
+      --set-hh-missing \
       --geno ${tmp_varmiss} \
       --maf ${cfg_freqstd} \
       --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \

@@ -29,9 +29,9 @@ fi
 # output: hq plink set (with imputed sex, if possible)
 # 1) get sex hq-variants from input file
 # 2) get non-sex hq-variants from input file
-# 3) extract all hq variants from input file and make hq plink set
+# 3) extract all hq-variants from input file and make hq plink set
 # 4) LD-prune hq variants from 3)
-# 5) impute sex once with all standard hq variants from 4
+# 5) impute sex once with all standard hq-variants from 4
 # 6) if sex could be imputed for enough individuals, then
 #      impute it once again after HWE tests
 

@@ -63,8 +63,8 @@ declare plinkflag=''
 # run 'het_VS_miss.Rscript' to find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
   echo "computing individual heterozygosity and missing rates.."
-  plink --bfile ${opt_hqprefix} --het     --out ${tmpprefix}_sq >> ${debuglogfn}
-  plink --bfile ${opt_hqprefix} --missing --out ${tmpprefix}_sq >> ${debuglogfn}
+  plink --bfile ${opt_hqprefix} --set-hh-missing --het     --out ${tmpprefix}_sq >> ${debuglogfn}
+  plink --bfile ${opt_hqprefix} --set-hh-missing --missing --out ${tmpprefix}_sq >> ${debuglogfn}
   ${BASEDIR}/progs/het_vs_miss.Rscript -m ${tmpprefix}_sq.imiss -h ${tmpprefix}_sq.het \
     -o ${tmpprefix} >> ${debuglogfn}
   [ -s "${tmpprefix}.clean.id" ] || {
@@ -97,10 +97,12 @@ fi
 # identify duplicate individuals
 echo "identifying duplicate individuals.."
 plink --bfile ${opt_hqprefix} ${plinkflag} \
+      --set-hh-missing \
       --genome gz \
       --out ${tmpprefix}_sq \
       >> ${debuglogfn}
 plink --bfile ${opt_hqprefix} ${plinkflag} \
+      --set-hh-missing \
       --cluster \
       --read-genome ${tmpprefix}_sq.genome.gz \
       --rel-cutoff ${pihat} \
