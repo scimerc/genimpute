@@ -85,7 +85,7 @@ fi
 
 #---------------------------------------------------------------------------------------------------
 
-# set user configuration, if any
+# set user configuration, if any, and print all information
 
 [ -s "${opt_cfgfile}" ] && cfgvar_init_from_file ${opt_cfgfile}
 
@@ -98,26 +98,25 @@ cfgvar_show_config
 
 echo -e "\n================================================================================\n"
 
-# checking plink executable
+#---------------------------------------------------------------------------------------------------
 
-plinkexe=$( ( which plink || true ) 2> /dev/null )
+# check dependencies
 
-if [[ "${plinkexe}" == "" ]] ; then
+awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 0; }
+echo
+join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 0; }
+echo
+plink --version 2> /dev/null || {
+  echo 'plink is not installed.';
   echo "plink is required by $( basename $0 ). plink source codes and builds can be found at"
   echo "www.cog-genomics.org. note that some of the functionalities needed by $( basename $0 )"
   echo "were not implemented in plink2 at the time of writing."
   exit 0
-fi
+}
+echo
+R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 0; }
 
-awk --version
-echo
-join --version
-echo
-plink --version
-echo
-R --version
-
-echo -e "\n================================================================================\n"
+echo -e "================================================================================\n"
 
 #---------------------------------------------------------------------------------------------------
 

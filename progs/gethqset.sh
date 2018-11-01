@@ -33,7 +33,7 @@ fi
 # 4) LD-prune hq variants from 3)
 # 5) impute sex once with all standard hq-variants from 4
 # 6) if sex could be imputed for enough individuals, then
-#      impute it once again after HWE tests
+#    impute it once again after HWE tests
 
 
 declare -r regionblacklist=${BASEDIR}/data/${cfg_genomeblacklist}
