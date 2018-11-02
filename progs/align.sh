@@ -9,6 +9,8 @@ declare -ra batchfiles=( ${opt_inputfiles} )
 declare -r cfg_genomebuild="$( cfgvar_get genomebuild )"
 declare -r cfg_refallelesfn="$( cfgvar_get refallelesfn )"
 
+#-------------------------------------------------------------------------------
+
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping aligment..\n"
   exit 0
@@ -24,6 +26,7 @@ if ! which bedtools > /dev/null 2>&1; then
   exit 1
 fi
 
+#-------------------------------------------------------------------------------
 
 get_genotype_file_format()  {
   local -r inputfile=$1
@@ -52,6 +55,7 @@ get_genotype_file_format()  {
   return 0
 }
 
+#-------------------------------------------------------------------------------
 
 get_unique_filename_from_path() {
   local -r path="$1"
@@ -60,8 +64,9 @@ get_unique_filename_from_path() {
   printf "%s_%s" "$(basename "$path" )" "${md5:0:$numchars}"
 }
 
+#-------------------------------------------------------------------------------
 
-# in: plink tped; out: (rs, chr, cm, bp) 
+# stdin: plink tped; stdout: (rs, chr, cm, bp)
 get_variant_info_from_tped() {
   awk '{
     delete catalog
@@ -76,6 +81,7 @@ get_variant_info_from_tped() {
   }' -
 }
 
+#-------------------------------------------------------------------------------
 
 # in: (rs, chr, cm, bpa) sorted on rs; out: same
 # get unique chr,cm,bpa entries [sort|uniq]
@@ -89,10 +95,10 @@ get_variant_info_for_dup_chr_cm_bpa() {
     | join -t ' ' -v1 ${inputfile} -
 }
 
+#-------------------------------------------------------------------------------
 
 # whitelist of variants
 declare -r varwhitelist=${tmpprefix}.extract
-
 
 # compute whitelist?
 if [ $opt_minivarset -eq 1 ] ; then
@@ -136,7 +142,7 @@ if [ $opt_minivarset -eq 1 ] ; then
 fi
 
 
-
+#-------------------------------------------------------------------------------
 
 # for every batch
   # extract var accoding to var whitelist (if enabled)
@@ -168,8 +174,8 @@ for i in ${!batchfiles[@]} ; do
       ;;
   esac
   # use whitelist if existing
-  if [ ! -z "${opt_samplewhitelist}" ] ; then
-    flagextract="${flagextract} --keep ${opt_samplewhitelist}"
+  if [ ! -z "${cfg_samplewhitelist}" ] ; then
+    flagextract="${flagextract} --keep ${cfg_samplewhitelist}"
   fi
   declare bedflag="${flagextract}"
   declare pedflag="${flagextract}"
@@ -213,6 +219,8 @@ for i in ${!batchfiles[@]} ; do
   unset plinkinputfn
 done
 
+
+#-------------------------------------------------------------------------------
 
 # for every batch
   # create a batch-chr-specific blacklist with non-coherent variants
@@ -269,10 +277,10 @@ for i in ${!batchfiles[@]} ; do
   printf "%s unique coherent duplicate variants retained [%s marked for deletion].\n" \
     "${wl_size}" $(( bl_size_new - bl_size_old ))
   # use ref alleles specified or if we have more than one batch
-  if [ ${#batchfiles[@]} -gt 1 -o ! -z ${cfg_refallelesfn} ] ; then
+  if [ ${#batchfiles[@]} -gt 1 -o ! -z "${cfg_refallelesfn}" ] ; then
     echo "matching variants to reference.."
     [ -s ${cfg_refallelesfn} ] || {
-      printf "error: file '%s' empty or not found.\n" ${cfg_refallelesfn} >&2;
+      printf "error: file '%s' empty or not found.\n" "${cfg_refallelesfn}" >&2;
       exit 1;
     }
     # get chr:bp strings from bim file and join with the corresponding field of refallelesfn 

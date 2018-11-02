@@ -9,13 +9,13 @@ export _CFGVAR_STATUS_READONLY_=1
 # get variable value
 cfgvar_get() {
   local -r name=$1
-  # increase read counter
-  local -r rcvar=${_CFGVAR_PREFIX_RCOUNT_}${name}
-  export $rcvar=$((rcvar + 1))
   _cfgvar_get ${name}
   if [ $? -ne 0 ] ; then
     return 1
   fi
+  # increase read counter
+  local -r rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
+  export $rcvar=$((rcvar + 1))
 }
 export -f cfgvar_get
 
@@ -120,13 +120,13 @@ export -f cfgvar_update_from_file
 
 # undefine all variables and functions
 cfgvar_cleanup() {
-  # check read counters
-  for name in $( _cfgvar_list_names ) ; do
-    rcvar=${_CFGVAR_PREFIX_RCOUNT_}${name}
-    if [ ${!rcvar} -eq 0 ] ; then
-      printf "warning: unused variable '%s'\n" ${name} >&2
-    fi
-  done
+  # check read counters XXX: disabled
+  #for name in $( _cfgvar_list_names ) ; do
+  #  rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
+  #  if [ ${!rcvar} -eq 0 ] ; then
+  #    printf "warning: unused variable '%s'\n" ${name} >&2
+  #  fi
+  #done
   # cleanup vars
   for name in $(_cfgvar_list_varnames_prefix "_CFGVAR_") ; do
     unset ${name}
@@ -155,8 +155,12 @@ export -f _cfgvar_get
 #-------------------------------------------------------------------------------
 
 _cfgvar_read_file() {
-  local -r filename=$1
+  local -r filename="$1"
   local -r function=$2
+  if [ ! -f "$filename" ]; then
+    printf "error: file '%s' not found\n" ${filename} >&2
+    return 1
+  fi
   local linecounter=0
   while read line; do
     linecounter=$((linecounter + 1))

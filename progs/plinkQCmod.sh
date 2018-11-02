@@ -3,13 +3,13 @@
 # exit on error
 trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
 
+#-------------------------------------------------------------------------------
+
+# define default configuration
+
 # get parent dir of this script
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 export BASEDIR
-
-#---------------------------------------------------------------------------------------------------
-
-# define default configuration
 
 source ${BASEDIR}/progs/cfgmgr.sh
 
@@ -25,7 +25,6 @@ declare opt_outprefixbase=${opt_outprefixdefault}
 declare opt_samplewhitelist=""
 
 usage() {
-
 cat << EOF
 
 USAGE: $( basename $0 ) [OPTIONS] <bed|bcf|vcf file(s)>
@@ -46,9 +45,7 @@ CONFIGURATION:
   [see default configuration file '${BASEDIR}/progs/config.default' for more information]
 
 EOF
-
 exit 0
-
 }
 
 while getopts "c:mo:w:h" opt; do
@@ -89,11 +86,16 @@ fi
 
 [ -s "${opt_cfgfile}" ] && cfgvar_init_from_file ${opt_cfgfile}
 
+echo
+echo -e "================================================================================"
 echo -e "$( basename $0 ) -- $(date)"
-echo -e "\n================================================================================\n"
-echo -e "genotype files:\n$( ls -1 ${opt_inputfiles} )"
-echo -e "\n================================================================================\n"
+echo -e "================================================================================"
+echo -e "\ngenotype files:\n$( ls -1 ${opt_inputfiles} )\n"
+echo -e "================================================================================"
+echo
 
+# lock variables and print them
+cfgvar_setall_readonly
 cfgvar_show_config
 
 echo -e "\n================================================================================\n"
