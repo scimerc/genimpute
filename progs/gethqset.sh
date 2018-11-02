@@ -36,7 +36,7 @@ fi
 #    impute it once again after HWE tests
 
 
-declare -r regionblacklist=${BASEDIR}/data/${cfg_genomeblacklist}
+declare -r regionblacklist=${BASEDIR}/lib/data/${cfg_genomeblacklist}
 # check if exclude file exists and is not empty
 [ -s "${regionblacklist}" ] || {
   printf "error: file '%s' empty or not found.\n" ${regionblacklist} >&2;
