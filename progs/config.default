@@ -32,13 +32,13 @@ minindcount=100
 minvarcount=100
 
 # list of individuals with eventual affected/control status
-phenotypes='/cluster/projects/p33/users/franbe/norment_2018/test/phenotypes.txt'
+phenotypes=''
 
 # pihat threshold for establishing identity between idividuals
 pihat=0.9
 
 # variant alleles reference file
-refallelesfn='/cluster/projects/p33/nobackup/tmp/refalleles.txt'
+refallelesfn=''
 
 # maximum missingness for an individual
 samplemiss=0.05
