@@ -84,7 +84,7 @@ fi
 
 # set user configuration, if any, and print all information
 
-[ -s "${opt_cfgfile}" ] && cfgvar_init_from_file ${opt_cfgfile}
+[ -s "${opt_cfgfile}" ] && cfgvar_update_from_file ${opt_cfgfile}
 
 echo
 echo -e "================================================================================"
