@@ -119,25 +119,27 @@ if [ $opt_minivarset -eq 1 ] ; then
         exit 1
         ;;
     esac
-    declare extmp=${tmpprefix}_extmp
     # whatever format the input file is - make a bim file
-    plink ${plinkflag} ${batchfiles[$i]/%.bed/.bim} --make-just-bim --out ${extmp} >> ${debuglogfn}
-    sed -i -r 's/[ \t]+/\t/g' ${extmp}.bim
-    if [ -s "${extmp}.bim" ] ; then
+    plink ${plinkflag} ${batchfiles[$i]/%.bed/.bim} \
+          --make-just-bim \
+          --out ${tmpprefix}_ex \
+          >> ${debuglogfn}
+    sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_ex.bim
+    if [ -s "${tmpprefix}_ex.bim" ] ; then
       if [ $i -eq 0 ] ; then
         # make the other type of (non-plink) bed file from the bim file
-        awk -F $'\t' '{ OFS="\t"; print( $1, $4 - 1, $4, $2 ); }' ${extmp}.bim > ${extmp}.bed
+        awk -F $'\t' '{ OFS="\t"; print( $1, $4 - 1, $4, $2 ); }' ${tmpprefix}_ex.bim \
+          > ${tmpprefix}_ex.bed
       else
         bedtools intersect \
           -a ${varwhitelist} \
-          -b <( awk -F $'\t' '{ OFS="\t"; print( $1, $4-1, $4, $2 ); }' ${extmp}.bim ) \
-        > ${extmp}.bed
+          -b <( awk -F $'\t' '{ OFS="\t"; print( $1, $4-1, $4, $2 ); }' ${tmpprefix}_ex.bim ) \
+          > ${tmpprefix}_ex.bed
       fi
-      mv ${extmp}.bed ${varwhitelist}
-      rm -f ${extmp}.bim
+      mv ${tmpprefix}_ex.bed ${varwhitelist}
+      rm -f ${tmpprefix}_ex.bim
     fi
     unset plinkflag
-    unset extmp
   done
 fi
 
