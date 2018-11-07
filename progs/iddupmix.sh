@@ -105,7 +105,7 @@ plink --bfile ${opt_hqprefix} ${plinkflag} \
       --set-hh-missing \
       --cluster \
       --read-genome ${tmpprefix}_sq.genome.gz \
-      --rel-cutoff ${pihat} \
+      --rel-cutoff ${cfg_pihat} \
       --out ${tmpprefix}_sq \
       >> ${debuglogfn}
 
