@@ -104,11 +104,12 @@ echo -e "\n=====================================================================
 
 # check dependencies
 
+locale
+echo
+
 awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 0; }
 echo
 join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 0; }
-echo
-bedtools --version 2> /dev/null || { echo 'bedtools is not installed. aborting..'; exit 0; }
 echo
 plink --version 2> /dev/null || {
   echo 'plink is not installed.';

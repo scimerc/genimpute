@@ -21,11 +21,6 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
   exit 1
 fi
 
-if ! which bedtools > /dev/null 2>&1; then
-  printf "error: bedtools not found\n" >&2
-  exit 1
-fi
-
 #-------------------------------------------------------------------------------
 
 get_genotype_file_format()  {
@@ -83,7 +78,7 @@ get_variant_info_from_tped() {
 
 #-------------------------------------------------------------------------------
 
-# in: (rs, chr, cm, bpa) sorted on rs; out: same
+# in: (rs, chr, cm, bpa) sorted on rs; stdout: same
 # get unique chr,cm,bpa entries [sort|uniq]
 # sort on rsnumbers corresponding to unique entries
 # get complementary set of entries (duplicated vars) [join -v1]
@@ -93,6 +88,18 @@ get_variant_info_for_dup_chr_cm_bpa() {
     | uniq -u -f 1 \
     | sort -t ' ' -k 1,1 \
     | join -t ' ' -v1 ${inputfile} -
+}
+
+#-------------------------------------------------------------------------------
+
+# in: tab-separated plink bim; stdout: chr:bp, rs
+bimtogprs() {
+  local -r inputfile="$1"
+  awk -F $'\t' '{
+    OFS="\t"
+    print( $1":"$4, $2 )
+  }' ${inputfile} \
+  | sort -u -k 1,1
 }
 
 #-------------------------------------------------------------------------------
@@ -127,18 +134,19 @@ if [ $opt_minivarset -eq 1 ] ; then
     sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_ex.bim
     if [ -s "${tmpprefix}_ex.bim" ] ; then
       if [ $i -eq 0 ] ; then
-        # make the other type of (non-plink) bed file from the bim file
-        awk -F $'\t' '{ OFS="\t"; print( $1, $4 - 1, $4, $2 ); }' ${tmpprefix}_ex.bim \
-          > ${tmpprefix}_ex.bed
+        bimtogprs ${tmpprefix}_ex.bim > ${tmpprefix}_ex.0.gprs
       else
-        bedtools intersect \
-          -a ${varwhitelist} \
-          -b <( awk -F $'\t' '{ OFS="\t"; print( $1, $4-1, $4, $2 ); }' ${tmpprefix}_ex.bim ) \
-          > ${tmpprefix}_ex.bed
+        join -t $'\t' ${tmpprefix}_ex.1.gprs <( bimtogprs ${tmpprefix}_ex.bim ) \
+          > ${tmpprefix}_ex.0.gprs
       fi
-      mv ${tmpprefix}_ex.bed ${varwhitelist}
+      mv ${tmpprefix}_ex.0.gprs ${tmpprefix}_ex.1.gprs
       rm -f ${tmpprefix}_ex.bim
     fi
+    awk -F $'\t' '{
+      OFS="\t"
+      split( $1, gpvec, ":" )
+      print( gpvec[1], gpvec[2] - 1, gpvec[2], $2 )
+    }' ${tmpprefix}_ex.1.gprs > ${varwhitelist}
     unset plinkflag
   done
 fi
@@ -409,8 +417,9 @@ while true ; do
     break
   fi
   # no! prepare to repeat loop
-  mv ${tmpprefix}.missnp ${varblacklist}
+  sort -u ${tmpprefix}.missnp > ${varblacklist}
   echo "repeating merging attempt.."
+  rm ${tmpprefix}.missnp
 done
 
 # pre-process sex chromosomes variants
