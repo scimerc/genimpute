@@ -139,7 +139,8 @@ if ( parameters$missfile != '' && parameters$hetfile != '' ) {
         abline( a=meanhetrate + 5*sdhetrate, b=0, col='red', lty=2 )
         abline( a=meanhetrate - 5*sdhetrate, b=0, col='red', lty=2 )
         abline( v=missratethresh, col='red', lty=2 )
-        missratevec = seq( -0.1, 0.2, 0.001 )
+        abline( v=0, col='gray', lty=2 )
+        missratevec = seq( 0.0, 0.2, 0.001 )
         lines( missratevec, meanhetrate - 2*sqrt( 0.2^2 - missratevec^2 ), col='blue', lty=2 )
         lines( missratevec, meanhetrate + 2*sqrt( 0.2^2 - missratevec^2 ), col='blue', lty=2 )
         myset = hetrate <= meanhetrate + 5*sdhetrate & hetrate >= meanhetrate - 5*sdhetrate |

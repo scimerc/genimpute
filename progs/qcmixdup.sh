@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
+trap 'printf "=== error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
@@ -66,14 +66,16 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   plink --bfile ${opt_hqprefix} --set-hh-missing --het     --out ${tmpprefix}_sq >> ${debuglogfn}
   plink --bfile ${opt_hqprefix} --set-hh-missing --missing --out ${tmpprefix}_sq >> ${debuglogfn}
   ${BASEDIR}/progs/het_vs_miss.Rscript -m ${tmpprefix}_sq.imiss -h ${tmpprefix}_sq.het \
-    -o ${tmpprefix} >> ${debuglogfn}
-  [ -s "${tmpprefix}.clean.id" ] || {
-    printf "error: file '%s' empty or not found.\n" ${tmpprefix}.clean.id >&2;
+    -o ${tmpprefix}_out >> ${debuglogfn}
+  mv ${tmpprefix}_out_hetVSmiss.pdf ${opt_outprefix}_hetVSmiss.pdf
+  mv ${tmpprefix}_out_hetVSmiss.log ${opt_outprefix}_hetVSmiss.log
+  [ -s "${tmpprefix}_out.clean.id" ] || {
+    printf "error: file '%s' empty or not found.\n" ${tmpprefix}_out.clean.id >&2;
     exit 1;
   }
   # update biography file with potential mixup information
   {
-    cut -f 3 ${tmpprefix}.clean.id \
+    cut -f 3 ${tmpprefix}_out.clean.id \
       | sort -u \
       | join -t $'\t' -v1 ${opt_biofile} - \
       | awk -F $'\t' '{
@@ -81,7 +83,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
         if ( NR == 1 ) print( $0, "MIXUP" )
         else print( $0, "PROBLEM" )
       }'
-    cut -f 3 ${tmpprefix}.clean.id \
+    cut -f 3 ${tmpprefix}_out.clean.id \
       | sort -u \
       | join -t $'\t'     ${opt_biofile} - \
       | awk -F $'\t' '{
@@ -91,7 +93,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.2.bio
   cp ${tmpprefix}.2.bio ${opt_biofile}
   # include non-mixup info later 
-  plinkflag="--keep ${tmpprefix}.clean.id"
+  plinkflag="--keep ${tmpprefix}_out.clean.id"
 fi
 
 # identify duplicate individuals
@@ -191,9 +193,9 @@ plink --bfile ${opt_inprefix} \
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 
-mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
-mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
+mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
+mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 
 rm ${tmpprefix}*
 

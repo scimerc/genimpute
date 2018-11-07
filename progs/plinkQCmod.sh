@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
+trap 'printf "=== error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 #-------------------------------------------------------------------------------
 
@@ -157,8 +157,8 @@ BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
 export opt_inprefix=${opt_outprefixbase}_a_align
 export opt_outprefix=${opt_outprefixbase}_a_hqset
 
-# call gethqset
-bash ${BASEDIR}/progs/qcgethqset.sh
+# call hqset
+bash ${BASEDIR}/progs/qchqset.sh
 
 #---------------------------------------------------------------------------------------------------
 
@@ -219,8 +219,8 @@ bash ${BASEDIR}/progs/qcfinal.sh
 export opt_inprefix=${opt_outprefixbase}_e_finqc
 export opt_outprefix=${opt_outprefixbase}_e_hqset
 
-# call gethqset
-bash ${BASEDIR}/progs/qcgethqset.sh
+# call hqset
+bash ${BASEDIR}/progs/qchqset.sh
 
 #---------------------------------------------------------------------------------------------------
 

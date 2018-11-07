@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "error in line %s\n" ${LINENO}; exit;' ERR
+trap 'printf "=== error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
@@ -57,9 +57,10 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.bio
 cp ${tmpprefix}.bio ${opt_biofile}
 
-mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
-mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
+mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
+mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
+mv ${tmpprefix}_out.log ${opt_outprefix}.log
 
 rm ${tmpprefix}*
 
