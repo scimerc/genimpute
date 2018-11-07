@@ -13,7 +13,7 @@ export BASEDIR
 
 source ${BASEDIR}/progs/cfgmgr.sh
 
-cfgvar_init_from_file ${BASEDIR}/progs/config.default
+cfgvar_init_from_file ${BASEDIR}/progs/qcconfig.def
 
 #---------------------------------------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ OPTIONS:
 
 CONFIGURATION:
   the <config file> may contain custom definitions for a number of variables.
-  [see default configuration file '${BASEDIR}/progs/config.default' for more information]
+  [see default configuration file '${BASEDIR}/progs/qconfig.def' for more information]
 
 EOF
 exit 0
@@ -135,7 +135,7 @@ export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
 export opt_outprefix=${opt_outprefixbase}_a_align
 
 # call align
-bash ${BASEDIR}/progs/align.sh
+bash ${BASEDIR}/progs/qcalign.sh
 
 #---------------------------------------------------------------------------------------------------
 
@@ -158,7 +158,7 @@ export opt_inprefix=${opt_outprefixbase}_a_align
 export opt_outprefix=${opt_outprefixbase}_a_hqset
 
 # call gethqset
-bash ${BASEDIR}/progs/gethqset.sh
+bash ${BASEDIR}/progs/qcgethqset.sh
 
 #---------------------------------------------------------------------------------------------------
 
@@ -170,8 +170,8 @@ export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_b_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
-# call iddupmix.sh
-bash ${BASEDIR}/progs/iddupmix.sh
+# call mixdup
+bash ${BASEDIR}/progs/qcmixdup.sh
 
 #---------------------------------------------------------------------------------------------------
 
@@ -182,7 +182,7 @@ export opt_inprefix=${opt_outprefixbase}_b_clean
 export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_c_varqc
 
-# call qcvar.sh
+# call qcvar
 bash ${BASEDIR}/progs/qcvar.sh
 
 #---------------------------------------------------------------------------------------------------
@@ -195,7 +195,7 @@ export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_d_indqc
 export opt_biofile=${opt_outprefixbase}.bio
 
-# call qcind.sh
+# call qcind
 bash ${BASEDIR}/progs/qcind.sh
 
 #---------------------------------------------------------------------------------------------------
@@ -208,7 +208,7 @@ export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_e_finqc
 export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
 
-# call qcfinal.sh
+# call qcfinal
 bash ${BASEDIR}/progs/qcfinal.sh
 
 #---------------------------------------------------------------------------------------------------
@@ -219,8 +219,8 @@ bash ${BASEDIR}/progs/qcfinal.sh
 export opt_inprefix=${opt_outprefixbase}_e_finqc
 export opt_outprefix=${opt_outprefixbase}_e_hqset
 
-# call gethqset.sh
-bash ${BASEDIR}/progs/gethqset.sh
+# call gethqset
+bash ${BASEDIR}/progs/qcgethqset.sh
 
 #---------------------------------------------------------------------------------------------------
 
@@ -230,8 +230,8 @@ bash ${BASEDIR}/progs/gethqset.sh
 export opt_hqprefix=${opt_outprefixbase}_e_hqset
 export opt_biofile=${opt_outprefixbase}.bio
 
-# call getpcs.sh
-bash ${BASEDIR}/progs/getpcs.sh
+# call getpcs
+bash ${BASEDIR}/progs/qcgetpcs.sh
 
 #---------------------------------------------------------------------------------------------------
 
