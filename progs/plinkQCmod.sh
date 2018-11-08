@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "=== error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
+trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 #-------------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "=== error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
+trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
@@ -83,5 +83,5 @@ mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 mv ${tmpprefix}_out.log ${opt_outprefix}.log
 
-rm ${tmpprefix}*
+# rm ${tmpprefix}*
 
