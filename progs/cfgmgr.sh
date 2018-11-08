@@ -14,7 +14,7 @@ cfgvar_get() {
     return 1
   fi
   # increase read counter
-  local -r rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
+  local -r rcvar=${_CFGVAR_PREFIX_RCOUNT_}${name}
   export $rcvar=$((rcvar + 1))
 }
 export -f cfgvar_get
@@ -122,7 +122,7 @@ export -f cfgvar_update_from_file
 cfgvar_cleanup() {
   # check read counters XXX: disabled
   #for name in $( _cfgvar_list_names ) ; do
-  #  rcvar=${_CFGVAR_PREFIX_RCOUNT}${name}
+  #  rcvar=${_CFGVAR_PREFIX_RCOUNT_}${name}
   #  if [ ${!rcvar} -eq 0 ] ; then
   #    printf "warning: unused variable '%s'\n" ${name} >&2
   #  fi
