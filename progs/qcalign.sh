@@ -134,9 +134,13 @@ if [ $opt_minivarset -eq 1 ] ; then
     sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_ex.bim
     if [ -s "${tmpprefix}_ex.bim" ] ; then
       if [ $i -eq 0 ] ; then
-        bimtogprs ${tmpprefix}_ex.bim > ${tmpprefix}_ex.0.gprs
+        bimtogprs ${tmpprefix}_ex.bim \
+          | sort -t $'\t' -u -k 1,1 \
+          > ${tmpprefix}_ex.0.gprs
       else
         join -t $'\t' ${tmpprefix}_ex.1.gprs <( bimtogprs ${tmpprefix}_ex.bim ) \
+          | cut -f 1,2 \
+          | sort -t $'\t' -u -k 1,1 \
           > ${tmpprefix}_ex.0.gprs
       fi
       mv ${tmpprefix}_ex.0.gprs ${tmpprefix}_ex.1.gprs
@@ -167,6 +171,7 @@ for i in ${!batchfiles[@]} ; do
   declare flagformat='--bfile'
   declare plinkinputfn=${batchfiles[$i]}
   declare plinkoutputfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_filtered
+  declare plinktmpfn=${tmpprefix}_$( get_unique_filename_from_path ${batchfiles[$i]} )_unfiltered
   case "$( get_genotype_file_format "${batchfiles[$i]}" )" in
     "bed" )
       flagformat='--bfile'
@@ -198,17 +203,27 @@ for i in ${!batchfiles[@]} ; do
       "${plinkoutputfn}.bed" >&2
     exit 1
   fi
-  plink $flagformat ${plinkinputfn} ${bedflag} \
+  plink $flagformat ${plinkinputfn} \
     --make-bed \
-    --out ${plinkoutputfn} \
+    --out ${plinktmpfn} \
     >> ${debuglogfn}
+  if [ -z "${bedflag}" ] ; then
+    plink $flagformat ${plinktmpfn} ${bedflag} \
+      --make-bed \
+      --out ${plinkoutputfn} \
+      >> ${debuglogfn}
+  else
+    mv ${plinktmpfn}.bed ${plinkoutputfn}.bed
+    mv ${plinktmpfn}.bim ${plinkoutputfn}.bim
+    mv ${plinktmpfn}.fam ${plinkoutputfn}.fam
+  fi
   awk '{ print( $2, $1, $3, $4 ); }' ${plinkoutputfn}.bim \
-    | sort -k 1,1 > ${plinkinputfn}.gp
-  get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gp \
-    | cut -d ' ' -f 1 > ${plinkinputfn}.coloc.mrk
+    | sort -k 1,1 > ${plinktmpfn}.gp
+  get_variant_info_for_dup_chr_cm_bpa ${plinktmpfn}.gp \
+    | cut -d ' ' -f 1 | sort -u > ${plinktmpfn}.coloc.mrk
   touch ${plinkoutputfn}.tped ${plinkoutputfn}.tfam
-  if [ -s "${plinkinputfn}.coloc.mrk" ] ; then
-    pedflag="${pedflag} --extract ${plinkinputfn}.coloc.mrk"
+  if [ -s "${plinktmpfn}.coloc.mrk" ] ; then
+    pedflag="${pedflag} --extract ${plinktmpfn}.coloc.mrk"
     plink $flagformat ${plinkinputfn} ${pedflag} \
       --recode transpose \
       --out ${plinkoutputfn} \
@@ -254,8 +269,8 @@ for i in ${!batchfiles[@]} ; do
   sort -t ' ' -u -k 1,1 -k 4 ${plinkinputfn}.tped \
     | get_variant_info_from_tped \
     | sort -t ' ' -k 1,1 \
-    > ${plinkinputfn}.gp
-  get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gp \
+    > ${plinktmpfn}.gp
+  get_variant_info_for_dup_chr_cm_bpa ${plinktmpfn}.gp \
     | cut -d ' ' -f 1 \
     | uniq \
     > ${batchblacklist} # format: rs
@@ -266,10 +281,10 @@ for i in ${!batchfiles[@]} ; do
   sort -t ' ' -k 2,2 ${plinkinputfn}.tped \
     | get_variant_info_from_tped \
     | join -t ' ' -v1 - ${batchblacklist} \
-    > ${plinkinputfn}.gpz
+    > ${plinktmpfn}.gpz
   # get variant with highest cm from each set of duplicates [sort -k 3,3 | sort -u]
   # get their rsnumbers [cut | sort -u]
-  get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gpz \
+  get_variant_info_for_dup_chr_cm_bpa ${plinktmpfn}.gpz \
     | sort -t ' ' -k 3,3r \
     | sort -t ' ' -u -k 2,2 -k 4,4 \
     | cut -d ' ' -f 1 \
@@ -279,7 +294,7 @@ for i in ${!batchfiles[@]} ; do
   # add rsnumbers of non-retained duplicated variants to blacklist [join -v1]
   # (count them in the process)
   declare bl_size_old="$( wc -l ${batchblacklist} | cut -d " " -f 1 )"
-  get_variant_info_for_dup_chr_cm_bpa ${plinkinputfn}.gpz \
+  get_variant_info_for_dup_chr_cm_bpa ${plinktmpfn}.gpz \
     | join -t ' ' -v1 - ${tmpvardups} \
     >> ${batchblacklist} 
   declare bl_size_new="$( wc -l ${batchblacklist} | cut -d " " -f 1 )"
