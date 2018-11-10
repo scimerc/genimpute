@@ -37,7 +37,8 @@ phenotypes=''
 # pihat threshold for establishing identity between idividuals
 pihat=0.9
 
-# variant alleles reference file
+# variant alleles reference file (leave empty if no alignment is required)
+# NOTE: make sure that the sex chromosomes are compatibly encoded
 refallelesfn=''
 
 # maximum missingness for an individual
