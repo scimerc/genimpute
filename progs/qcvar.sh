@@ -52,8 +52,8 @@ awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fa
 if [ -s "${opt_hqprefix}.nosex" ] ; then
   nosex_flag="--remove ${opt_hqprefix}.nosex"
 fi
-sex_hweneglogp=$(( cfg_hweneglogp/2 ))
-if [ $sex_hweneglogp -lt 12 ] ; then
+sex_hweneglogp=$(( cfg_hweneglogp*2 ))
+if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
 plink --bfile ${opt_inprefix} ${nosex_flag} \
@@ -83,5 +83,5 @@ mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 mv ${tmpprefix}_out.log ${opt_outprefix}.log
 
-# rm ${tmpprefix}*
+rm ${tmpprefix}*
 
