@@ -142,9 +142,15 @@ export opt_outprefix=${opt_outprefixbase}_a_align
 # call align
 bash ${BASEDIR}/progs/qcalign.sh
 
+# cleanup
+unset opt_batchoutprefix
+unset opt_outprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # biography
+
+export opt_outprefix=${opt_outprefixbase}_a_align
 
 # initialize sample biography file
 declare -r cfg_uid="$( cfgvar_get uid )"
@@ -153,6 +159,9 @@ BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
 ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio
 
 # ...
+
+# cleanup
+unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
@@ -164,6 +173,10 @@ export opt_outprefix=${opt_outprefixbase}_a_hqset
 
 # call hqset
 bash ${BASEDIR}/progs/qchqset.sh
+
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
@@ -190,6 +203,11 @@ export opt_outprefix=${opt_outprefixbase}_c_varqc
 # call qcvar
 bash ${BASEDIR}/progs/qcvar.sh
 
+# cleanup
+unset opt_inprefix
+unset opt_hqprefix
+unset opt_outprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # perform standard individual-level QC
@@ -202,6 +220,12 @@ export opt_biofile=${opt_outprefixbase}.bio
 
 # call qcind
 bash ${BASEDIR}/progs/qcind.sh
+
+# cleanup
+unset opt_inprefix
+unset opt_hqprefix
+unset opt_outprefix
+unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
@@ -216,6 +240,12 @@ export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
 # call qcfinal
 bash ${BASEDIR}/progs/qcfinal.sh
 
+# cleanup
+unset opt_inprefix
+unset opt_hqprefix
+unset opt_outprefix
+unset opt_batchoutprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # get high quality set
@@ -227,6 +257,10 @@ export opt_outprefix=${opt_outprefixbase}_e_hqset
 # call hqset
 bash ${BASEDIR}/progs/qchqset.sh
 
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # compute genetic PCs
@@ -237,6 +271,10 @@ export opt_biofile=${opt_outprefixbase}.bio
 
 # call getpcs
 bash ${BASEDIR}/progs/qcgetpcs.sh
+
+# cleanup
+unset opt_hqprefix
+unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
