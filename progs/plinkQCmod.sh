@@ -45,7 +45,6 @@ CONFIGURATION:
   [see default configuration file '${BASEDIR}/progs/qconfig.def' for more information]
 
 EOF
-exit 0
 }
 
 while getopts "c:mo:w:h" opt; do
@@ -62,8 +61,13 @@ case "${opt}" in
   w)
     opt_samplewhitelist="${OPTARG}"
     ;;
+  h)
+    usage
+    exit 0
+    ;;
   *)
     usage
+    exit 1
     ;;
 esac
 done
@@ -78,6 +82,7 @@ EOF
 if [ -z "${opt_inputfiles}" ] ; then
   echo -e "\nyou may have neglected to provide any input genotype files."
   usage
+  exit 1
 fi
 
 #---------------------------------------------------------------------------------------------------
@@ -107,19 +112,19 @@ echo -e "\n=====================================================================
 locale
 echo
 
-awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 0; }
+awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 1; }
 echo
-join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 0; }
+join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 1; }
 echo
 plink --version 2> /dev/null || {
   echo 'plink is not installed.';
   echo "plink is required by $( basename $0 ). plink source codes and builds can be found at"
   echo "www.cog-genomics.org. note that some of the functionalities needed by $( basename $0 )"
   echo "were not implemented in plink2 at the time of writing."
-  exit 0
+  exit 1
 }
 echo
-R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 0; }
+R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 1; }
 
 echo -e "================================================================================\n"
 
