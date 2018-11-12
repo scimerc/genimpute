@@ -45,7 +45,6 @@ CONFIGURATION:
   [see default configuration file '${BASEDIR}/progs/qconfig.def' for more information]
 
 EOF
-exit 0
 }
 
 while getopts "c:mo:w:h" opt; do
@@ -62,8 +61,13 @@ case "${opt}" in
   w)
     opt_samplewhitelist="${OPTARG}"
     ;;
+  h)
+    usage
+    exit 0
+    ;;
   *)
     usage
+    exit 1
     ;;
 esac
 done
@@ -78,6 +82,7 @@ EOF
 if [ -z "${opt_inputfiles}" ] ; then
   echo -e "\nyou may have neglected to provide any input genotype files."
   usage
+  exit 1
 fi
 
 #---------------------------------------------------------------------------------------------------
@@ -107,19 +112,19 @@ echo -e "\n=====================================================================
 locale
 echo
 
-awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 0; }
+awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 1; }
 echo
-join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 0; }
+join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 1; }
 echo
 plink --version 2> /dev/null || {
   echo 'plink is not installed.';
   echo "plink is required by $( basename $0 ). plink source codes and builds can be found at"
   echo "www.cog-genomics.org. note that some of the functionalities needed by $( basename $0 )"
   echo "were not implemented in plink2 at the time of writing."
-  exit 0
+  exit 1
 }
 echo
-R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 0; }
+R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 1; }
 
 echo -e "================================================================================\n"
 
@@ -137,9 +142,15 @@ export opt_outprefix=${opt_outprefixbase}_a_align
 # call align
 bash ${BASEDIR}/progs/qcalign.sh
 
+# cleanup
+unset opt_batchoutprefix
+unset opt_outprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # biography
+
+export opt_outprefix=${opt_outprefixbase}_a_align
 
 # initialize sample biography file
 declare -r cfg_uid="$( cfgvar_get uid )"
@@ -148,6 +159,9 @@ BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
 ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio
 
 # ...
+
+# cleanup
+unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
@@ -159,6 +173,10 @@ export opt_outprefix=${opt_outprefixbase}_a_hqset
 
 # call hqset
 bash ${BASEDIR}/progs/qchqset.sh
+
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
@@ -185,6 +203,11 @@ export opt_outprefix=${opt_outprefixbase}_c_varqc
 # call qcvar
 bash ${BASEDIR}/progs/qcvar.sh
 
+# cleanup
+unset opt_inprefix
+unset opt_hqprefix
+unset opt_outprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # perform standard individual-level QC
@@ -197,6 +220,12 @@ export opt_biofile=${opt_outprefixbase}.bio
 
 # call qcind
 bash ${BASEDIR}/progs/qcind.sh
+
+# cleanup
+unset opt_inprefix
+unset opt_hqprefix
+unset opt_outprefix
+unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
@@ -211,6 +240,12 @@ export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
 # call qcfinal
 bash ${BASEDIR}/progs/qcfinal.sh
 
+# cleanup
+unset opt_inprefix
+unset opt_hqprefix
+unset opt_outprefix
+unset opt_batchoutprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # get high quality set
@@ -222,6 +257,10 @@ export opt_outprefix=${opt_outprefixbase}_e_hqset
 # call hqset
 bash ${BASEDIR}/progs/qchqset.sh
 
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
+
 #---------------------------------------------------------------------------------------------------
 
 # compute genetic PCs
@@ -232,6 +271,10 @@ export opt_biofile=${opt_outprefixbase}.bio
 
 # call getpcs
 bash ${BASEDIR}/progs/qcgetpcs.sh
+
+# cleanup
+unset opt_hqprefix
+unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
