@@ -119,7 +119,7 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
 
     # if there are enough X chromosome variants after HWE re-impute sex based on them
     if [ $( get_xvar_count ${tmpprefix}_sexhwe.bim ) -gt $cfg_minvarcount ] ; then
-      plink --bfile ${tmpprefix}_out \
+      plink --bfile ${tmpprefix}_hq_LDpruned \
             --extract <( cut -f 2 ${tmpprefix}_sexhwe.bim ) \
             --impute-sex \
             --make-bed \
