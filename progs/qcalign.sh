@@ -247,7 +247,11 @@ for i in ${!batchfiles[@]} ; do
   awk '{ print( $2, $1, 0, $4 ); }' ${plinkoutputfn}.bim \
     | sort -k 1,1 > ${plinktmpfn}.gp
   get_variant_info_for_dup_chr_cm_bp_aa ${plinktmpfn}.gp \
-    | awk '{ OFS="\t"; print( $2, $4-1, $4, $1 ) }' \
+    | awk '{
+        OFS="\t"
+        pos0=$4>0?($4-1):0
+        print( $2, pos0, $4, $1 )
+      }' \
     | sort -u \
     > ${plinktmpfn}.coloc.rng
   if [ -s "${plinktmpfn}.coloc.rng" ] ; then
