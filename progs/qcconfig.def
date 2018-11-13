@@ -1,6 +1,9 @@
 # default configuration parameters
 
 
+# fdr for batch effect calls
+bfdr=0.5
+
 # minimum minor allele frequency for high quality sets
 freqhq=0.2
 

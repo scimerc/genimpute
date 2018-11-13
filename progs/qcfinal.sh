@@ -7,6 +7,7 @@ declare -r  tmpprefix=${opt_outprefix}_tmp
 declare -r  debuglogfn=${tmpprefix}_debug.log
 declare -ra batchfamfiles=( $( ls ${opt_batchoutprefix}*.fam ) )
 
+declare -r cfg_bfdr=$( cfgvar_get bfdr )
 declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
 declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
@@ -26,6 +27,10 @@ fi
 #         - more stringent control Hardy-Weinberg equilibrium
 #         - no control batch effects
 
+
+cp ${opt_inprefix}.bed ${tmpprefix}_out.bed
+cp ${opt_inprefix}.bim ${tmpprefix}_out.bim
+cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
 
 # if there are any annotated controls in the original file use those
 cut -f 1,2,6 ${opt_inprefix}.fam | sed -r 's/[ \t]+/\t/g' | sort -u > ${tmpprefix}_ctrl.txt
@@ -78,26 +83,24 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   # list the variants passing stricter Hardy-Weiberg equilibrium tests on controls
   cut -f 2 ${tmpprefix}_ctrlhwe_*sex.bim | sort -u > ${tmpprefix}_ctrlhwe.mrk
   plinkflag="--extract ${tmpprefix}_ctrlhwe.mrk"
+  # make a new plink set with eventual filters
+  plink --bfile ${opt_inprefix} ${plinkflag} \
+    --make-bed \
+    --out ${tmpprefix}_ctrlhwe \
+    >> ${debuglogfn}
+  # make a copy of the files with output suffix
+  mv ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.bed
+  mv ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
+  mv ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
 fi
-
-# make a new plink set with eventual filters
-plink --bfile ${opt_inprefix} ${plinkflag} \
-  --make-bed \
-  --out ${tmpprefix}_ctrlhwe \
-  >> ${debuglogfn}
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_ctrlhwe.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_ctrlhwe.fam
-
-# make a copy of the files with output suffix
-cp ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.bed
-cp ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
-cp ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 
 if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   > ${tmpprefix}.exclude
   for i in ${!batchfamfiles[@]} ; do
     echo "assessing batch effects for '${batchfamfiles[$i]}'.."
-    plink --bfile ${opt_inprefix} \
+    plink --bfile ${tmpprefix}_out \
           --keep ${tmpprefix}_ctrl.txt \
           --make-pheno ${batchfamfiles[$i]} '*' \
           --model \
@@ -110,7 +113,7 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
         awk -F $'\t' -v atest=${atest} 'NR > 1 && $5 == atest' ${tmpprefix}_plink.model \
           | cut -f 2,10 \
           | ${BASEDIR}/progs/fdr.Rscript \
-          | awk -F $'\t' '$2 < 0.9' \
+          | awk -v bfdr=${cfg_bfdr} -F $'\t' '$2 < bfdr' \
           | cut -f 1 \
           >> ${tmpprefix}.exclude
       done
@@ -118,14 +121,18 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   done
   sort -u ${tmpprefix}.exclude > ${tmpprefix}.exclude.sort
   mv ${tmpprefix}.exclude.sort ${tmpprefix}.exclude
-  plink --bfile ${tmpprefix}_ctrlhwe \
+  plink --bfile ${tmpprefix}_out \
         --exclude ${tmpprefix}.exclude \
         --make-bed \
-        --out ${tmpprefix}_out \
+        --out ${tmpprefix}_outz \
         >> ${debuglogfn}
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+  mv ${tmpprefix}_outz.bed ${tmpprefix}_out.bed
+  mv ${tmpprefix}_outz.bim ${tmpprefix}_out.bim
+  mv ${tmpprefix}_outz.fam ${tmpprefix}_out.fam
 fi
+
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 
 mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
 mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
@@ -137,7 +144,6 @@ awk '{
     gsub( "[/+-]", "_", $k )
   print
 }' ${tmpprefix}_out.fam > ${opt_outprefix}.fam
-mv ${tmpprefix}_out.log ${opt_outprefix}.log
 
 rm ${tmpprefix}*
 
