@@ -13,7 +13,7 @@ export BASEDIR
 
 source ${BASEDIR}/progs/cfgmgr.sh
 
-cfgvar_init_from_file ${BASEDIR}/progs/qcconfig.def
+cfgvar_init_from_file ${BASEDIR}/progs/cfgqc.default
 
 #---------------------------------------------------------------------------------------------------
 
