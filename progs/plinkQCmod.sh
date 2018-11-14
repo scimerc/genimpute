@@ -140,7 +140,7 @@ export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
 export opt_outprefix=${opt_outprefixbase}_a_align
 
 # call align
-bash ${BASEDIR}/progs/qcalign.sh
+bash ${BASEDIR}/progs/qc-align.sh
 
 # cleanup
 unset opt_batchoutprefix
@@ -172,7 +172,7 @@ export opt_inprefix=${opt_outprefixbase}_a_align
 export opt_outprefix=${opt_outprefixbase}_a_hqset
 
 # call hqset
-bash ${BASEDIR}/progs/qchqset.sh
+bash ${BASEDIR}/progs/qc-hqset.sh
 
 # cleanup
 unset opt_inprefix
@@ -189,7 +189,7 @@ export opt_outprefix=${opt_outprefixbase}_b_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call mixdup
-bash ${BASEDIR}/progs/qcmixdup.sh
+bash ${BASEDIR}/progs/qc-mixdup.sh
 
 #---------------------------------------------------------------------------------------------------
 
@@ -201,7 +201,7 @@ export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_c_varqc
 
 # call qcvar
-bash ${BASEDIR}/progs/qcvar.sh
+bash ${BASEDIR}/progs/qc-var.sh
 
 # cleanup
 unset opt_inprefix
@@ -219,7 +219,7 @@ export opt_outprefix=${opt_outprefixbase}_d_indqc
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call qcind
-bash ${BASEDIR}/progs/qcind.sh
+bash ${BASEDIR}/progs/qc-ind.sh
 
 # cleanup
 unset opt_inprefix
@@ -238,7 +238,7 @@ export opt_outprefix=${opt_outprefixbase}_e_finqc
 export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
 
 # call qcfinal
-bash ${BASEDIR}/progs/qcfinal.sh
+bash ${BASEDIR}/progs/qc-final.sh
 
 # cleanup
 unset opt_inprefix
@@ -255,7 +255,7 @@ export opt_inprefix=${opt_outprefixbase}_e_finqc
 export opt_outprefix=${opt_outprefixbase}_e_hqset
 
 # call hqset
-bash ${BASEDIR}/progs/qchqset.sh
+bash ${BASEDIR}/progs/qc-hqset.sh
 
 # cleanup
 unset opt_inprefix
@@ -270,7 +270,7 @@ export opt_hqprefix=${opt_outprefixbase}_e_hqset
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call getpcs
-bash ${BASEDIR}/progs/qcgetpcs.sh
+bash ${BASEDIR}/progs/qc-getpcs.sh
 
 # cleanup
 unset opt_hqprefix
