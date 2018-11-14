@@ -23,7 +23,7 @@ fi
 
 #-------------------------------------------------------------------------------
 
-get_genotype_file_format()  {
+get_genotype_file_format() {
   local -r inputfile=$1
   #TODO implement plink2 native .gen format
   local -r bedhex='0x6c 0x1b'
@@ -208,8 +208,8 @@ for i in ${!batchfiles[@]} ; do
       ;;
   esac
   # use whitelist if existing
-  if [ ! -z "${cfg_samplewhitelist}" ] ; then
-    flagextract="--keep ${cfg_samplewhitelist}"
+  if [ ! -z "${opt_samplewhitelist}" ] ; then
+    flagextract="--keep ${opt_samplewhitelist}"
   fi
   declare bedflag="${flagextract}"
   declare pedflag="${flagextract}"

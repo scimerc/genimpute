@@ -130,6 +130,12 @@ echo -e "=======================================================================
 
 #---------------------------------------------------------------------------------------------------
 
+# source utility functions
+
+source ${BASEDIR}/progs/qc-tools.sh
+
+#---------------------------------------------------------------------------------------------------
+
 # alignment
 
 # export vars
@@ -140,11 +146,18 @@ export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
 export opt_outprefix=${opt_outprefixbase}_a_align
 
 #TODO? compute whitelist separately?
+# # whitelist of variants
+# # export opt_varwhitelist=${opt_outprefix}.wlist
+# # call wlist?
 # if [ $opt_minivarset -eq 1 ] ; then
-#   # whitelist of variants
-#   export opt_varwhitelist=${opt_outprefix}.wlist
 #   # intersect batch variant sets to generate the whitelist
+#   bash ${BASEDIR}/progs/qc-wlist.sh
 # fi
+
+#TODO? resolve intra-batch conflicts separately?
+# # export opt_varwhitelist=${opt_outprefix}.wlist
+# # call recon
+# bash ${BASEDIR}/progs/qc-recon.sh
 
 # call align
 bash ${BASEDIR}/progs/qc-align.sh
