@@ -7,13 +7,10 @@ declare -r  tmpprefix=${opt_outprefix}_tmp
 declare -r  debuglogfn=${tmpprefix}_debug.log
 declare -ra batchfiles=( ${opt_inputfiles} )
 
-declare -r cfg_genomebuild="$( cfgvar_get genomebuild )"
-declare -r cfg_refallelesfn="$( cfgvar_get refallelesfn )"
-
 #-------------------------------------------------------------------------------
 
-if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "skipping final QC step..\n"
+if [ -f "${opt_varwhitelist}" ] ; then
+  printf "variant white list found. skipping compilation..\n"
   exit 0
 fi
 
@@ -21,6 +18,18 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
   printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
   exit 1
 fi
+
+#-------------------------------------------------------------------------------
+
+# in: tab-separated plink bim; stdout: chr:bp, rs
+bimtogprs() {
+  local -r inputfile="$1"
+  awk -F $'\t' '{
+    OFS="\t"
+    print( $1":"$4, $2 )
+  }' ${inputfile} \
+  | sort -u -k 1,1
+}
 
 #-------------------------------------------------------------------------------
 
@@ -70,4 +79,6 @@ for i in ${!batchfiles[@]} ; do
   }' ${tmpprefix}_ex.1.gprs > ${opt_varwhitelist}
   unset plinkflag
 done
+
+# rm ${tmpprefix}*
 

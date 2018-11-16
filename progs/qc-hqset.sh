@@ -22,7 +22,7 @@ fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
   printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
-  exit 1
+  exit 1 
 fi
 
 # input: merged plink set

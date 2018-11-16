@@ -24,24 +24,6 @@ fi
 # output: clean plink set (with imputed sex from hq set, no duplicates and no mixups)
 
 
-tabulate() {
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
-}
-
-paste_sample_ids() {
-  local -r infile="$1"
-  tabulate < "${infile}" \
-    | awk -F $'\t' -v uid=${cfg_uid} '{
-        OFS="\t"
-        if ( NR>1 ) uid=$1"_"$2
-        printf( "%s", uid )
-        for ( k=3; k<=NF; k++ )
-          printf( "\t%s", $k )
-        printf( "\n" )
-      }' \
-    | sort -t $'\t' -u -k 1,1
-}
-
 # update biography file with sex information
 {
   paste_sample_ids ${opt_hqprefix}.sexcheck \

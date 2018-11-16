@@ -44,19 +44,65 @@ export -f get_unique_filename_from_path
 
 #-------------------------------------------------------------------------------
 
+# in: (rs, chr, cm, bp[, a[, m]]) sorted on rs; stdout: same
+# get unique chr,cm,bp[,a[,m]] entries [sort|uniq]
+# sort on rsnumbers corresponding to unique entries
+# get complementary set of entries (duplicated vars) [join -v1]
+get_variant_info_for_dup_chr_cm_bp_aa_mm() {
+  local -r inputfile="$1"
+  sort -k 2 ${inputfile} \
+    | uniq -u -f 1 \
+    | sort -t ' ' -k 1,1 \
+    | join -t ' ' -v1 ${inputfile} -
+}
+
+export -f get_variant_info_for_dup_chr_cm_bp_aa_mm
+
+#-------------------------------------------------------------------------------
+
 # in: tab-separated plink bim; out: same
 make_variant_names_universal_in_bim_file() {
   local -r fn=$1
   awk -F $'\t' '{
-    OFS="\t";
-    a[1] = $5; a[2] = $6; asort(a);
-    $2 = $1":"$4"_"a[1]"_"a[2];
+    OFS="\t"
+    a[1] = $5; a[2] = $6; asort(a)
+    $2 = $1":"$4"_"a[1]"_"a[2]
+    if ( $2 in catalog ) {
+      catalog[$2]++
+      $2 = $2"_"catalog[$2]
+    } else catalog[$2] = 1
     print;
   }' ${fn} > ${fn}.tmp
   mv ${fn}.tmp ${fn}
 }
 
 export -f make_variant_names_universal_in_bim_file
+
+#-------------------------------------------------------------------------------
+
+paste_sample_ids() {
+  local -r infile="$1"
+  tabulate < "${infile}" \
+    | awk -F $'\t' -v uid=${cfg_uid} '{
+        OFS="\t"
+        if ( NR>1 ) uid=$1"_"$2
+        printf( "%s", uid )
+        for ( k=3; k<=NF; k++ )
+          printf( "\t%s", $k )
+        printf( "\n" )
+      }' \
+    | sort -t $'\t' -u -k 1,1
+}
+
+export -f paste_sample_ids
+
+#-------------------------------------------------------------------------------
+
+tabulate() {
+  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
+}
+
+export -f tabulate
 
 #-------------------------------------------------------------------------------
 

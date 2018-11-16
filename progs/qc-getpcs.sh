@@ -17,7 +17,10 @@ fi
 # output: gzipped GRM and a matrix of eigenvector weights
 
 
-plink --bfile ${opt_hqprefix} --genome gz --out ${opt_hqprefix} >> ${debuglogfn}
+plink --bfile ${opt_hqprefix} \
+      --genome gz \
+      --out ${opt_hqprefix} \
+      >> ${debuglogfn} \
 
 plink --bfile ${opt_hqprefix} \
       --cluster \
@@ -25,24 +28,6 @@ plink --bfile ${opt_hqprefix} \
       --pca header tabs var-wts \
       --out ${opt_hqprefix} \
       >> ${debuglogfn}
-
-tabulate() {
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
-}
-
-paste_sample_ids() {
-  local -r infile="$1"
-  tabulate < "${infile}" \
-    | awk -F $'\t' -v uid=${cfg_uid} '{
-        OFS="\t"
-        if ( NR>1 ) uid=$1"_"$2
-        printf( "%s", uid )
-        for ( k=3; k<=NF; k++ )
-          printf( "\t%s", $k )
-        printf( "\n" )
-      }' \
-    | sort -t $'\t' -u -k 1,1
-}
 
 # update biography file with genetic PCs
 {

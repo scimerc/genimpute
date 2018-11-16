@@ -136,41 +136,55 @@ source ${BASEDIR}/progs/qc-tools.sh
 
 #---------------------------------------------------------------------------------------------------
 
-# alignment
+# pre-processing
 
 # export vars
 export opt_inputfiles
 export opt_minivarset
 export opt_samplewhitelist
-export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
+export opt_varwhitelist=${opt_outprefixbase}_a_vwlist.mrk
+export opt_outprefix=${opt_outprefixbase}_a_intsec
+
+# call wlist?
+if [ $opt_minivarset -eq 1 ] ; then
+  # intersect batch variant sets to generate the minimal variant whitelist
+  bash ${BASEDIR}/progs/qc-wlist.sh
+fi
+
+#---------------------------------------------------------------------------------------------------
+
+export opt_outprefix=${opt_outprefixbase}_a_recon
+
+# call recon
+bash ${BASEDIR}/progs/qc-recon.sh
+
+#---------------------------------------------------------------------------------------------------
+
+export opt_inprefix=${opt_outprefixbase}_a_recon
 export opt_outprefix=${opt_outprefixbase}_a_align
-
-#TODO? compute whitelist separately?
-# # whitelist of variants
-# # export opt_varwhitelist=${opt_outprefix}.wlist
-# # call wlist?
-# if [ $opt_minivarset -eq 1 ] ; then
-#   # intersect batch variant sets to generate the whitelist
-#   bash ${BASEDIR}/progs/qc-wlist.sh
-# fi
-
-#TODO? resolve intra-batch conflicts separately?
-# # export opt_varwhitelist=${opt_outprefix}.wlist
-# # call recon
-# bash ${BASEDIR}/progs/qc-recon.sh
 
 # call align
 bash ${BASEDIR}/progs/qc-align.sh
 
+#---------------------------------------------------------------------------------------------------
+
+export opt_inprefix=${opt_outprefixbase}_a_align
+export opt_outprefix=${opt_outprefixbase}_a_proc
+
+# call merge
+bash ${BASEDIR}/progs/qc-merge.sh
+
+#---------------------------------------------------------------------------------------------------
+
 # cleanup
-unset opt_batchoutprefix
+unset opt_inprefix
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # biography
 
-export opt_outprefix=${opt_outprefixbase}_a_align
+export opt_outprefix=${opt_outprefixbase}_a_proc
 
 # initialize sample biography file
 declare -r cfg_uid="$( cfgvar_get uid )"
@@ -188,7 +202,7 @@ unset opt_outprefix
 # get high quality set
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_a_align
+export opt_inprefix=${opt_outprefixbase}_a_proc
 export opt_outprefix=${opt_outprefixbase}_a_hqset
 
 # call hqset
@@ -203,7 +217,7 @@ unset opt_outprefix
 # identify duplicate and mixup individuals
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_a_align
+export opt_inprefix=${opt_outprefixbase}_a_proc
 export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_b_clean
 export opt_biofile=${opt_outprefixbase}.bio
