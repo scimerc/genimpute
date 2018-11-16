@@ -153,14 +153,14 @@ fi
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_outprefix=${opt_outprefixbase}_a_recon
+export opt_outprefix=${opt_outprefixbase}_a_recode
 
-# call recon
-bash ${BASEDIR}/progs/qc-recon.sh
+# call recode
+bash ${BASEDIR}/progs/qc-recode.sh
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_inprefix=${opt_outprefixbase}_a_recon
+export opt_inprefix=${opt_outprefixbase}_a_recode
 export opt_outprefix=${opt_outprefixbase}_a_align
 
 # call align
