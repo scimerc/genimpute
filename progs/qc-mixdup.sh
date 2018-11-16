@@ -29,7 +29,7 @@ fi
   paste_sample_ids ${opt_hqprefix}.sexcheck \
     | join -t $'\t' ${opt_biofile} - \
     | tee ${tmpprefix}.0.bio
-  TNF=$( wc -l ${tmpprefix}.0.bio | tabulate | cut -f 1 )
+  TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
   paste_sample_ids ${opt_hqprefix}.sexcheck \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
