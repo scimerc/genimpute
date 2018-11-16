@@ -80,5 +80,5 @@ for i in ${!batchfiles[@]} ; do
   unset plinkflag
 done
 
-# rm ${tmpprefix}*
+rm ${tmpprefix}*
 

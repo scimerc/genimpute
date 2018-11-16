@@ -191,5 +191,5 @@ for i in ${!batchfiles[@]} ; do
   unset debuglogfn
 done
 
-# rm ${tmpprefix}*
+rm ${tmpprefix}*
 
