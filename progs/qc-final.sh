@@ -18,7 +18,7 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
 fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -32,25 +32,33 @@ cp ${opt_inprefix}.bed ${tmpprefix}_out.bed
 cp ${opt_inprefix}.bim ${tmpprefix}_out.bim
 cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
 
-# if there are any annotated controls in the original file use those
-cut -f 1,2,6 ${opt_inprefix}.fam | sed -r 's/[ \t]+/\t/g' | sort -u > ${tmpprefix}_ctrl.txt
-
-declare Nctrl=0
+# if a phenotype file was specified write a control list
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
-  Nctrl=$( awk -F $'\t' 'tolower($3) == "control"' ${cfg_phenotypes} | wc -l )
-fi
-declare plinkflag=''
-if [ $Nctrl -ge $cfg_minindcount ] ; then
-  # overwrite control set with the provided custom list
-  awk -F $'\t' 'tolower($3) == "control"' ${cfg_phenotypes} | sort -u > ${tmpprefix}_ctrl.txt
+  awk -F $'\t' '$3 == 1' ${cfg_phenotypes} | sort -u > ${tmpprefix}_ctrl.txt
+  declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
   # redefine phenotypes in the input plink set
   plink --bfile ${opt_inprefix} \
-        --make-pheno ${cfg_phenotypes} affected \
+        --make-pheno ${cfg_phenotypes} 2 \
         --make-bed \
         --out ${tmpprefix}_pheno \
-        >> ${debuglogfn}
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_pheno.bim
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_pheno.fam
+        2>&1 >> ${debuglogfn} \
+        | tee -a ${debuglogfn}
+# else, if there are enough annotated controls in the original file use those
+elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
+  cut -f 1,2,6 ${opt_inprefix}.fam | awk '$3 == 1' | sort -u > ${tmpprefix}_ctrl.txt
+  declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
+  # rename temporary plink set
+  mv ${tmpprefix}_out.bed ${tmpprefix}_pheno.bed
+  mv ${tmpprefix}_out.bim ${tmpprefix}_pheno.bim
+  mv ${tmpprefix}_out.fam ${tmpprefix}_pheno.fam
+# else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
+else
+  cut -f 1,2,6 ${opt_inprefix}.fam | sort -u > ${tmpprefix}_ctrl.txt
+  declare -r Nctrl=0
+fi
+# if Nctrl is not zero a plink *_pheno set should exist
+if [ $Nctrl -ge $cfg_minindcount ] ; then
+  declare plinkflag=''
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
   plink --bfile ${tmpprefix}_pheno ${nosex_flag} \
         --not-chr 23,24 \
@@ -65,8 +73,8 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   if [ -s "${opt_hqprefix}.nosex" ] ; then
     nosex_flag="--remove ${opt_hqprefix}.nosex"
   fi
-  sex_hweneglogp_ctrl=$(( cfg_hweneglogp_ctrl/2 ))
-  if [ "${sex_hweneglogp_ctrl}" -lt 12 ] ; then
+  sex_hweneglogp_ctrl=$(( cfg_hweneglogp_ctrl*2 ))
+  if [ "${sex_hweneglogp_ctrl}" -gt 12 ] ; then
     sex_hweneglogp_ctrl=12
   fi
   # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls

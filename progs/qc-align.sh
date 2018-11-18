@@ -58,18 +58,18 @@ get_tped_blacklist() {
 
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
-  declare binprefix=${opt_inprefix}_${batchcode}
-  declare boutprefix=${opt_outprefix}_${batchcode}
-  declare tmpprefix=${boutprefix}_tmp
+  declare b_inprefix=${opt_inprefix}_batch_${batchcode}
+  declare b_outprefix=${opt_outprefix}_batch_${batchcode}
+  declare tmpprefix=${b_outprefix}_tmp
   declare debuglogfn=${tmpprefix}_debug.log
   # check for hash collisions
-  if [ -f "${boutprefix}.bed" -a -f "${boutprefix}.bim" -a -f "${boutprefix}.fam" ]; then
-    printf "'%s' already exists - skipping recode step..\n" "${boutprefix}.bed"
+  if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
+    printf "'%s' already exists - skipping recode step..\n" "${b_outprefix}.bed"
     printf "try increasing 'numchars' in the hash function if you think this should not happen.\n"
     continue
   fi
   if ls ${tmpprefix}* > /dev/null 2>&1; then
-    printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+    printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
   echo "purging and aligning batch ${batchfiles[$i]}.."
@@ -77,7 +77,7 @@ for i in ${!batchfiles[@]} ; do
   declare tmpvarctrl=${tmpprefix}_varctrl
   declare batchblacklist=${tmpprefix}.blacklist
   declare batchfliplist=${tmpprefix}.fliplist
-  get_tped_blacklist ${binprefix}.tped | sort -u > ${batchblacklist} 
+  get_tped_blacklist ${b_inprefix}.tped | sort -u > ${batchblacklist} 
   echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
   echo "duplicate variants marked for deletion."
   # use ref alleles if specified or if we have more than one batch
@@ -88,7 +88,7 @@ for i in ${!batchfiles[@]} ; do
       exit 1;
     }
     # get chr:bp strings from bim file and join with the corresponding field of refallelesfn
-    awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${binprefix}.bim \
+    awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${b_inprefix}.bim \
       | sort -t $'\t' -k 7,7 \
       | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${cfg_refallelesfn} - \
       | awk -F $'\t' \
@@ -142,7 +142,7 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--exclude ${batchblacklist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
-  plink --bfile ${binprefix} ${plinkflag} \
+  plink --bfile ${b_inprefix} ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_nb \
         2>&1 >> ${debuglogfn} \
@@ -181,15 +181,13 @@ for i in ${!batchfiles[@]} ; do
   unset plinkflag
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
-  mv ${tmpprefix}_out.bed ${boutprefix}.bed
-  mv ${tmpprefix}_out.bim ${boutprefix}.bim
-  mv ${tmpprefix}_out.fam ${boutprefix}.fam
+  mv ${tmpprefix}_out.bed ${b_outprefix}.bed
+  mv ${tmpprefix}_out.bim ${b_outprefix}.bim
+  mv ${tmpprefix}_out.fam ${b_outprefix}.fam
+  rm ${tmpprefix}*
   unset batchcode
-  unset binprefix
-  unset boutprefix
-  unset tmpprefix
+  unset b_inprefix
+  unset b_outprefix
   unset debuglogfn
 done
-
-rm ${tmpprefix}*
 

@@ -16,7 +16,7 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
 fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -26,10 +26,13 @@ fi
 
 # update biography file with sex information
 {
+  # merge information for existing individuals
   paste_sample_ids ${opt_hqprefix}.sexcheck \
     | join -t $'\t' ${opt_biofile} - \
     | tee ${tmpprefix}.0.bio
+  # count number of fields in the merged file
   TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
+  # add non-existing individuals and pad the extra fields with NAs
   paste_sample_ids ${opt_hqprefix}.sexcheck \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
@@ -62,7 +65,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
       | join -t $'\t' -v1 ${opt_biofile} - \
       | awk -F $'\t' '{
         OFS="\t"
-        if ( NR == 1 ) print( $0, "MIXUP" )
+        if ( NR == 1 ) print( $0, "MISMIX" )
         else print( $0, "PROBLEM" )
       }'
     cut -f 3 ${tmpprefix}_out.clean.id \
@@ -74,10 +77,9 @@ if [ ${cfg_hvm} -eq 1 ] ; then
       }'
   } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.2.bio
   cp ${tmpprefix}.2.bio ${opt_biofile}
-  # include non-mixup info later 
+  # include non-mixup info later
   plinkflag="--keep ${tmpprefix}_out.clean.id"
 fi
-
 # identify duplicate individuals
 echo "identifying duplicate individuals.."
 plink --bfile ${opt_hqprefix} ${plinkflag} \
@@ -92,7 +94,8 @@ plink --bfile ${opt_hqprefix} ${plinkflag} \
       --rel-cutoff ${cfg_pihat} \
       --out ${tmpprefix}_sq \
       >> ${debuglogfn}
-
+# give rel.id file a less confusing name
+mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq.ind
 unset plinkflag
 
 extract_related_lists_from_grm_file() {
@@ -143,23 +146,23 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
 
 # update biography file with duplicates
 {
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.rel.id \
+  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.ind \
     | sort -u \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' '{
         OFS="\t"
-        if ( NR == 1 ) print( $0, "DUP" )
+        if ( NR == 1 ) print( $0, "DUPORG" )
         else {
-          if ( $(NF-1) != "PROBLEM" ) print( $0, 1 )
-          else print( $0, 0 )
+          if ( $(NF-1) == "PROBLEM" ) print( $0, 0 )
+          else print( $0, "DUP" )
         }
       }'
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.rel.id \
+  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.ind \
     | sort -u \
     | join -t $'\t' ${opt_biofile} - \
     | awk -F $'\t' '{
         OFS="\t"
-        print( $0, 0 )
+        print( $0, "ORG" )
       }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.4.bio
 cp ${tmpprefix}.4.bio ${opt_biofile}
@@ -168,7 +171,7 @@ cp ${tmpprefix}.4.bio ${opt_biofile}
 echo "removing duplicate individuals and updating sex.."
 plink --bfile ${opt_inprefix} \
       --update-sex ${opt_hqprefix}.fam 3 \
-      --keep ${tmpprefix}_sq.rel.id \
+      --keep ${tmpprefix}_sq.ind \
       --make-bed \
       --out ${tmpprefix}_out \
       >> ${debuglogfn}

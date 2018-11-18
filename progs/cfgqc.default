@@ -34,7 +34,7 @@ minindcount=100
 # minimum number of variants required for some tests
 minvarcount=100
 
-# list of individuals with eventual affected/control status
+# list of individuals with eventual affected(2)/control(1) status
 phenotypes=''
 
 # pihat threshold for establishing identity between idividuals

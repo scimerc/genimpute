@@ -14,7 +14,7 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
 fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -39,18 +39,18 @@ while true ; do
   > ${batchlist}
   for i in ${!batchfiles[@]} ; do
     declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
-    declare binprefix=${opt_inprefix}_${batchcode}
-    declare boutprefix=${opt_outprefix}_${batchcode}
+    declare b_inprefix=${opt_inprefix}_batch_${batchcode}
+    declare b_outprefix=${opt_outprefix}_batch_${batchcode}
     declare plinkflag=''
     if [ -s "${varblacklist}" ] ; then
       plinkflag="--exclude ${varblacklist}" 
     fi
-    plink --bfile ${binprefix} ${plinkflag} \
+    plink --bfile ${b_inprefix} ${plinkflag} \
           --make-bed \
-          --out ${boutprefix} \
+          --out ${b_outprefix} \
           2>&1 >> ${debuglogfn} \
           | tee -a ${debuglogfn}
-    echo "${boutprefix}" >> ${batchlist}
+    echo "${b_outprefix}" >> ${batchlist}
     unset batchcode
     unset inprefix
     unset outprefix

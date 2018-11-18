@@ -20,7 +20,7 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
 fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 

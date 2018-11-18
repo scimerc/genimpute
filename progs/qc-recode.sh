@@ -16,17 +16,17 @@ declare -ra batchfiles=( ${opt_inputfiles} )
 
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
-  declare boutprefix=${opt_outprefix}_${batchcode}
-  declare tmpprefix=${boutprefix}_tmp
+  declare b_outprefix=${opt_outprefix}_batch_${batchcode}
+  declare tmpprefix=${b_outprefix}_tmp
   declare debuglogfn=${tmpprefix}_debug.log
   # check for hash collisions
-  if [ -f "${boutprefix}.bed" -a -f "${boutprefix}.bim" -a -f "${boutprefix}.fam" ]; then
-    printf "'%s' already exists - skipping recode step..\n" "${boutprefix}.bed"
+  if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
+    printf "'%s' already exists - skipping recode step..\n" "${b_outprefix}.bed"
     printf "try increasing 'numchars' in the hash function if you think this should not happen.\n"
     continue
   fi
   if ls ${tmpprefix}* > /dev/null 2>&1; then
-    printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+    printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
   echo "converting batch ${batchfiles[$i]}.."
@@ -34,7 +34,8 @@ for i in ${!batchfiles[@]} ; do
   declare flagkeep=''
   declare flagformat='--bfile'
   declare plinkinputfn=${batchfiles[$i]}
-  case "$( get_genotype_file_format "${batchfiles[$i]}" )" in
+  declare fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
+  case "${fformat}" in
     "bed" )
       flagformat='--bfile'
       plinkinputfn=${batchfiles[$i]%.bed}
@@ -46,7 +47,7 @@ for i in ${!batchfiles[@]} ; do
       flagformat='--vcf'
       ;;
     * )
-      printf "error: fileformat not handled\n" >&2
+      printf "error: fileformat '%s' not handled\n" ${fformat} >&2
       exit 1
       ;;
   esac
@@ -54,24 +55,25 @@ for i in ${!batchfiles[@]} ; do
   if [ ! -z "${opt_samplewhitelist}" ] ; then
     flagkeep="--keep ${opt_samplewhitelist}"
   fi
-  declare bedflag="${flagkeep}"
-  declare pedflag="${flagkeep}"
+  declare bedflag=""
+  declare pedflag=""
   if [ -s "${opt_varwhitelist}" ] ; then
-    bedflag="${bedflag} --extract range ${opt_varwhitelist}"
+    bedflag="--extract range ${opt_varwhitelist}"
   fi
-  # convert to plink binary format
-  plink $flagformat ${plinkinputfn} \
+  # convert to plink binary format and merge X chromosome variants
+  plink $flagformat ${plinkinputfn} ${flagkeep} \
     --merge-x no-fail \
     --make-bed \
     --out ${tmpprefix}_mx \
     2>&1 >> ${debuglogfn} \
     | tee -a ${debuglogfn}
-  if [ -z "${bedflag}" ] ; then
-    plink $flagformat ${tmpprefix}_mx ${bedflag} \
+  if [ ! -z "${bedflag}" ] ; then
+    plink --bfile ${tmpprefix}_mx ${bedflag} \
       --make-bed \
       --out ${tmpprefix}_out \
       2>&1 >> ${debuglogfn} \
       | tee -a ${debuglogfn}
+    mv ${tmpprefix}_out.log ${b_outprefix}.1.log
   else
     mv ${tmpprefix}_mx.bed ${tmpprefix}_out.bed
     mv ${tmpprefix}_mx.bim ${tmpprefix}_out.bim
@@ -91,7 +93,7 @@ for i in ${!batchfiles[@]} ; do
     | sort -u \
     > ${tmpprefix}.coloc.rng
   if [ -s "${tmpprefix}.coloc.rng" ] ; then
-    pedflag="${pedflag} --extract range ${tmpprefix}.coloc.rng"
+    pedflag="--extract range ${tmpprefix}.coloc.rng"
     plink --bfile ${tmpprefix}_out ${pedflag} \
       --recode transpose \
       --out ${tmpprefix}_out \
@@ -106,20 +108,17 @@ for i in ${!batchfiles[@]} ; do
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
   # save fam files for later batch effect dectection
-  mv ${tmpprefix}_out.bed ${boutprefix}.bed
-  mv ${tmpprefix}_out.bim ${boutprefix}.bim
-  mv ${tmpprefix}_out.fam ${boutprefix}.fam
-  mv ${tmpprefix}_out.tped ${boutprefix}.tped
-  mv ${tmpprefix}_out.tfam ${boutprefix}.tfam
+  mv ${tmpprefix}_out.bed ${b_outprefix}.bed
+  mv ${tmpprefix}_out.bim ${b_outprefix}.bim
+  mv ${tmpprefix}_out.fam ${b_outprefix}.fam
+  mv ${tmpprefix}_out.tped ${b_outprefix}.tped
+  mv ${tmpprefix}_out.tfam ${b_outprefix}.tfam
   rm ${tmpprefix}*
   unset flagkeep
   unset flagformat
   unset plinkinputfn
   unset batchcode
-  unset boutprefix
-  unset tmpprefix
+  unset b_outprefix
   unset debuglogfn
 done
-
-rm ${tmpprefix}*
 

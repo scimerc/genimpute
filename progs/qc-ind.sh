@@ -15,7 +15,7 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
 fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -43,8 +43,8 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
       OFS="\t"
       if ( NR == 1 ) print( $0, "COV" )
       else {
-        if ( $(NF) != 1 && $(NF-2) != 1 ) print( $0, 0 )
-        else print( $0, 1 )
+        if ( $(NF) == "DUP" || $(NF-2) == "PROBLEM" ) print( $0, 0 )
+        else print( $0, "NO" )
       }
     }'
   awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_out.fam \
@@ -52,7 +52,7 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
     | join -t $'\t' ${opt_biofile} - \
     | awk -F $'\t' '{
       OFS="\t"
-      print( $0, 1 )
+      print( $0, "YES" )
     }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.bio
 cp ${tmpprefix}.bio ${opt_biofile}

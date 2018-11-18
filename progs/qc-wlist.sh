@@ -15,7 +15,7 @@ if [ -f "${opt_varwhitelist}" ] ; then
 fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "error: temporary files exist in '%s'. pls remove\n" "${tmpprefix}" >&2
+  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -35,7 +35,8 @@ bimtogprs() {
 
 for i in ${!batchfiles[@]} ; do
   declare plinkflag=""
-  case "$( get_genotype_file_format "${batchfiles[$i]}" )" in
+  declare fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
+  case "${fformat}" in
     "bed" ) 
       plinkflag="--bim"
       ;;
@@ -46,7 +47,7 @@ for i in ${!batchfiles[@]} ; do
       plinkflag="--bcf"
       ;;
     * ) 
-      printf "error: fileformat not handled\n" >&2
+      printf "error: fileformat '%s' not handled\n" ${fformat} >&2
       exit 1
       ;;
   esac

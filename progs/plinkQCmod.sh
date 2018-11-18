@@ -83,6 +83,8 @@ if [ -z "${opt_inputfiles}" ] ; then
   echo -e "\nyou may have neglected to provide any input genotype files."
   usage
   exit 1
+else
+  ls ${opt_inputfiles} > /dev/null
 fi
 
 #---------------------------------------------------------------------------------------------------
@@ -269,7 +271,7 @@ unset opt_biofile
 export opt_inprefix=${opt_outprefixbase}_d_indqc
 export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_e_finqc
-export opt_batchoutprefix=${opt_outprefixbase}_a_processed_batch
+export opt_batchoutprefix=${opt_outprefixbase}_a_proc_batch
 
 # call qcfinal
 bash ${BASEDIR}/progs/qc-final.sh
