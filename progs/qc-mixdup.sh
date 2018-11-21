@@ -8,6 +8,7 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 
 declare -r cfg_hvm=$( cfgvar_get hvm )
 declare -r cfg_pihat=$( cfgvar_get pihat )
+declare -r cfg_pihatrel=$( cfgvar_get pihatrel )
 declare -r cfg_uid=$( cfgvar_get uid )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
