@@ -37,6 +37,9 @@ minvarcount=100
 # list of individuals with eventual affected(2)/control(1) status
 phenotypes=''
 
+# pihat threshold for establishing relatedness between idividuals
+pihatrel=0.1
+
 # pihat threshold for establishing identity between idividuals
 pihat=0.9
 
