@@ -205,14 +205,14 @@ unset opt_outprefix
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_a_proc
-export opt_outprefix=${opt_outprefixbase}_a_hqset
+export opt_hqprefix=${opt_outprefixbase}_a_hqset
 
 # call hqset
 bash ${BASEDIR}/progs/qc-hqset.sh
 
 # cleanup
 unset opt_inprefix
-unset opt_outprefix
+unset opt_hqprefix
 
 #---------------------------------------------------------------------------------------------------
 

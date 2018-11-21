@@ -3,7 +3,7 @@
 # exit on error
 trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
-declare -r tmpprefix=${opt_outprefix}_tmp
+declare -r tmpprefix=${opt_hqprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
 declare -r cfg_varmiss=$( cfgvar_get varmiss )
@@ -15,7 +15,7 @@ declare -r cfg_minindcount=$( cfgvar_get minindcount )
 declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_uid=$( cfgvar_get uid )
 
-if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
+if [ -f "${opt_hqprefix}.bed" -a -f "${opt_hqprefix}.bim" -a -f "${opt_hqprefix}.fam" ] ; then
   printf "skipping hq step..\n"
   exit 0
 fi
@@ -134,10 +134,10 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
   fi
 fi
 
-mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
-mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
-mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
-mv ${tmpprefix}_out.sexcheck ${opt_outprefix}.sexcheck
+mv ${tmpprefix}_out.bed ${opt_hqprefix}.bed
+mv ${tmpprefix}_out.bim ${opt_hqprefix}.bim
+mv ${tmpprefix}_out.fam ${opt_hqprefix}.fam
+mv ${tmpprefix}_out.sexcheck ${opt_hqprefix}.sexcheck
 
 rm ${tmpprefix}*
 
