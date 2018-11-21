@@ -201,22 +201,7 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-# get high quality set
-
-# export vars
-export opt_inprefix=${opt_outprefixbase}_a_proc
-export opt_hqprefix=${opt_outprefixbase}_a_hqset
-
-# call hqset
-bash ${BASEDIR}/progs/qc-hqset.sh
-
-# cleanup
-unset opt_inprefix
-unset opt_hqprefix
-
-#---------------------------------------------------------------------------------------------------
-
-# identify duplicate and mixup individuals
+# get high quality set and identify duplicate and mixup and related individuals
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_a_proc
@@ -224,8 +209,16 @@ export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_b_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
+# call hqset
+bash ${BASEDIR}/progs/qc-hqset.sh
 # call mixdup
 bash ${BASEDIR}/progs/qc-mixdup.sh
+
+# cleanup
+unset opt_inprefix
+unset opt_hqprefix
+unset opt_outprefix
+unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
@@ -288,14 +281,14 @@ unset opt_batchoutprefix
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_e_finqc
-export opt_outprefix=${opt_outprefixbase}_e_hqset
+export opt_hqprefix=${opt_outprefixbase}_e_hqset
 
 # call hqset
 bash ${BASEDIR}/progs/qc-hqset.sh
 
 # cleanup
 unset opt_inprefix
-unset opt_outprefix
+unset opt_hqprefix
 
 #---------------------------------------------------------------------------------------------------
 
