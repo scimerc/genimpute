@@ -96,18 +96,27 @@ plink --bfile ${opt_hqprefix} ${plinkflag} \
       --out ${tmpprefix}_sq \
       >> ${debuglogfn}
 # give rel.id file a less confusing name
-mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq.ind
+mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq.id
+plink --bfile ${opt_hqprefix} ${plinkflag} \
+      --set-hh-missing \
+      --cluster \
+      --read-genome ${tmpprefix}_sq.genome.gz \
+      --rel-cutoff ${cfg_pihatrel} \
+      --out ${tmpprefix}_sq \
+      >> ${debuglogfn}
+# give rel.id file a less confusing name
+mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq_unrel.id
 unset plinkflag
 
 extract_related_lists_from_grm_file() {
   local -r infile="$1"
   zcat -f "${infile}" | tabulate \
-    | awk -F $'\t' -v uid=${cfg_uid} '{
+    | awk -F $'\t' -v uid=${cfg_uid} -v pihat=${cfg_pihatrel} '{
       OFS="\t"
       maxcnt=11111
       uid0=$1"_"$2
       uid1=$3"_"$4
-      if ( NR>1 && $10>=0.1 ) {
+      if ( NR>1 && $10>=pihat ) {
         if ( uid0 in relarr && cntarr[uid0] < maxcnt ) {
           relarr[uid0] = relarr[uid0]","uid1"("$10")"
           cntarr[uid0]++
@@ -147,7 +156,7 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
 
 # update biography file with duplicates
 {
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.ind \
+  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.id \
     | sort -u \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' '{
@@ -158,7 +167,7 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
           else print( $0, "DUP" )
         }
       }'
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.ind \
+  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.id \
     | sort -u \
     | join -t $'\t' ${opt_biofile} - \
     | awk -F $'\t' '{
@@ -168,11 +177,14 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.4.bio
 cp ${tmpprefix}.4.bio ${opt_biofile}
 
+# rename list of unrelated individuals for later use
+mv ${tmpprefix}_sq_unrel.id ${opt_outprefix}.nri
+
 # remove duplicates + update sex in input set
 echo "removing duplicate individuals and updating sex.."
 plink --bfile ${opt_inprefix} \
       --update-sex ${opt_hqprefix}.fam 3 \
-      --keep ${tmpprefix}_sq.ind \
+      --keep ${tmpprefix}_sq.id \
       --make-bed \
       --out ${tmpprefix}_out \
       >> ${debuglogfn}

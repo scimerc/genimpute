@@ -201,7 +201,7 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-# get high quality set and identify duplicate and mixup and related individuals
+# get high quality set and identify duplicate, mixup and related individuals
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_a_proc
@@ -209,9 +209,8 @@ export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_b_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
-# call hqset
+# call hqset and mixdup
 bash ${BASEDIR}/progs/qc-hqset.sh
-# call mixdup
 bash ${BASEDIR}/progs/qc-mixdup.sh
 
 # cleanup
