@@ -13,28 +13,46 @@ declare -r cfg_refallelesfn="$( cfgvar_get refallelesfn )"
 # spare only one variant from sets of coherent colocalized variants, blacklist all else
 get_tped_blacklist() {
   awk '{
+    blackflag = 0
     varid = $1"_"$4
+    # was varid already added to variome?
+    # note: we query the first possible entry (5) in the simulated multidim array
     if ( (varid,5) in variome ) {
       missing = 0
       for ( k = 5; k <= NF; k++ ) {
+        # if the new entry is not valid set it to the current one
         if ( variome[varid,k] <= 0 ) variome[varid,k] = $k
+        # else, if the new entry is valid
         else if ( $k > 0 ) {
+          # if the new entry is valid but different from the current one
           if ( variome[varid,k] != $k ) {
             variome[varid,k] = "_NA_"
-            split( varnames[varid], varlist, SUBSEP )
-            for ( varname in varlist ) print varname
-            print $2
+            blackflag = 1
           }
         }
+        # else increment the missing counter
         if ( $k <= 0 ) missing++
       }
+      if ( blackflag == 1 ) {
+        split( varnames[varid], varlist, SUBSEP )
+        # add current list of names varid goes by to blacklist
+        for ( k in varlist ) print varlist[k]
+        # add new name to blacklist
+        print $2
+      }
+      # if the current version of varid has fewer missing
       if ( missing < missome[varid] ) {
+        # reset the recorded missing counter for varid
         missome[varid] = missing
         split( varnames[varid], varlist, SUBSEP )
-        for ( varname in varlist ) print varname
-      } else print $2
+        # add all names varid went by to blacklist
+        for ( k in varlist ) print varlist[k]
+      } else print $2 # add new varid name to blacklist
+      # add new name to varid name string
       varnames[varid] = varnames[varid] SUBSEP $2
-    } else {
+    }
+    else {
+      # else initialize varid arrays
       missome[varid] = 0
       varnames[varid] = $2
       for ( k = 5; k <= NF; k++ ) {
