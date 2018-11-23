@@ -178,7 +178,7 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
 cp ${tmpprefix}.4.bio ${opt_biofile}
 
 # rename list of unrelated individuals for later use
-mv ${tmpprefix}_sq_unrel.id ${opt_outprefix}.nri
+mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
 
 # remove duplicates + update sex in input set
 echo "removing duplicate individuals and updating sex.."
