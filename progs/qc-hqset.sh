@@ -36,17 +36,28 @@ fi
 #    impute it once again after HWE tests
 
 
+declare keepflag=''
+# set keep flag if a list of unrelated individuals exists
+if [ -f "${opt_outprefixbase}.ids" ] ; then
+  keepflag="--keep ${opt_outprefixbase}.ids"
+fi
+declare extractflag=''
+# set extract flag if a previous list of variants exists
+if [ -f "${opt_outprefixbase}.mrk" ] ; then
+  extractflag="--extract ${opt_outprefixbase}.mrk"
+fi
+
 declare -r regionblacklist=${BASEDIR}/lib/data/${cfg_genomeblacklist}
 # check if exclude file exists and is not empty
 [ -s "${regionblacklist}" ] || {
   printf "error: file '%s' empty or not found.\n" ${regionblacklist} >&2;
   exit 1;
 }
-declare -r excludeopt="--exclude range ${regionblacklist}"
+declare -r regexcludeflag="--exclude range ${regionblacklist}"
 
 # get sex hq-variants from input file
-plink --bfile ${opt_inprefix} \
-      --not-chr 23,24 ${excludeopt} \
+plink --bfile ${opt_inprefix} ${keepflag} \
+      --not-chr 23,24 ${regexcludeflag} ${extractflag} \
       --geno ${cfg_varmiss} \
       --maf ${cfg_freqhq} \
       --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
@@ -55,8 +66,8 @@ plink --bfile ${opt_inprefix} \
       >> ${debuglogfn}
 
 # get non-sex hq-variants from input file
-plink --bfile ${opt_inprefix} \
-      --chr 23,24 ${excludeopt} \
+plink --bfile ${opt_inprefix} ${keepflag} \
+      --chr 23,24 ${regexcludeflag} ${extractflag} \
       --geno ${cfg_varmiss} \
       --maf ${cfg_freqhq} \
       --make-just-bim \
@@ -79,7 +90,7 @@ plink --bfile ${opt_inprefix} \
       >> ${debuglogfn}
 
 # LD-prune hq variants
-plink --bfile ${tmpprefix}_hq \
+plink --bfile ${tmpprefix}_hq ${keepflag} \
       --indep-pairphase 500 5 0.2 \
       --out ${tmpprefix}_hq_LD \
       >> ${debuglogfn}

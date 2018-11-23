@@ -31,13 +31,19 @@ fi
 #         - HW equilibrium (possibly different for sex and non-sex chromosomes)
 
 
+declare keepflag=''
+# set keep flag if a list of unrelated individuals exists
+if [ -f "${opt_outprefixbase}.ids" ] ; then
+  keepflag="--keep ${opt_outprefixbase}.ids"
+fi
+
 # set Hardy-Weinberg test p-value threshold in case of no phenotypic information
 [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] || cfg_hweneglogp=${cfg_hweneglogp_ctrl}
 
 tmp_varmiss=${cfg_varmiss}
 n=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
-plink --bfile ${opt_inprefix} \
+plink --bfile ${opt_inprefix} ${keepflag} \
       --not-chr 23,24 \
       --set-hh-missing \
       --geno ${tmp_varmiss} \
@@ -46,17 +52,17 @@ plink --bfile ${opt_inprefix} \
       --make-just-bim \
       --out ${tmpprefix}_nonsex \
       >> ${debuglogfn}
-nosex_flag=''
+declare nosexflag=''
 awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
   > ${opt_hqprefix}.nosex
 if [ -s "${opt_hqprefix}.nosex" ] ; then
-  nosex_flag="--remove ${opt_hqprefix}.nosex"
+  nosexflag="--remove ${opt_hqprefix}.nosex"
 fi
 sex_hweneglogp=$(( cfg_hweneglogp*2 ))
 if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
-plink --bfile ${opt_inprefix} ${nosex_flag} \
+plink --bfile ${opt_inprefix} ${keepflag} ${nosexflag} \
       --chr 23,24 \
       --set-hh-missing \
       --geno ${tmp_varmiss} \
@@ -65,6 +71,7 @@ plink --bfile ${opt_inprefix} ${nosex_flag} \
       --make-just-bim \
       --out ${tmpprefix}_sex \
       >> ${debuglogfn}
+unset nosexflag
 [ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
   printf "error: no variants left after QC.\n" >&2;
   exit 1;

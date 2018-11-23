@@ -28,13 +28,25 @@ fi
 #         - no control batch effects
 
 
+declare keepfile=''
+declare keepflag=''
+# set keep flag if a list of unrelated individuals exists
+if [ -f "${opt_outprefixbase}.ids" ] ; then
+  keepfile=${opt_outprefixbase}.ids
+  keepflag="--keep ${keepfile}"
+fi
+
 cp ${opt_inprefix}.bed ${tmpprefix}_out.bed
 cp ${opt_inprefix}.bim ${tmpprefix}_out.bim
 cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
 
-# if a phenotype file was specified write a control list
+# if a phenotype file was specified..
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
-  awk -F $'\t' '$3 == 1' ${cfg_phenotypes} | sort -u > ${tmpprefix}_ctrl.txt
+  # write a control list
+  awk -F $'\t' '$3 == 1' ${cfg_phenotypes} \
+    | sort -u \
+    | extract_sample_ids ${keepfile} \
+    > ${tmpprefix}_ctrl.txt
   declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
   # redefine phenotypes in the input plink set
   plink --bfile ${opt_inprefix} \
@@ -45,7 +57,11 @@ if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
         | tee -a ${debuglogfn}
 # else, if there are enough annotated controls in the original file use those
 elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
-  cut -f 1,2,6 ${opt_inprefix}.fam | awk '$3 == 1' | sort -u > ${tmpprefix}_ctrl.txt
+  awk -F $'\t' '$6 == 1' ${opt_inprefix}.fam \
+    | cut -f 1,2,6 \
+    | sort -u \
+    | extract_sample_ids ${keepfile} \
+    > ${tmpprefix}_ctrl.txt
   declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
   # rename temporary plink set
   mv ${tmpprefix}_out.bed ${tmpprefix}_pheno.bed
@@ -53,37 +69,41 @@ elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
   mv ${tmpprefix}_out.fam ${tmpprefix}_pheno.fam
 # else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
 else
-  cut -f 1,2,6 ${opt_inprefix}.fam | sort -u > ${tmpprefix}_ctrl.txt
+  cut -f 1,2,6 ${opt_inprefix}.fam \
+    | extract_sample_ids ${keepfile} \
+    | sort -u \
+    > ${tmpprefix}_ctrl.txt
   declare -r Nctrl=0
 fi
 # if Nctrl is not zero a plink *_pheno set should exist
 if [ $Nctrl -ge $cfg_minindcount ] ; then
   declare plinkflag=''
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
-  plink --bfile ${tmpprefix}_pheno ${nosex_flag} \
+  plink --bfile ${tmpprefix}_pheno ${keepflag} \
         --not-chr 23,24 \
         --hwe 1.E-${cfg_hweneglogp_ctrl} \
         --make-just-bim \
         --out ${tmpprefix}_ctrlhwe_nonsex \
         >> ${debuglogfn}
-  nosex_flag=''
+  declare nosexflag=''
   # get set of individuals missing sex information for exclusion from later check
   awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
     > ${opt_hqprefix}.nosex
   if [ -s "${opt_hqprefix}.nosex" ] ; then
-    nosex_flag="--remove ${opt_hqprefix}.nosex"
+    nosexflag="--remove ${opt_hqprefix}.nosex"
   fi
   sex_hweneglogp_ctrl=$(( cfg_hweneglogp_ctrl*2 ))
   if [ "${sex_hweneglogp_ctrl}" -gt 12 ] ; then
     sex_hweneglogp_ctrl=12
   fi
   # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
-  plink --bfile ${tmpprefix}_pheno ${nosex_flag} \
+  plink --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
         --chr 23,24 \
         --hwe 1.E-${sex_hweneglogp_ctrl} \
         --make-just-bim \
         --out ${tmpprefix}_ctrlhwe_sex \
         >> ${debuglogfn}
+  unset nosexflag
   [ -s "${tmpprefix}_ctrlhwe_nonsex.bim" -o -s "${tmpprefix}_ctrlhwe_sex.bim" ] || {
     printf "error: no variants left after HWE.\n" >&2;
     exit 1;
@@ -91,7 +111,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   # list the variants passing stricter Hardy-Weiberg equilibrium tests on controls
   cut -f 2 ${tmpprefix}_ctrlhwe_*sex.bim | sort -u > ${tmpprefix}_ctrlhwe.mrk
   plinkflag="--extract ${tmpprefix}_ctrlhwe.mrk"
-  # make a new plink set with eventual filters
+  # make a new plink set with eventual filter
   plink --bfile ${opt_inprefix} ${plinkflag} \
     --make-bed \
     --out ${tmpprefix}_ctrlhwe \

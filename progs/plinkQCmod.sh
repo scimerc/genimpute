@@ -87,6 +87,10 @@ else
   ls ${opt_inputfiles} > /dev/null
 fi
 
+# export input and output names
+export opt_inputfiles
+export opt_outprefixbase
+
 #---------------------------------------------------------------------------------------------------
 
 # set user configuration, if any, and print all information
@@ -141,7 +145,6 @@ source ${BASEDIR}/progs/qc-tools.sh
 # pre-processing
 
 # export vars
-export opt_inputfiles
 export opt_minivarset
 export opt_samplewhitelist
 export opt_varwhitelist=${opt_outprefixbase}_a_vwlist.mrk

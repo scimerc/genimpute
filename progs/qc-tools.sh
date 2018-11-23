@@ -2,6 +2,23 @@
 
 trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
+extract_sample_ids() {
+  if [ ${#@} -le 1 ] ; then
+    cat "${1:-/dev/stdin}"
+  else
+    local -r idfile=$1
+    shift
+    awk -F $'\t' '{
+      if ( NR == FNR ) idarr[$1,$2] = 1
+      else if ( ($1,$2) in idarr ) print
+    }' "${idfile}" "${*:-/dev/stdin}"
+  fi
+}
+
+export -f extract_sample_ids
+
+#-------------------------------------------------------------------------------
+
 get_genotype_file_format() {
   local -r inputfile=$1
   #TODO implement plink2 native .gen format
