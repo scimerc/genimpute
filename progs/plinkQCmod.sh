@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
+set -Eeou pipefail
 trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 #-------------------------------------------------------------------------------
@@ -186,6 +187,9 @@ unset opt_inprefix
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
+
+# initialize qc iteration counter
+declare qciter=0
 
 # biography
 
