@@ -96,7 +96,7 @@ export opt_outprefixbase
 
 # set user configuration, if any, and print all information
 
-[ -s "${opt_cfgfile}" ] && cfgvar_update_from_file ${opt_cfgfile}
+[ ! -z "${opt_cfgfile+x}" ] && [ -s "${opt_cfgfile}" ] && cfgvar_update_from_file "${opt_cfgfile}"
 
 echo
 echo -e "================================================================================"
