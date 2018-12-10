@@ -156,7 +156,7 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
 
 # update biography file with duplicates
 {
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.id \
+  awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_sq.id \
     | sort -u \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' '{
@@ -167,7 +167,7 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
           else print( $0, "DUP" )
         }
       }'
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_sq.id \
+  awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_sq.id \
     | sort -u \
     | join -t $'\t' ${opt_biofile} - \
     | awk -F $'\t' '{
@@ -195,5 +195,5 @@ mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
 mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
 mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 
-rm ${tmpprefix}*
+# rm ${tmpprefix}*
 

@@ -36,7 +36,7 @@ plink --bfile ${opt_inprefix} \
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 {
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_out.fam \
+  awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_out.fam \
     | sort -u \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' '{
@@ -47,7 +47,7 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
         else print( $0, "NO" )
       }
     }'
-  awk -F $'\t' '{ print( $1"\t"$2 ); }' ${tmpprefix}_out.fam \
+  awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_out.fam \
     | sort -u \
     | join -t $'\t' ${opt_biofile} - \
     | awk -F $'\t' '{
