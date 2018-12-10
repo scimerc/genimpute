@@ -81,7 +81,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
   plink --bfile ${tmpprefix}_pheno ${keepflag} \
         --not-chr 23,24 \
-        --hwe 1.E-${cfg_hweneglogp_ctrl} \
+        --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
         --make-just-bim \
         --out ${tmpprefix}_ctrlhwe_nonsex \
         >> ${debuglogfn}
@@ -99,7 +99,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
   plink --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
         --chr 23,24 \
-        --hwe 1.E-${sex_hweneglogp_ctrl} \
+        --hwe 1.E-${sex_hweneglogp_ctrl} midp \
         --make-just-bim \
         --out ${tmpprefix}_ctrlhwe_sex \
         >> ${debuglogfn}
