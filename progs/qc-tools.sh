@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
-
 extract_sample_ids() {
   if [ ${#@} -le 1 ] ; then
     cat "${1:-/dev/stdin}"
@@ -122,4 +120,3 @@ tabulate() {
 export -f tabulate
 
 #-------------------------------------------------------------------------------
-

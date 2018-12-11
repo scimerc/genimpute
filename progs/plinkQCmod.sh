@@ -2,7 +2,6 @@
 
 # exit on error
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 #-------------------------------------------------------------------------------
 

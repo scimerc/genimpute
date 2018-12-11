@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 # get parent dir of this script
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"

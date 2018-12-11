@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
+set -Eeou pipefail
 
 declare -ra batchfiles=( ${opt_inputfiles} )
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
+set -Eeou pipefail
 
 declare -ra batchfiles=( ${opt_inputfiles} )
 
@@ -121,4 +121,3 @@ for i in ${!batchfiles[@]} ; do
   unset b_outprefix
   unset debuglogfn
 done
-
