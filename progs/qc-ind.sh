@@ -43,7 +43,7 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
       OFS="\t"
       if ( NR == 1 ) print( $0, "COV" )
       else {
-        if ( $(NF) == "DUP" || $(NF-2) == "PROBLEM" ) print( $0, 0 )
+        if ( $(NF-2) == "PROBLEM" ) print( $0, 0 )
         else print( $0, "NO" )
       }
     }'

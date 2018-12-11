@@ -161,10 +161,10 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' '{
         OFS="\t"
-        if ( NR == 1 ) print( $0, "DUPORG" )
+        if ( NR == 1 ) print( $0, "ORGIDN" )
         else {
           if ( $(NF-1) == "PROBLEM" ) print( $0, 0 )
-          else print( $0, "DUP" )
+          else print( $0, "IDN" )
         }
       }'
   awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_sq.id \
@@ -184,7 +184,7 @@ mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
 echo "removing duplicate individuals and updating sex.."
 plink --bfile ${opt_inprefix} \
       --update-sex ${opt_hqprefix}.fam 3 \
-      --keep ${tmpprefix}_sq.id \
+      --keep ${tmpprefix}_out.clean.id \
       --make-bed \
       --out ${tmpprefix}_out \
       >> ${debuglogfn}
