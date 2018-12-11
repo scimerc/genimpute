@@ -195,7 +195,7 @@ declare qciter=0
 export opt_outprefix=${opt_outprefixbase}_a_proc
 
 # initialize sample biography file
-declare -r cfg_uid="$( cfgvar_get uid )"
+declare cfg_uid; cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
 cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${cfg_uid} '
 BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
 ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio

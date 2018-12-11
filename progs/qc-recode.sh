@@ -34,7 +34,8 @@ for i in ${!batchfiles[@]} ; do
   declare flagkeep=''
   declare flagformat='--bfile'
   declare plinkinputfn=${batchfiles[$i]}
-  declare fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
+  #get_genotype_file_format "${batchfiles[$i]}"
+  fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
   case "${fformat}" in
     "bed" )
       flagformat='--bfile'

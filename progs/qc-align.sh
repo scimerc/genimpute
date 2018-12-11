@@ -4,8 +4,12 @@ set -Eeou pipefail
 
 declare -ra batchfiles=( ${opt_inputfiles} )
 
-declare -r cfg_genomebuild="$( cfgvar_get genomebuild )"
-declare -r cfg_refallelesfn="$( cfgvar_get refallelesfn )"
+declare  cfg_genomebuild; 
+         cfg_genomebuild="$( cfgvar_get genomebuild )"; 
+readonly cfg_genomebuild
+declare  cfg_refallelesfn
+         cfg_refallelesfn="$( cfgvar_get refallelesfn )"
+readonly cfg_refallelesfn
 
 #-------------------------------------------------------------------------------
 
