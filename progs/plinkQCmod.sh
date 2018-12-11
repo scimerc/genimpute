@@ -43,7 +43,7 @@ OPTIONS:
 
 CONFIGURATION:
   the <config file> may contain custom definitions for a number of variables.
-  [see default configuration file '${BASEDIR}/progs/qconfig.def' for more information]
+  [see default configuration file 'cfgqc.default' for more information]
 
 EOF
 }
