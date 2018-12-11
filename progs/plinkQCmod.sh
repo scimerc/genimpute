@@ -216,9 +216,9 @@ export opt_hqprefix=${opt_outprefixbase}_a_hqset
 export opt_outprefix=${opt_outprefixbase}_b_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
-# call hqset and mixdup
+# call hqset and mixrel
 bash ${BASEDIR}/progs/qc-hqset.sh
-bash ${BASEDIR}/progs/qc-mixdup.sh
+bash ${BASEDIR}/progs/qc-mixrel.sh
 
 # cleanup
 unset opt_inprefix
