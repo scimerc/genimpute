@@ -47,6 +47,22 @@ CONFIGURATION:
 EOF
 }
 
+debugout() {
+  local -r lvl
+  lvl=$1
+  local -r lvl_max
+  lvl_max ="$( cfgvar_get debug_lvl )"
+  # print struff to log
+  while read line; do
+    # check log-level
+    if [ "$lvl" -le "$lvl_max" ]; then
+      echo $(date) "$line"
+    fi
+  done
+  return 0
+}
+export -f debugout
+
 while getopts "c:mo:w:h" opt; do
 case "${opt}" in
   c)
