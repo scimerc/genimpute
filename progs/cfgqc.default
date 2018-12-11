@@ -28,6 +28,12 @@ hweneglogp=12
 # Hardy-Weinberg equilibrium p-value (control individuals only)
 hweneglogp_ctrl=4
 
+# maximum fraction of mendel errors for trios
+metrios=0.05
+
+# maximum fraction of mendel errors for variants
+mevars=0.1
+
 # minimum number of individuals required for some tests
 minindcount=100
 

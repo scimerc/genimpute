@@ -11,6 +11,8 @@ declare -r cfg_hweflag=$( cfgvar_get hweflag )
 declare    cfg_hweneglogp=$( cfgvar_get hweneglogp )
 declare    cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
+declare -r cfg_metrios=$( cfgvar_get metrios )
+declare -r cfg_mevars=$( cfgvar_get mevars )
 declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
 declare -r cfg_varmiss=$( cfgvar_get varmiss )
 
@@ -49,6 +51,7 @@ plink --bfile ${opt_inprefix} ${keepflag} \
       --geno ${tmp_varmiss} \
       --maf ${cfg_freqstd} \
       --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
+      --me ${cfg_metrios} ${cfg_mevars} \
       --make-just-bim \
       --out ${tmpprefix}_nonsex \
       >> ${debuglogfn}
