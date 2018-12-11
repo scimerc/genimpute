@@ -12,7 +12,7 @@ declare -r cfg_pihatrel=$( cfgvar_get pihatrel )
 declare -r cfg_uid=$( cfgvar_get uid )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "skipping dup&mix step..\n"
+  printf "skipping mix&rel step..\n"
   exit 0
 fi
 
@@ -81,8 +81,8 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   # include non-mixup info later
   plinkflag="--keep ${tmpprefix}_out.clean.id"
 fi
-# identify duplicate individuals
-echo "identifying duplicate individuals.."
+# identify identical individuals
+echo "identifying identical individuals.."
 plink --bfile ${opt_hqprefix} ${plinkflag} \
       --set-hh-missing \
       --genome gz \
@@ -154,7 +154,7 @@ extract_related_lists_from_grm_file() {
 } | sort -u -k 1,1 > ${tmpprefix}.3.bio
 cp ${tmpprefix}.3.bio ${opt_biofile}
 
-# update biography file with duplicates
+# update biography file with identities
 {
   awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_sq.id \
     | sort -u \
@@ -180,8 +180,8 @@ cp ${tmpprefix}.4.bio ${opt_biofile}
 # rename list of unrelated individuals for later use
 mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
 
-# remove duplicates + update sex in input set
-echo "removing duplicate individuals and updating sex.."
+# remove mixups and update sex in input set
+echo "removing potential mixup individuals and updating sex.."
 plink --bfile ${opt_inprefix} \
       --update-sex ${opt_hqprefix}.fam 3 \
       --keep ${tmpprefix}_out.clean.id \
