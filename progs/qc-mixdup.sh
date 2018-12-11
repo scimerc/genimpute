@@ -22,7 +22,7 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
 fi
 
 # input: merged plink set and hq plink set
-# output: clean plink set (with imputed sex from hq set, no duplicates and no mixups)
+# output: clean plink set (with imputed sex from hq set and no mixups)
 
 
 # update biography file with sex information

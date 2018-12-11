@@ -31,6 +31,7 @@ fi
 #         - good coverage
 #         - sufficient minor allele frequency
 #         - HW equilibrium (possibly different for sex and non-sex chromosomes)
+#         - low rate of Mendel errors in trios
 
 
 declare keepflag=''
