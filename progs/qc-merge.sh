@@ -45,7 +45,8 @@ while true ; do
     if [ -s "${varblacklist}" ] ; then
       plinkflag="--exclude ${varblacklist}" 
     fi
-    plink --bfile ${b_inprefix} ${plinkflag} \
+   ${plinkexec} \
+          --bfile ${b_inprefix} ${plinkflag} \
           --make-bed \
           --out ${b_outprefix} \
           2>&1 >> ${debuglogfn} \
@@ -57,7 +58,8 @@ while true ; do
   done
   unset plinkflag
   # NOTE: if only one batch is present plink throws a warning
-  plink --merge-list ${batchlist} \
+  ${plinkexec} \
+        --merge-list ${batchlist} \
         --out ${tmpprefix}_out \
         2>&1 >> ${debuglogfn} \
         | tee -a ${debuglogfn}

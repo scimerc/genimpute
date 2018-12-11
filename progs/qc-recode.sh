@@ -61,14 +61,15 @@ for i in ${!batchfiles[@]} ; do
     bedflag="--extract range ${opt_varwhitelist}"
   fi
   # convert to plink binary format and merge X chromosome variants
-  plink $flagformat ${plinkinputfn} ${flagkeep} \
+  ${plinkexec} $flagformat ${plinkinputfn} ${flagkeep} \
     --merge-x no-fail \
     --make-bed \
     --out ${tmpprefix}_mx \
     2>&1 >> ${debuglogfn} \
     | tee -a ${debuglogfn}
   if [ ! -z "${bedflag}" ] ; then
-    plink --bfile ${tmpprefix}_mx ${bedflag} \
+    ${plinkexec} \
+      --bfile ${tmpprefix}_mx ${bedflag} \
       --make-bed \
       --out ${tmpprefix}_out \
       2>&1 >> ${debuglogfn} \
@@ -94,7 +95,8 @@ for i in ${!batchfiles[@]} ; do
     > ${tmpprefix}.coloc.rng
   if [ -s "${tmpprefix}.coloc.rng" ] ; then
     pedflag="--extract range ${tmpprefix}.coloc.rng"
-    plink --bfile ${tmpprefix}_out ${pedflag} \
+    ${plinkexec} \
+      --bfile ${tmpprefix}_out ${pedflag} \
       --recode transpose \
       --out ${tmpprefix}_out \
       2>&1 >> ${debuglogfn} \

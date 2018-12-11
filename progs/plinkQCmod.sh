@@ -113,6 +113,14 @@ echo -e "\n=====================================================================
 
 #---------------------------------------------------------------------------------------------------
 
+# define executables
+
+plinkexec=${BASEDIR}/lib/3rdparty/plink
+export plinkexec
+
+
+#---------------------------------------------------------------------------------------------------
+
 # check dependencies
 
 locale
@@ -121,14 +129,6 @@ echo
 awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 1; }
 echo
 join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 1; }
-echo
-plink --version 2> /dev/null || {
-  echo 'plink is not installed.';
-  echo "plink is required by $( basename $0 ). plink source codes and builds can be found at"
-  echo "www.cog-genomics.org. note that some of the functionalities needed by $( basename $0 )"
-  echo "were not implemented in plink2 at the time of writing."
-  exit 1
-}
 echo
 R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 1; }
 
