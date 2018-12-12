@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
+set -Eeou pipefail
 
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
