@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
+set -Eeou pipefail
 
 declare -ra batchfiles=( ${opt_inputfiles} )
 
@@ -34,7 +34,8 @@ for i in ${!batchfiles[@]} ; do
   declare flagkeep=''
   declare flagformat='--bfile'
   declare plinkinputfn=${batchfiles[$i]}
-  declare fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
+  #get_genotype_file_format "${batchfiles[$i]}"
+  fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
   case "${fformat}" in
     "bed" )
       flagformat='--bfile'
@@ -61,14 +62,15 @@ for i in ${!batchfiles[@]} ; do
     bedflag="--extract range ${opt_varwhitelist}"
   fi
   # convert to plink binary format and merge X chromosome variants
-  plink $flagformat ${plinkinputfn} ${flagkeep} \
+  ${plinkexec} $flagformat ${plinkinputfn} ${flagkeep} \
     --merge-x no-fail \
     --make-bed \
     --out ${tmpprefix}_mx \
     2>&1 >> ${debuglogfn} \
     | tee -a ${debuglogfn}
   if [ ! -z "${bedflag}" ] ; then
-    plink --bfile ${tmpprefix}_mx ${bedflag} \
+    ${plinkexec} \
+      --bfile ${tmpprefix}_mx ${bedflag} \
       --make-bed \
       --out ${tmpprefix}_out \
       2>&1 >> ${debuglogfn} \
@@ -94,7 +96,8 @@ for i in ${!batchfiles[@]} ; do
     > ${tmpprefix}.coloc.rng
   if [ -s "${tmpprefix}.coloc.rng" ] ; then
     pedflag="--extract range ${tmpprefix}.coloc.rng"
-    plink --bfile ${tmpprefix}_out ${pedflag} \
+    ${plinkexec} \
+      --bfile ${tmpprefix}_out ${pedflag} \
       --recode transpose \
       --out ${tmpprefix}_out \
       2>&1 >> ${debuglogfn} \
@@ -121,4 +124,3 @@ for i in ${!batchfiles[@]} ; do
   unset b_outprefix
   unset debuglogfn
 done
-

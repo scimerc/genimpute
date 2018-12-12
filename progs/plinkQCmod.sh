@@ -2,7 +2,6 @@
 
 # exit on error
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 #-------------------------------------------------------------------------------
 
@@ -47,6 +46,22 @@ CONFIGURATION:
 
 EOF
 }
+
+debugout() {
+  local -r lvl
+  lvl=$1
+  local -r lvl_max
+  lvl_max ="$( cfgvar_get debug_lvl )"
+  # print struff to log
+  while read line; do
+    # check log-level
+    if [ "$lvl" -le "$lvl_max" ]; then
+      echo $(date) "$line"
+    fi
+  done
+  return 0
+}
+export -f debugout
 
 while getopts "c:mo:w:h" opt; do
 case "${opt}" in
@@ -114,6 +129,14 @@ echo -e "\n=====================================================================
 
 #---------------------------------------------------------------------------------------------------
 
+# define executables
+
+plinkexec=${BASEDIR}/lib/3rdparty/plink
+export plinkexec
+
+
+#---------------------------------------------------------------------------------------------------
+
 # check dependencies
 
 locale
@@ -122,14 +145,6 @@ echo
 awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 1; }
 echo
 join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 1; }
-echo
-plink --version 2> /dev/null || {
-  echo 'plink is not installed.';
-  echo "plink is required by $( basename $0 ). plink source codes and builds can be found at"
-  echo "www.cog-genomics.org. note that some of the functionalities needed by $( basename $0 )"
-  echo "were not implemented in plink2 at the time of writing."
-  exit 1
-}
 echo
 R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 1; }
 
@@ -196,7 +211,7 @@ declare qciter=0
 export opt_outprefix=${opt_outprefixbase}_a_proc
 
 # initialize sample biography file
-declare -r cfg_uid="$( cfgvar_get uid )"
+declare cfg_uid; cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
 cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${cfg_uid} '
 BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
 ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio

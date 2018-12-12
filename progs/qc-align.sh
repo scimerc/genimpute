@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
+set -Eeou pipefail
 
 declare -ra batchfiles=( ${opt_inputfiles} )
 
-declare -r cfg_genomebuild="$( cfgvar_get genomebuild )"
-declare -r cfg_refallelesfn="$( cfgvar_get refallelesfn )"
+declare  cfg_genomebuild; 
+         cfg_genomebuild="$( cfgvar_get genomebuild )"; 
+readonly cfg_genomebuild
+declare  cfg_refallelesfn
+         cfg_refallelesfn="$( cfgvar_get refallelesfn )"
+readonly cfg_refallelesfn
 
 #-------------------------------------------------------------------------------
 
@@ -160,7 +164,8 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--exclude ${batchblacklist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
-  plink --bfile ${b_inprefix} ${plinkflag} \
+  ${plinkexec} \
+        --bfile ${b_inprefix} ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_nb \
         2>&1 >> ${debuglogfn} \
@@ -174,7 +179,8 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--flip ${batchfliplist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
-  plink --bfile ${tmpprefix}_nb ${plinkflag} \
+  ${plinkexec} \
+        --bfile ${tmpprefix}_nb ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_nbf \
         2>&1 >> ${debuglogfn} \
@@ -191,7 +197,8 @@ for i in ${!batchfiles[@]} ; do
   if [ $parcount -eq 0 ] ; then
     plinkflag="--split-x ${cfg_genomebuild} no-fail" 
   fi
-  plink --bfile ${tmpprefix}_nbf ${plinkflag} \
+  ${plinkexec} \
+        --bfile ${tmpprefix}_nbf ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_out \
         2>&1 >> ${debuglogfn} \

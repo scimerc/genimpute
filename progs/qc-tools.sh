@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
-
 extract_sample_ids() {
   if [ ${#@} -le 1 ] ; then
     cat "${1:-/dev/stdin}"
@@ -22,16 +20,25 @@ export -f extract_sample_ids
 get_genotype_file_format() {
   local -r inputfile=$1
   #TODO implement plink2 native .gen format
-  local -r bedhex='0x6c 0x1b'
-  local -r bcfhex='0x42 0x43'
-  local -r vcfhex='0x23 0x23'
+  local    bedhex
+           bedhex='0x6c 0x1b'
+  readonly bedhex        
+  local    bcfhex
+           bcfhex='0x42 0x43'
+  readonly bcfhex
+  local    vcfhex
+           vcfhex='0x23 0x23'
+  readonly vcfhex
 
   # get first 2 bytes of inputfile
   if [ -z "${inputfile}" -o ! -f "${inputfile}" ]; then
+    printf "error: get_genotype_file_format - file '%s' not found\n" "${inputfile}" >&2
     return 1
   fi
 
-  local -r filehead=$( zcat -f ${inputfile} | hexdump -n2 -e '2/1 "0x%02x "' )
+  local    filehead
+           filehead=$( zcat -f ${inputfile} | hexdump -n2 -e '2/1 "0x%02x "' )
+  readonly filehead
   case ${filehead} in
     "${bedhex}" )
       printf 'bed' ;;
@@ -53,7 +60,9 @@ export -f get_genotype_file_format
 get_unique_filename_from_path() {
   local -r path="$1"
   local -r numchars=6
-  local -r md5=$(echo "$path" | md5sum)
+  local    md5
+           md5=$(echo "$path" | md5sum)
+  readonly md5
   printf "%s_%s" "$(basename "$path" )" "${md5:0:$numchars}"
 }
 
@@ -122,4 +131,3 @@ tabulate() {
 export -f tabulate
 
 #-------------------------------------------------------------------------------
-
