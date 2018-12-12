@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
 
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" $(basename $0) ${LINENO}; exit;' ERR
 
 # get parent dir of this script
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 export BASEDIR
 
+execmode="slurm"
+# this time is for imputation - expected time for phasing jobs: ~10hrs
+slurmcmd="sbatch --account=p33 --time=4-00:00:00 --mem-per-cpu=1536M --cpus-per-task=4"
+
 genmap=${BASEDIR}/lib/data/genetic_map_hg19_withX.txt.gz
 
-inprefix=/cluster/projects/p33/nobackup/tmp/testZ
-outprefix=/cluster/projects/p33/nobackup/tmp/testZQ
+inprefix=/cluster/projects/p33/data/genetics/rawdata/genotypes/postQC/NORMENT/norment_batch3_Jan15_qc
+outprefix=/cluster/projects/p33/nobackup/tmp/test_batch3
 tmpprefix=${outprefix}_tmp
-phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/test/chrfiles/chr
-imputerefprefix=/cluster/projects/p33/users/franbe/norment_2018/test/chrfiles/chr
+phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/ega.grch37.chr
+imputerefprefix=/cluster/projects/p33/data/genetics/external/HRC/decrypted/ega.grch37.chr
 scriptprefix=${tmpprefix}_script
 
-igroupsize=100
+igroupsize=650 # num_samples*22 / (400[=max_jobs] - 3[=num_of_chr-wise-jobs]*22[=num_of_chr])
 eaglexec=eagle
-minimacexec=minimac
+minimacexec=${BASEDIR}/lib/3rdparty/minimac4
 
 getbpstart() {
   local -r chr=$1
@@ -41,24 +44,33 @@ getbpend() {
 }
 
 if [ ! -s ${tmpprefix}.bcf -o ! -s ${tmpprefix}.bcf.csi ] ; then
+  module load plink
   plink --bfile ${inprefix} --recode vcf bgz --out ${tmpprefix}
   bcftools convert -Ob ${tmpprefix}.vcf.gz > ${tmpprefix}_out.bcf
+  bcftools index ${tmpprefix}_out.bcf
   mv ${tmpprefix}_out.bcf ${tmpprefix}.bcf
-  bcftools index ${tmpprefix}.bcf
+  mv ${tmpprefix}_out.bcf.csi ${tmpprefix}.bcf.csi
 fi
 
 cut -f 1 ${inprefix}.bio | tail -n +2 | split -d -l ${igroupsize} /dev/stdin ${tmpprefix}_sample
 tmpsamplelist=$( ls "${tmpprefix}_sample"* | grep 'sample[0-9]\+$' )
 
-for chr in $( seq 21 22 ) ; do
-cat > ${scriptprefix}_phase_chr${chr}.sh << EOI
+for chr in $( seq 22 ) ; do
+cat > ${scriptprefix}1_phase_chr${chr}.sh << EOI
+#!/usr/bin/env bash
 set -Eeou pipefail
 trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
-num_cpus=$(cat /proc/cpuinfo | grep "model name" | wc -l)
+source /cluster/bin/jobsetup
+if [ -e "${tmpprefix}_chr${chr}_phased.vcf.gz" ]; then
+  printf "phased haplotypes present - skipping...\\n"
+  exit 0
+fi
+num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
+num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
   time ${eaglexec} \\
     --chrom ${chr} \\
     --geneticMapFile ${genmap} \\
-    --vcfRef ${phaserefprefix}${chr}ref.vcf.gz \\
+    --vcfRef ${phaserefprefix}${chr}.haplotypes.bcf \\
     --vcfTarget ${tmpprefix}.bcf \\
     --outPrefix ${tmpprefix}_chr${chr}_phasing \\
     --numThreads \${num_cpus}
@@ -66,13 +78,34 @@ mv ${tmpprefix}_chr${chr}_phasing.vcf.gz ${tmpprefix}_chr${chr}_phased.vcf.gz
 EOI
 done
 
-for chr in $( seq 21 22 ) ; do
-  for samplefile in ${tmpsamplelist} ; do
-    sample=${samplefile##*_}
-cat > ${scriptprefix}_impute_chr${chr}_${sample}.sh << EOI
+for chr in $( seq 22 ) ; do
+cat > ${scriptprefix}2_refconv_chr${chr}.sh << EOI
+#!/usr/bin/env bash
 set -Eeou pipefail
 trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
-num_cpus=$(cat /proc/cpuinfo | grep "model name" | wc -l)
+source /cluster/bin/jobsetup
+num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
+num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
+    time ${BASEDIR}/lib/3rdparty/minimac3 \\
+      --refHaps ${imputerefprefix}${chr}.haplotypes.vcf.gz \\
+      --processReference \\
+      --prefix ${tmpprefix}_refhaps_chr${chr}_out \\
+      --cpus \${num_cpus}
+    mv ${tmpprefix}_refhaps_chr${chr}_out.m3vcf.gz \\
+       ${tmpprefix}_refhaps_chr${chr}.m3vcf.gz \\
+EOI
+done
+
+for chr in $( seq 22 ) ; do
+  for samplefile in ${tmpsamplelist} ; do
+    sample=${samplefile##*_}
+cat > ${scriptprefix}3_impute_chr${chr}_${sample}.sh << EOI
+#!/usr/bin/env bash
+set -Eeou pipefail
+trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
+source /cluster/bin/jobsetup
+num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
+num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
     bcftools view -S ${samplefile} -Oz \\
       --force-samples ${tmpprefix}_chr${chr}_phased.vcf.gz \\
       > ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz
@@ -80,12 +113,13 @@ num_cpus=$(cat /proc/cpuinfo | grep "model name" | wc -l)
       --chr ${chr} \\
       --cpus \${num_cpus} \\
       --haps ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz \\
-      --refHaps ${imputerefprefix}${chr}ref.vcf.gz \\
+      --refHaps ${tmpprefix}_refhaps_chr${chr}.m3vcf.gz \\
       --rounds 5 --states 200 \\
-      --noPhoneHome --doseOutput --hapOutput \\
+      --noPhoneHome \\
       --prefix ${tmpprefix}_chr${chr}_${sample}_imputing \\
       > ${tmpprefix}_chr${chr}_${sample}_imputing.log 2>&1
     bcftools index ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz
+    # fix minimac3 output
     bcftools view -h ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz \\
       | awk -v genofilter='##FILTER=<ID=GENOTYPED,Description="Site was genotyped">' \\
         'BEGIN{ flag = 0 } {
@@ -105,11 +139,52 @@ num_cpus=$(cat /proc/cpuinfo | grep "model name" | wc -l)
     bcftools index -f ${tmpprefix}_chr${chr}_${sample}_imputed.dose.vcf.gz
 EOI
   done
-cat > ${scriptprefix}_merge_chr${chr}.sh << EOI
+cat > ${scriptprefix}4_merge_chr${chr}.sh << EOI
+#!/usr/bin/env bash
+set -Eeou pipefail
+trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
+source /cluster/bin/jobsetup
   bcftools merge ${tmpprefix}_chr${chr}_*_imputed.dose.vcf.gz -Oz \\
     > ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz
   mv ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz \\
     ${outprefix}_chr${chr}_imputed.dose.vcf.gz
 EOI
 done
+
+echo 'submitting scripts..'
+
+jobscripts=$(ls ${scriptprefix}*)
+
+case ${execmode} in
+  "local")
+    for script in ${jobscripts}; do
+      echo "running" ${script} "..."
+      ${script}
+    done
+    ;;
+  "slurm")
+    scriptcats="$(echo ${jobscripts} | grep -o "script[0-9]\+" | sort | uniq )"
+    [ ! -z "$scriptcats" ] || { printf "error: no script categories"; exit 1; } >&2
+    jobdep=""
+    for cat in ${scriptcats}; do
+      echo "$cat"
+      joblist=""
+      for script in $(echo "${jobscripts}" | grep "_${cat}_" ); do
+        jobname=$( echo $script | grep -o 'script.\+' | sed 's/cript//' )
+        jobid=$( \
+          ${slurmcmd} ${jobdep} \
+            --job-name=${jobname} \
+            --output=${tmpprefix}_slurm_%x_%j.out \
+            --parsable ${script}
+        )
+        joblist="${joblist}:${jobid}"
+      done
+      jobdep="--dependency=afterok${joblist}"
+    done
+    ;;
+  *)
+    printf "error unknown execmode '%s'\n" "${execmode}" >&2
+    exit 1
+    ;;
+esac
 
