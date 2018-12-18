@@ -131,7 +131,7 @@ echo -e "\n=====================================================================
 
 # define executables
 
-plinkexec=${BASEDIR}/lib/3rdparty/plink
+plinkexec=${BASEDIR}/lib/3rd/plink
 export plinkexec
 
 
@@ -201,8 +201,6 @@ export opt_outprefix=${opt_outprefixbase}_a_proc
 
 # call merge
 bash ${BASEDIR}/progs/qc-merge.sh
-
-#---------------------------------------------------------------------------------------------------
 
 # cleanup
 unset opt_inprefix

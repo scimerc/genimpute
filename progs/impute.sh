@@ -8,7 +8,7 @@ export BASEDIR
 
 execmode="slurm"
 # this time is for imputation - expected time for phasing jobs: ~10hrs
-slurmcmd="sbatch --account=p33 --time=4-00:00:00 --mem-per-cpu=1536M --cpus-per-task=4"
+slurmcmd="sbatch --account=p33 --time=4-00:00:00 --mem-per-cpu=2048M --cpus-per-task=4" #1536
 
 genmap=${BASEDIR}/lib/data/genetic_map_hg19_withX.txt.gz
 
@@ -19,9 +19,10 @@ phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/ega.grch37.chr
 imputerefprefix=/cluster/projects/p33/data/genetics/external/HRC/decrypted/ega.grch37.chr
 scriptprefix=${tmpprefix}_script
 
+chromosomes=$( seq 13 19 )
 igroupsize=650 # num_samples*22 / (400[=max_jobs] - 3[=num_of_chr-wise-jobs]*22[=num_of_chr])
-eaglexec=eagle
-minimacexec=${BASEDIR}/lib/3rdparty/minimac4
+eaglexec=${BASEDIR}/lib/3rd/eagle
+minimacexec=${BASEDIR}/lib/3rd/minimac3
 
 getbpstart() {
   local -r chr=$1
@@ -52,14 +53,14 @@ if [ ! -s ${tmpprefix}.bcf -o ! -s ${tmpprefix}.bcf.csi ] ; then
   mv ${tmpprefix}_out.bcf.csi ${tmpprefix}.bcf.csi
 fi
 
+#TODO: remove QC'd away samples from bio before splitting
 cut -f 1 ${inprefix}.bio | tail -n +2 | split -d -l ${igroupsize} /dev/stdin ${tmpprefix}_sample
 tmpsamplelist=$( ls "${tmpprefix}_sample"* | grep 'sample[0-9]\+$' )
 
-for chr in $( seq 22 ) ; do
+for chr in ${chromosomes} ; do
 cat > ${scriptprefix}1_phase_chr${chr}.sh << EOI
 #!/usr/bin/env bash
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
 source /cluster/bin/jobsetup
 if [ -e "${tmpprefix}_chr${chr}_phased.vcf.gz" ]; then
   printf "phased haplotypes present - skipping...\\n"
@@ -78,39 +79,46 @@ mv ${tmpprefix}_chr${chr}_phasing.vcf.gz ${tmpprefix}_chr${chr}_phased.vcf.gz
 EOI
 done
 
-for chr in $( seq 22 ) ; do
+#TODO? remove me
+for chr in ${chromosomes} ; do
 cat > ${scriptprefix}2_refconv_chr${chr}.sh << EOI
 #!/usr/bin/env bash
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
 source /cluster/bin/jobsetup
+if [ -e "${tmpprefix}_refhaps_chr${chr}.m3vcf.gz" ]; then
+  printf "m3vcf files present - skipping...\\n"
+  exit 0
+fi
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
-    time ${BASEDIR}/lib/3rdparty/minimac3 \\
+    time ${minimacexec} \\ 
       --refHaps ${imputerefprefix}${chr}.haplotypes.vcf.gz \\
       --processReference \\
       --prefix ${tmpprefix}_refhaps_chr${chr}_out \\
-      --cpus \${num_cpus}
+      --cpus \${num_cpus} \\
+      --rounds 5
     mv ${tmpprefix}_refhaps_chr${chr}_out.m3vcf.gz \\
        ${tmpprefix}_refhaps_chr${chr}.m3vcf.gz \\
 EOI
 done
 
-for chr in $( seq 22 ) ; do
+for chr in ${chromosomes} ; do
   for samplefile in ${tmpsamplelist} ; do
     sample=${samplefile##*_}
 cat > ${scriptprefix}3_impute_chr${chr}_${sample}.sh << EOI
 #!/usr/bin/env bash
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
 source /cluster/bin/jobsetup
+if [ -e "${tmpprefix}_chr${chr}_${sample}_imputed.dose.vcf.gz" ]; then
+  printf "m3vcf files present - skipping...\\n"
+  exit 0
+fi
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
     bcftools view -S ${samplefile} -Oz \\
       --force-samples ${tmpprefix}_chr${chr}_phased.vcf.gz \\
       > ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz
     time ${minimacexec} \\
-      --chr ${chr} \\
       --cpus \${num_cpus} \\
       --haps ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz \\
       --refHaps ${tmpprefix}_refhaps_chr${chr}.m3vcf.gz \\
@@ -142,7 +150,6 @@ EOI
 cat > ${scriptprefix}4_merge_chr${chr}.sh << EOI
 #!/usr/bin/env bash
 set -Eeou pipefail
-trap 'printf "===> error in %s line %s\n" \$(basename \$0) \${LINENO}; exit;' ERR
 source /cluster/bin/jobsetup
   bcftools merge ${tmpprefix}_chr${chr}_*_imputed.dose.vcf.gz -Oz \\
     > ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz
