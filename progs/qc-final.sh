@@ -49,12 +49,12 @@ if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
     > ${tmpprefix}_ctrl.txt
   declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
   # redefine phenotypes in the input plink set
-  plink --bfile ${opt_inprefix} \
-        --make-pheno ${cfg_phenotypes} 2 \
-        --make-bed \
-        --out ${tmpprefix}_pheno \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+  ${plinkexec} --bfile ${opt_inprefix} \
+               --make-pheno ${cfg_phenotypes} 2 \
+               --make-bed \
+               --out ${tmpprefix}_pheno \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
 # else, if there are enough annotated controls in the original file use those
 elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
   awk -F $'\t' '$6 == 1' ${opt_inprefix}.fam \
@@ -79,12 +79,13 @@ fi
 if [ $Nctrl -ge $cfg_minindcount ] ; then
   declare plinkflag=''
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
-  plink --bfile ${tmpprefix}_pheno ${keepflag} \
-        --not-chr 23,24 \
-        --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
-        --make-just-bim \
-        --out ${tmpprefix}_ctrlhwe_nonsex \
-        >> ${debuglogfn}
+  ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} \
+               --not-chr 23,24 \
+               --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
+               --make-just-bim \
+               --out ${tmpprefix}_ctrlhwe_nonsex \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
   declare nosexflag=''
   # get set of individuals missing sex information for exclusion from later check
   awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
@@ -97,12 +98,13 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
     sex_hweneglogp_ctrl=12
   fi
   # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
-  plink --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
-        --chr 23,24 \
-        --hwe 1.E-${sex_hweneglogp_ctrl} midp \
-        --make-just-bim \
-        --out ${tmpprefix}_ctrlhwe_sex \
-        >> ${debuglogfn}
+  ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
+               --chr 23,24 \
+               --hwe 1.E-${sex_hweneglogp_ctrl} midp \
+               --make-just-bim \
+               --out ${tmpprefix}_ctrlhwe_sex \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
   unset nosexflag
   [ -s "${tmpprefix}_ctrlhwe_nonsex.bim" -o -s "${tmpprefix}_ctrlhwe_sex.bim" ] || {
     printf "error: no variants left after HWE.\n" >&2;
@@ -112,10 +114,11 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   cut -f 2 ${tmpprefix}_ctrlhwe_*sex.bim | sort -u > ${tmpprefix}_ctrlhwe.mrk
   plinkflag="--extract ${tmpprefix}_ctrlhwe.mrk"
   # make a new plink set with eventual filter
-  plink --bfile ${opt_inprefix} ${plinkflag} \
-    --make-bed \
-    --out ${tmpprefix}_ctrlhwe \
-    >> ${debuglogfn}
+  ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
+               --make-bed \
+               --out ${tmpprefix}_ctrlhwe \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
   # make a copy of the files with output suffix
   mv ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.bed
   mv ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
@@ -128,12 +131,13 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   > ${tmpprefix}.exclude
   for i in ${!batchfamfiles[@]} ; do
     echo "assessing batch effects for '${batchfamfiles[$i]}'.."
-    plink --bfile ${tmpprefix}_out \
-          --keep ${tmpprefix}_ctrl.txt \
-          --make-pheno ${batchfamfiles[$i]} '*' \
-          --model \
-          --out ${tmpprefix}_plink \
-          >> ${debuglogfn}
+    ${plinkexec} --bfile ${tmpprefix}_out \
+                 --keep ${tmpprefix}_ctrl.txt \
+                 --make-pheno ${batchfamfiles[$i]} '*' \
+                 --model \
+                 --out ${tmpprefix}_plink \
+                 2>&1 >> ${debuglogfn} \
+                 | tee -a ${debuglogfn}
     if [ -s "${tmpprefix}_plink.model" ] ; then
       sed -i -r 's/^[ \t]+//g; s/[ \t]+/\t/g;' ${tmpprefix}_plink.model
       for atest in $( cut -f 5 ${tmpprefix}_plink.model | tail -n +2 | sort -u ) ; do
@@ -149,11 +153,12 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   done
   sort -u ${tmpprefix}.exclude > ${tmpprefix}.exclude.sort
   mv ${tmpprefix}.exclude.sort ${tmpprefix}.exclude
-  plink --bfile ${tmpprefix}_out \
-        --exclude ${tmpprefix}.exclude \
-        --make-bed \
-        --out ${tmpprefix}_outz \
-        >> ${debuglogfn}
+  ${plinkexec} --bfile ${tmpprefix}_out \
+               --exclude ${tmpprefix}.exclude \
+               --make-bed \
+               --out ${tmpprefix}_outz \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
   mv ${tmpprefix}_outz.bed ${tmpprefix}_out.bed
   mv ${tmpprefix}_outz.bim ${tmpprefix}_out.bim
   mv ${tmpprefix}_outz.fam ${tmpprefix}_out.fam

@@ -49,8 +49,18 @@ declare plinkflag=''
 # run 'het_VS_miss.Rscript' to find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
   echo "computing individual heterozygosity and missing rates.."
-  plink --bfile ${opt_hqprefix} --set-hh-missing --het     --out ${tmpprefix}_sq >> ${debuglogfn}
-  plink --bfile ${opt_hqprefix} --set-hh-missing --missing --out ${tmpprefix}_sq >> ${debuglogfn}
+  ${plinkexec} --bfile ${opt_hqprefix} \
+               --set-hh-missing \
+               --het \
+               --out ${tmpprefix}_sq \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
+  ${plinkexec} --bfile ${opt_hqprefix} \
+               --set-hh-missing \
+               --missing \
+               --out ${tmpprefix}_sq \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
   ${BASEDIR}/progs/het_vs_miss.Rscript -m ${tmpprefix}_sq.imiss -h ${tmpprefix}_sq.het \
     -o ${tmpprefix}_out >> ${debuglogfn}
   mv ${tmpprefix}_out_hetVSmiss.pdf ${opt_outprefix}_hetVSmiss.pdf
@@ -83,27 +93,31 @@ if [ ${cfg_hvm} -eq 1 ] ; then
 fi
 # identify identical individuals
 echo "identifying identical individuals.."
-plink --bfile ${opt_hqprefix} ${plinkflag} \
-      --set-hh-missing \
-      --genome gz \
-      --out ${tmpprefix}_sq \
-      >> ${debuglogfn}
-plink --bfile ${opt_hqprefix} ${plinkflag} \
-      --set-hh-missing \
-      --cluster \
-      --read-genome ${tmpprefix}_sq.genome.gz \
-      --rel-cutoff ${cfg_pihat} \
-      --out ${tmpprefix}_sq \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
+             --set-hh-missing \
+             --genome gz \
+             --out ${tmpprefix}_sq \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+             >> ${debuglogfn}
+${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
+             --set-hh-missing \
+             --cluster \
+             --read-genome ${tmpprefix}_sq.genome.gz \
+             --rel-cutoff ${cfg_pihat} \
+             --out ${tmpprefix}_sq \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 # give rel.id file a less confusing name
 mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq.id
-plink --bfile ${opt_hqprefix} ${plinkflag} \
-      --set-hh-missing \
-      --cluster \
-      --read-genome ${tmpprefix}_sq.genome.gz \
-      --rel-cutoff ${cfg_pihatrel} \
-      --out ${tmpprefix}_sq \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
+             --set-hh-missing \
+             --cluster \
+             --read-genome ${tmpprefix}_sq.genome.gz \
+             --rel-cutoff ${cfg_pihatrel} \
+             --out ${tmpprefix}_sq \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 # give rel.id file a less confusing name
 mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq_unrel.id
 unset plinkflag
@@ -182,12 +196,13 @@ mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
 
 # remove mixups and update sex in input set
 echo "removing potential mixup individuals and updating sex.."
-plink --bfile ${opt_inprefix} \
-      --update-sex ${opt_hqprefix}.fam 3 \
-      --keep ${tmpprefix}_out.clean.id \
-      --make-bed \
-      --out ${tmpprefix}_out \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} \
+             --update-sex ${opt_hqprefix}.fam 3 \
+             --keep ${tmpprefix}_out.clean.id \
+             --make-bed \
+             --out ${tmpprefix}_out \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 

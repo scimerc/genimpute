@@ -56,23 +56,25 @@ declare -r regionblacklist=${BASEDIR}/lib/data/${cfg_genomeblacklist}
 declare -r regexcludeflag="--exclude range ${regionblacklist}"
 
 # get sex hq-variants from input file
-plink --bfile ${opt_inprefix} ${keepflag} \
-      --not-chr 23,24 ${regexcludeflag} ${extractflag} \
-      --geno ${cfg_varmiss} \
-      --maf ${cfg_freqhq} \
-      --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
-      --make-just-bim \
-      --out ${tmpprefix}_nonsex \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
+             --not-chr 23,24 ${regexcludeflag} ${extractflag} \
+             --geno ${cfg_varmiss} \
+             --maf ${cfg_freqhq} \
+             --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
+             --make-just-bim \
+             --out ${tmpprefix}_nonsex \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 
 # get non-sex hq-variants from input file
-plink --bfile ${opt_inprefix} ${keepflag} \
-      --chr 23,24 ${regexcludeflag} ${extractflag} \
-      --geno ${cfg_varmiss} \
-      --maf ${cfg_freqhq} \
-      --make-just-bim \
-      --out ${tmpprefix}_sex \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
+             --chr 23,24 ${regexcludeflag} ${extractflag} \
+             --geno ${cfg_varmiss} \
+             --maf ${cfg_freqhq} \
+             --make-just-bim \
+             --out ${tmpprefix}_sex \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 
 
 # check if we have anything of high quality
@@ -83,24 +85,27 @@ plink --bfile ${opt_inprefix} ${keepflag} \
 
 # extract all hq variants from input file and make hq plink set
 cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}_hq.mrk
-plink --bfile ${opt_inprefix} \
-      --extract ${tmpprefix}_hq.mrk \
-      --make-bed \
-      --out ${tmpprefix}_hq \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} \
+             --extract ${tmpprefix}_hq.mrk \
+             --make-bed \
+             --out ${tmpprefix}_hq \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 
 # LD-prune hq variants
-plink --bfile ${tmpprefix}_hq ${keepflag} \
-      --indep-pairphase 500 5 0.2 \
-      --out ${tmpprefix}_hq_LD \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${tmpprefix}_hq ${keepflag} \
+             --indep-pairphase 500 5 0.2 \
+             --out ${tmpprefix}_hq_LD \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 
 # extract LD-pruned hq variants from hq plink set
-plink --bfile ${tmpprefix}_hq \
-      --extract ${tmpprefix}_hq_LD.prune.in \
-      --make-bed \
-      --out ${tmpprefix}_hq_LDpruned \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${tmpprefix}_hq \
+             --extract ${tmpprefix}_hq_LD.prune.in \
+             --make-bed \
+             --out ${tmpprefix}_hq_LDpruned \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 
 get_xvar_count() {
   awk '$1 == 23' $1 | wc -l
@@ -109,11 +114,13 @@ get_xvar_count() {
 # if there are enough X chromosome variants impute sex based on them
 if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; then
   # impute sex once with all standard high quality variants
-  plink --bfile ${tmpprefix}_hq_LDpruned \
-        --impute-sex \
-        --make-bed \
-        --out ${tmpprefix}_hq_LDpruned_isex \
-        >> ${debuglogfn}
+  ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned \
+               --impute-sex \
+               --make-bed \
+               --out ${tmpprefix}_hq_LDpruned_isex \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
+
   mv ${tmpprefix}_hq_LDpruned_isex.bed ${tmpprefix}_out.bed
   mv ${tmpprefix}_hq_LDpruned_isex.bim ${tmpprefix}_out.bim
   mv ${tmpprefix}_hq_LDpruned_isex.fam ${tmpprefix}_out.fam
@@ -122,25 +129,29 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
   declare -r xindcount=$( awk '$5 == 1 || $5 == 2' ${tmpprefix}_out.fam | wc -l )
   # if sex could be imputed for enough individuals impute it once again after HWE tests
   if (( xindcount > minindcount )) ; then
-    plink --bfile ${tmpprefix}_out \
-          --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hwflag} \
-          --make-just-bim \
-          --out ${tmpprefix}_sexhwe \
-          >> ${debuglogfn}
+    ${plinkexec} --bfile ${tmpprefix}_out \
+                 --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hwflag} \
+                 --make-just-bim \
+                 --out ${tmpprefix}_sexhwe \
+                 2>&1 >> ${debuglogfn} \
+                 | tee -a ${debuglogfn}
 
     # if there are enough X chromosome variants after HWE re-impute sex based on them
     if [ $( get_xvar_count ${tmpprefix}_sexhwe.bim ) -gt $cfg_minvarcount ] ; then
-      plink --bfile ${tmpprefix}_hq_LDpruned \
-            --extract <( cut -f 2 ${tmpprefix}_sexhwe.bim ) \
-            --impute-sex \
-            --make-bed \
-            --out ${tmpprefix}_hq_LDpruned_isex_new \
-            >> ${debuglogfn}
+      ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned \
+                   --extract <( cut -f 2 ${tmpprefix}_sexhwe.bim ) \
+                   --impute-sex \
+                   --make-bed \
+                   --out ${tmpprefix}_hq_LDpruned_isex_new \
+                   2>&1 >> ${debuglogfn} \
+                   | tee -a ${debuglogfn}
+
       # replace the original sex imputation files
       mv ${tmpprefix}_hq_LDpruned_isex_new.bed ${tmpprefix}_out.bed
       mv ${tmpprefix}_hq_LDpruned_isex_new.bim ${tmpprefix}_out.bim
       mv ${tmpprefix}_hq_LDpruned_isex_new.fam ${tmpprefix}_out.fam
       mv ${tmpprefix}_hq_LDpruned_isex_new.sexcheck ${tmpprefix}_out.sexcheck
+
     fi
   fi
 fi

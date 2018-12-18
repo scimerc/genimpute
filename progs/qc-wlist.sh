@@ -52,7 +52,7 @@ for i in ${!batchfiles[@]} ; do
       ;;
   esac
   # whatever format the input file is - make a bim file
-  plink ${plinkflag} ${batchfiles[$i]/%.bed/.bim} \
+  ${plinkexec} ${plinkflag} ${batchfiles[$i]/%.bed/.bim} \
         --make-just-bim \
         --out ${tmpprefix}_ex \
         2>&1 >> ${debuglogfn} \

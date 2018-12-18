@@ -124,3 +124,4 @@ for i in ${!batchfiles[@]} ; do
   unset b_outprefix
   unset debuglogfn
 done
+

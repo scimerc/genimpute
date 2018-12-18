@@ -46,16 +46,17 @@ fi
 tmp_varmiss=${cfg_varmiss}
 n=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
-plink --bfile ${opt_inprefix} ${keepflag} \
-      --not-chr 23,24 \
-      --set-hh-missing \
-      --geno ${tmp_varmiss} \
-      --maf ${cfg_freqstd} \
-      --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
-      --me ${cfg_metrios} ${cfg_mevars} \
-      --make-just-bim \
-      --out ${tmpprefix}_nonsex \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
+             --not-chr 23,24 \
+             --set-hh-missing \
+             --geno ${tmp_varmiss} \
+             --maf ${cfg_freqstd} \
+             --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
+             --me ${cfg_metrios} ${cfg_mevars} \
+             --make-just-bim \
+             --out ${tmpprefix}_nonsex \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 declare nosexflag=''
 awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
   > ${opt_hqprefix}.nosex
@@ -66,15 +67,16 @@ sex_hweneglogp=$(( cfg_hweneglogp*2 ))
 if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
-plink --bfile ${opt_inprefix} ${keepflag} ${nosexflag} \
-      --chr 23,24 \
-      --set-hh-missing \
-      --geno ${tmp_varmiss} \
-      --maf ${cfg_freqstd} \
-      --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
-      --make-just-bim \
-      --out ${tmpprefix}_sex \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} ${keepflag} ${nosexflag} \
+             --chr 23,24 \
+             --set-hh-missing \
+             --geno ${tmp_varmiss} \
+             --maf ${cfg_freqstd} \
+             --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
+             --make-just-bim \
+             --out ${tmpprefix}_sex \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 unset nosexflag
 [ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
   printf "error: no variants left after QC.\n" >&2;
@@ -85,7 +87,8 @@ plink --bfile ${opt_inprefix} \
       --extract ${tmpprefix}.mrk \
       --make-bed \
       --out ${tmpprefix}_out \
-      >> ${debuglogfn}
+      2>&1 >> ${debuglogfn} \
+      | tee -a ${debuglogfn}
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 

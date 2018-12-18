@@ -27,12 +27,14 @@ fi
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l ${opt_inprefix}.bim | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
-plink --bfile ${opt_inprefix} \
-      --set-hh-missing \
-      --mind ${tmp_samplemiss} \
-      --make-bed \
-      --out ${tmpprefix}_out \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} \
+             --set-hh-missing \
+             --set-me-missing \
+             --mind ${tmp_samplemiss} \
+             --make-bed \
+             --out ${tmpprefix}_out \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 {

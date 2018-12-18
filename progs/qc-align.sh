@@ -103,57 +103,60 @@ for i in ${!batchfiles[@]} ; do
   echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
   echo "duplicate variants marked for deletion."
   # use ref alleles if specified or if we have more than one batch
-  if [ ${#batchfiles[@]} -gt 1 -o ! -z "${cfg_refallelesfn}" ] ; then
-    echo "matching variants to reference.."
-    [ -s ${cfg_refallelesfn} ] || {
-      printf "error: file '%s' empty or not found.\n" "${cfg_refallelesfn}" >&2;
-      exit 1;
-    }
-    # get chr:bp strings from bim file and join with the corresponding field of refallelesfn
-    awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${b_inprefix}.bim \
-      | sort -t $'\t' -k 7,7 \
-      | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${cfg_refallelesfn} - \
-      | awk -F $'\t' \
-        -f ${BASEDIR}/lib/awk/nucleocode.awk \
-        -f ${BASEDIR}/lib/awk/genotype.awk \
-        -f ${BASEDIR}/lib/awk/gflip.awk \
-        -f ${BASEDIR}/lib/awk/gmatch.awk \
-        -v batchblacklist=${batchblacklist} \
-        -v batchfliplist=${batchfliplist} \
-        --source 'BEGIN{
-            OFS="\t"
-            total_miss = 0
-            total_mism = 0
-            total_flip = 0
-            printf( "" ) >>batchblacklist
-            printf( "" ) >>batchfliplist
-          } {
-            if ( $5 == "-" || $6 == "-" ) {
-              print( $4 ) >>batchblacklist
-              total_miss++
-            }
-            else {
-              if ( !gmatch( $2, $3, $5, $6 ) ) {
-                print( $4 ) >>batchblacklist
-                total_mism++
-              }
-              else if ( gflip( $2, $3, $5, $6 ) ) {
-                print( $4 ) >>batchfliplist
-                total_flip++
-              }
-            }
-          } END{
-            print( "total missing:  ", total_miss )
-            print( "total mismatch: ", total_mism )
-            print( "total flipped:  ", total_flip )
-            close( batchblacklist )
-            close( batchfliplist)
-          }'
-    # list unique
-    sort -u ${batchfliplist} > $tmpvarctrl
-    mv $tmpvarctrl ${batchfliplist}
-    echo "$( wc -l ${batchfliplist} ) variants to be flipped."
+  if [ -z "${cfg_refallelesfn}" ] ; then
+    printf "error: reference is not set.\n" >&2;
+    exit 1
   fi
+  echo "matching variants to reference.."
+  [ -s "${cfg_refallelesfn}" ] || {
+    printf "error: file '%s' is unusable.\n" "${cfg_refallelesfn}" >&2;
+    exit 1;
+  }
+  #TODO: change refallelesfn to the actual vcf reference file and code allele extraction
+  # get chr:bp strings from bim file and join with the corresponding field of refallelesfn
+  awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${b_inprefix}.bim \
+    | sort -t $'\t' -k 7,7 \
+    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${cfg_refallelesfn} - \
+    | awk -F $'\t' \
+      -f ${BASEDIR}/lib/awk/nucleocode.awk \
+      -f ${BASEDIR}/lib/awk/genotype.awk \
+      -f ${BASEDIR}/lib/awk/gflip.awk \
+      -f ${BASEDIR}/lib/awk/gmatch.awk \
+      -v batchblacklist=${batchblacklist} \
+      -v batchfliplist=${batchfliplist} \
+      --source 'BEGIN{
+          OFS="\t"
+          total_miss = 0
+          total_mism = 0
+          total_flip = 0
+          printf( "" ) >>batchblacklist
+          printf( "" ) >>batchfliplist
+        } {
+          if ( $5 == "-" || $6 == "-" ) {
+            print( $4 ) >>batchblacklist
+            total_miss++
+          }
+          else {
+            if ( !gmatch( $2, $3, $5, $6 ) ) {
+              print( $4 ) >>batchblacklist
+              total_mism++
+            }
+            else if ( gflip( $2, $3, $5, $6 ) ) {
+              print( $4 ) >>batchfliplist
+              total_flip++
+            }
+          }
+        } END{
+          print( "total missing:  ", total_miss )
+          print( "total mismatch: ", total_mism )
+          print( "total flipped:  ", total_flip )
+          close( batchblacklist )
+          close( batchfliplist)
+        }'
+  # list unique
+  sort -u ${batchfliplist} > $tmpvarctrl
+  mv $tmpvarctrl ${batchfliplist}
+  echo "$( wc -l ${batchfliplist} ) variants to be flipped."
   # list unique
   sort -u ${batchblacklist} > $tmpvarctrl
   mv $tmpvarctrl ${batchblacklist}

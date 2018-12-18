@@ -17,17 +17,19 @@ fi
 # output: gzipped GRM and a matrix of eigenvector weights
 
 
-plink --bfile ${opt_hqprefix} \
-      --genome gz \
-      --out ${opt_hqprefix} \
-      >> ${debuglogfn} \
+${plinkexec} --bfile ${opt_hqprefix} \
+             --genome gz \
+             --out ${opt_hqprefix} \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 
-plink --bfile ${opt_hqprefix} \
-      --cluster \
-      --read-genome ${opt_hqprefix}.genome.gz \
-      --pca header tabs var-wts \
-      --out ${opt_hqprefix} \
-      >> ${debuglogfn}
+${plinkexec} --bfile ${opt_hqprefix} \
+             --cluster \
+             --read-genome ${opt_hqprefix}.genome.gz \
+             --pca header tabs var-wts \
+             --out ${opt_hqprefix} \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 
 # update biography file with genetic PCs
 {
