@@ -65,11 +65,11 @@ while true ; do
         | tee -a ${debuglogfn}
   # extract plink's warnings about chromosome and position clashes from plink's log and add the
   # corresponding variant names to plink's own missnp file.
-  egrep '^Warning: Multiple' ${tmpprefix}_out.log \
+  grep '^Warning: Multiple' ${tmpprefix}_out.log \
     | cut -d ' ' -f 7 \
     | tr -d "'." \
     | sort -u \
-    >> ${mismatchlist}
+    >> ${mismatchlist} || true
   if [[ -s "${mismatchlist}" ]] ; then
     sort -u ${mismatchlist} >> ${tmpprefix}_out.missnp
   fi

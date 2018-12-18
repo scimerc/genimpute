@@ -179,6 +179,9 @@ export opt_outprefix=${opt_outprefixbase}_a_recode
 # call recode
 bash ${BASEDIR}/progs/qc-recode.sh
 
+# cleanup
+unset opt_outprefix
+
 #---------------------------------------------------------------------------------------------------
 
 export opt_inprefix=${opt_outprefixbase}_a_recode
@@ -186,6 +189,10 @@ export opt_outprefix=${opt_outprefixbase}_a_align
 
 # call align
 bash ${BASEDIR}/progs/qc-align.sh
+
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
@@ -317,6 +324,7 @@ unset opt_hqprefix
 
 # export vars
 export opt_hqprefix=${opt_outprefixbase}_e_hqset
+export opt_outprefix=${opt_outprefixbase}_e_finqc
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call getpcs
@@ -324,6 +332,7 @@ bash ${BASEDIR}/progs/qc-getpcs.sh
 
 # cleanup
 unset opt_hqprefix
+unset opt_outprefix
 unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------

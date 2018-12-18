@@ -128,16 +128,16 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -gt $cfg_minvarcount ] ; t
 
   declare -r xindcount=$( awk '$5 == 1 || $5 == 2' ${tmpprefix}_out.fam | wc -l )
   # if sex could be imputed for enough individuals impute it once again after HWE tests
-  if (( xindcount > minindcount )) ; then
+  if [ ${xindcount} -gt ${cfg_minindcount} ] ; then
     ${plinkexec} --bfile ${tmpprefix}_out \
-                 --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hwflag} \
+                 --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
                  --make-just-bim \
                  --out ${tmpprefix}_sexhwe \
                  2>&1 >> ${debuglogfn} \
                  | tee -a ${debuglogfn}
 
     # if there are enough X chromosome variants after HWE re-impute sex based on them
-    if [ $( get_xvar_count ${tmpprefix}_sexhwe.bim ) -gt $cfg_minvarcount ] ; then
+    if [ $( get_xvar_count ${tmpprefix}_sexhwe.bim ) -gt ${cfg_minvarcount} ] ; then
       ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned \
                    --extract <( cut -f 2 ${tmpprefix}_sexhwe.bim ) \
                    --impute-sex \
