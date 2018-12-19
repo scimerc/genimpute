@@ -174,7 +174,7 @@ cp ${tmpprefix}_out.fam ${opt_outprefix}.fam.org
 awk '{
   OFS="\t"
   for ( k = 1; k < 5; k++ )
-    gsub( "[/;:|!?@#$%^&*)(=~><+-_]+", "_", $k )
+    gsub( "[][)(}{/,.;:|!?@#$%^&*=~><+-_]+", "_", $k )
   print
 }' ${opt_outprefix}.fam.org > ${tmpprefix}_out.fam
 Nold=$( sort -u -k 1,2 ${opt_outprefix}.fam | wc -l )
