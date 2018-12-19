@@ -174,15 +174,16 @@ cp ${tmpprefix}_out.fam ${opt_outprefix}.fam.org
 awk '{
   OFS="\t"
   for ( k = 1; k < 5; k++ )
-    gsub( "[][)(}{/,.;:|!?@#$%^&*=~><+-_]+", "_", $k )
+    gsub( "[][)(}{/\\,.;:|!?@#$%^&*~=_><+-]+", "_", $k )
   print
 }' ${opt_outprefix}.fam.org > ${tmpprefix}_out.fam
-Nold=$( sort -u -k 1,2 ${opt_outprefix}.fam | wc -l )
+Nold=$( sort -u -k 1,2 ${opt_outprefix}.fam.org | wc -l )
 Nnew=$( sort -u -k 1,2 ${tmpprefix}_out.fam | wc -l )
 if [ $Nold -eq $Nnew ] ; then
   mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
 else
   echo '====> warning: could not purge IDs due to conflicts.'
+  mv ${opt_outprefix}.fam.org ${opt_outprefix}.fam
 fi
 
 rm ${tmpprefix}*
