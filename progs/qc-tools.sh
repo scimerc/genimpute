@@ -86,6 +86,15 @@ export -f get_variant_info_for_dup_chr_cm_bp_aa_mm
 
 #-------------------------------------------------------------------------------
 
+# in: plink bim
+get_xvar_count() {
+  awk '$1 == 23' $1 | wc -l
+}
+
+export -f get_xvar_count
+
+#-------------------------------------------------------------------------------
+
 # in: tab-separated plink bim; out: same
 make_variant_names_universal_in_bim_file() {
   local -r fn=$1
@@ -108,16 +117,18 @@ export -f make_variant_names_universal_in_bim_file
 
 paste_sample_ids() {
   local -r infile="$1"
-  tabulate < "${infile}" \
-    | awk -F $'\t' -v uid=${cfg_uid} '{
-        OFS="\t"
-        if ( NR>1 ) uid=$1"_"$2
-        printf( "%s", uid )
-        for ( k=3; k<=NF; k++ )
-          printf( "\t%s", $k )
-        printf( "\n" )
-      }' \
-    | sort -t $'\t' -u -k 1,1
+  if [ -s "${infile}" ] ; then
+    tabulate "${infile}" \
+      | awk -F $'\t' -v uid=${cfg_uid} '{
+          OFS="\t"
+          if ( NR>1 ) uid=$1"_"$2
+          printf( "%s", uid )
+          for ( k=3; k<=NF; k++ )
+            printf( "\t%s", $k )
+          printf( "\n" )
+        }' \
+      | sort -t $'\t' -u -k 1,1
+  fi
 }
 
 export -f paste_sample_ids
@@ -125,7 +136,7 @@ export -f paste_sample_ids
 #-------------------------------------------------------------------------------
 
 tabulate() {
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;'
+  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' "${*:-/dev/stdin}"
 }
 
 export -f tabulate

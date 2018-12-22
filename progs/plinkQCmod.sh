@@ -131,7 +131,7 @@ echo -e "\n=====================================================================
 
 # define executables
 
-plinkexec=${BASEDIR}/lib/3rd/plink
+plinkexec="${BASEDIR}/lib/3rd/plink --allow-extra-chr"
 export plinkexec
 
 
@@ -208,7 +208,7 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-# initialize qc iteration counter
+# initialize qc iteration counter TODO: implement actual QC loop
 declare qciter=0
 
 # biography

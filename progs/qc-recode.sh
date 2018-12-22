@@ -102,6 +102,7 @@ for i in ${!batchfiles[@]} ; do
       --out ${tmpprefix}_out \
       2>&1 >> ${debuglogfn} \
       | tee -a ${debuglogfn}
+      mv ${tmpprefix}_out.log ${b_outprefix}.2.log
   else
     echo "no colocalized variants found."
     echo "skipping batch '${batchfiles[$i]}' tped recoding.."

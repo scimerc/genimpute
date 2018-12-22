@@ -10,6 +10,7 @@ declare -ra batchfamfiles=( $( ls ${opt_batchoutprefix}*.fam ) )
 declare -r cfg_bfdr=$( cfgvar_get bfdr )
 declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
+declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
@@ -43,6 +44,7 @@ cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
 # if a phenotype file was specified..
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
   # write a control list
+  echo "extracting control list from '${cfg_phenotypes}'.."
   awk -F $'\t' '$3 == 1' ${cfg_phenotypes} \
     | sort -u \
     | extract_sample_ids ${keepfile} \
@@ -57,6 +59,7 @@ if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
                | tee -a ${debuglogfn}
 # else, if there are enough annotated controls in the original file use those
 elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
+  echo "extracting control list from '${opt_inprefix}.fam'.."
   awk -F $'\t' '$6 == 1' ${opt_inprefix}.fam \
     | cut -f 1,2,6 \
     | sort -u \
@@ -69,6 +72,7 @@ elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
   mv ${tmpprefix}_out.fam ${tmpprefix}_pheno.fam
 # else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
 else
+  echo "no controls available. using everyone.."
   cut -f 1,2,6 ${opt_inprefix}.fam \
     | extract_sample_ids ${keepfile} \
     | sort -u \
@@ -79,6 +83,7 @@ fi
 if [ $Nctrl -ge $cfg_minindcount ] ; then
   declare plinkflag=''
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
+  echo "testing non-sex chromosomes control Hardy-Weinberg equilibrium.."
   ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} \
                --not-chr 23,24 \
                --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
@@ -97,14 +102,17 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   if [ "${sex_hweneglogp_ctrl}" -gt 12 ] ; then
     sex_hweneglogp_ctrl=12
   fi
-  # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
-  ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
-               --chr 23,24 \
-               --hwe 1.E-${sex_hweneglogp_ctrl} midp \
-               --make-just-bim \
-               --out ${tmpprefix}_ctrlhwe_sex \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+  if [ $( get_xvar_count ${tmpprefix}_pheno.bim ) -ge ${cfg_minvarcount} ] ; then
+    # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
+    echo "testing sex chromosomes control Hardy-Weinberg equilibrium.."
+    ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
+                 --chr 23,24 \
+                 --hwe 1.E-${sex_hweneglogp_ctrl} midp \
+                 --make-just-bim \
+                 --out ${tmpprefix}_ctrlhwe_sex \
+                 2>&1 >> ${debuglogfn} \
+                 | tee -a ${debuglogfn}
+  fi
   unset nosexflag
   [ -s "${tmpprefix}_ctrlhwe_nonsex.bim" -o -s "${tmpprefix}_ctrlhwe_sex.bim" ] || {
     printf "error: no variants left after HWE.\n" >&2;
@@ -120,18 +128,19 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
   # make a copy of the files with output suffix
-  mv ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.bed
-  mv ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
-  mv ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
+  mv ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.1.bed
+  mv ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.1.bim
+  mv ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.1.fam
 fi
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.1.bim
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.1.fam
 
 if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   > ${tmpprefix}.exclude
   for i in ${!batchfamfiles[@]} ; do
     echo "assessing batch effects for '${batchfamfiles[$i]}'.."
-    ${plinkexec} --bfile ${tmpprefix}_out \
+    ${plinkexec} --bfile ${tmpprefix}_out.1 \
+                 --allow-no-sex \
                  --keep ${tmpprefix}_ctrl.txt \
                  --make-pheno ${batchfamfiles[$i]} '*' \
                  --model \
@@ -153,15 +162,15 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   done
   sort -u ${tmpprefix}.exclude > ${tmpprefix}.exclude.sort
   mv ${tmpprefix}.exclude.sort ${tmpprefix}.exclude
-  ${plinkexec} --bfile ${tmpprefix}_out \
+  ${plinkexec} --bfile ${tmpprefix}_out.1 \
                --exclude ${tmpprefix}.exclude \
                --make-bed \
-               --out ${tmpprefix}_outz \
+               --out ${tmpprefix}_out.2 \
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
-  mv ${tmpprefix}_outz.bed ${tmpprefix}_out.bed
-  mv ${tmpprefix}_outz.bim ${tmpprefix}_out.bim
-  mv ${tmpprefix}_outz.fam ${tmpprefix}_out.fam
+  mv ${tmpprefix}_out.2.bed ${tmpprefix}_out.bed
+  mv ${tmpprefix}_out.2.bim ${tmpprefix}_out.bim
+  mv ${tmpprefix}_out.2.fam ${tmpprefix}_out.fam
 fi
 
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim

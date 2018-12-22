@@ -11,6 +11,7 @@ declare -r cfg_hweflag=$( cfgvar_get hweflag )
 declare    cfg_hweneglogp=$( cfgvar_get hweneglogp )
 declare    cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
+declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_metrios=$( cfgvar_get metrios )
 declare -r cfg_mevars=$( cfgvar_get mevars )
 declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
@@ -67,16 +68,18 @@ sex_hweneglogp=$(( cfg_hweneglogp*2 ))
 if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
-${plinkexec} --bfile ${opt_inprefix} ${keepflag} ${nosexflag} \
-             --chr 23,24 \
-             --set-hh-missing \
-             --geno ${tmp_varmiss} \
-             --maf ${cfg_freqstd} \
-             --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
-             --make-just-bim \
-             --out ${tmpprefix}_sex \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+if [ $( get_xvar_count ${opt_inprefix}.bim ) -ge ${cfg_minvarcount} ] ; then
+  ${plinkexec} --bfile ${opt_inprefix} ${keepflag} ${nosexflag} \
+               --chr 23,24 \
+               --set-hh-missing \
+               --geno ${tmp_varmiss} \
+               --maf ${cfg_freqstd} \
+               --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
+               --make-just-bim \
+               --out ${tmpprefix}_sex \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
+fi
 unset nosexflag
 [ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
   printf "error: no variants left after QC.\n" >&2;
