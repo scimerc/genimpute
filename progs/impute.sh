@@ -12,7 +12,7 @@ slurmcmd="sbatch --account=p33"
 genmap=${BASEDIR}/lib/data/genetic_map_hg19_withX.txt.gz
 
 inprefix=/cluster/projects/p33/data/genetics/rawdata/genotypes/postQC/NORMENT/norment_batch3_Jan15_qc
-outprefix=/cluster/projects/p33/nobackup/tmp/fk/batch3/batch3
+outprefix=/cluster/projects/p33/nobackup/tmp/fk/batch3_3/batch3
 tmpprefix=${outprefix}_tmp
 phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/ega.grch37.chr
 imputerefprefix=/cluster/projects/p33/data/genetics/external/HRC/decrypted/ega.grch37.chr
@@ -106,20 +106,25 @@ for chr in ${chromosomes} ; do
 cat > ${scriptprefix}3_impute_chr${chr}_${sample}.sh << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=14G
 #SBATCH --time=12:00:00
 
-# Minimac3-omp cpus=2, mem-per-cpu=16 + lowMem flag works fine with hrc-32k
-# (23G mem usage and 300min wall clock time for a chr2 n=650 sample) 
-# Number of samples does not seem to increase mem usage.
-# Mem usage seems to be determined by ref file.
-#
-# TODO:try cpu=4 and mem-per-cpu=8 + lowMem flag
+
+# results for batch3; n=9200 samples total, 14 batches with n=650; hrc-32k reference
+# Minimac3-omp
+#   Number of samples does not seem to increase mem usage.
+#   Mem usage seems to be determined by ref file.
+#   20181224: sbatch: cpus-per-task=4; mem-per-cpu=14 mm3: lowMem; cpus=8 ->  9h; 54jobs; chr2 max.mem=52/56G
+#   20181223: sbatch: cpus-per-task=4; mem-per-cpu=8  mm3: lowMem         -> 14h; 46jobs; chr2 max.mem=31/32G(!)
+#   20181222: sbatch: cpus-per-task=2; mem-per-cpu=16 mm3: lowMem         -> 21h; 46jobs; chr2 max.mem=23/32G
+# Minimac4
+#   mm4: cpus-per-task=2 mem-per-cpu=8G cpu=4
+
 
 set -Eeou pipefail
 source /cluster/bin/jobsetup
 if [ -e "${tmpprefix}_chr${chr}_${sample}_imputed.dose.vcf.gz" ]; then
-  printf "m3vcf files present - skipping...\\n"
+  printf "vcf files present - skipping...\\n"
   exit 0
 fi
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
@@ -128,7 +133,7 @@ ${bcftoolsexec} view -S ${samplefile} -Oz \\
   --force-samples ${tmpprefix}_chr${chr}_phased.vcf.gz \\
   > ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz
 ${timexec} ${minimacexec} \\
-  --cpus \${num_cpus} \\
+  --cpus \$(( num_cpus * 2 )) \\
   --lowMemory \\
   --haps ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz \\
   --refHaps ${refprefix}_chr${chr}.m3vcf.gz \\
