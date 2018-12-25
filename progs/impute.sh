@@ -12,7 +12,7 @@ slurmcmd="sbatch --account=p33"
 genmap=${BASEDIR}/lib/data/genetic_map_hg19_withX.txt.gz
 
 inprefix=/cluster/projects/p33/data/genetics/rawdata/genotypes/postQC/NORMENT/norment_batch3_Jan15_qc
-outprefix=/cluster/projects/p33/nobackup/tmp/fk/batch3_3/batch3
+outprefix=/cluster/projects/p33/nobackup/tmp/fk/batch3_5/batch3
 tmpprefix=${outprefix}_tmp
 phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/ega.grch37.chr
 imputerefprefix=/cluster/projects/p33/data/genetics/external/HRC/decrypted/ega.grch37.chr
@@ -22,7 +22,7 @@ scriptprefix=${tmpprefix}_script
 chromosomes=$( seq 1 22 )
 igroupsize=650 # TODO: auto-compute - num_samples*22 / (400[=max_jobs] - 3[=num_of_chr-wise-jobs]*22[=num_of_chr])
 eaglexec=${BASEDIR}/lib/3rd/eagle
-minimacexec=${BASEDIR}/lib/3rd/Minimac3_march-sb_omp
+minimac_version=4
 bcftoolsexec=${BASEDIR}/lib/3rd/bcftools
 plinkexec=${BASEDIR}/lib/3rd/plink
 timexec='/usr/bin/time -o /dev/stdout -f "ResStats\tRealSec:\t%e\tMaxMemKB:\t%M\tUserSec:\t%U\tSysSec:\t%S"'
@@ -100,26 +100,51 @@ done
 
 # impute
 
-for chr in ${chromosomes} ; do
-  for samplefile in ${tmpsamplelist} ; do
-    sample=${samplefile##*_}
-cat > ${scriptprefix}3_impute_chr${chr}_${sample}.sh << EOI
-#!/usr/bin/env bash
+SBATCH_CONF_MM3="
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=14G
 #SBATCH --time=12:00:00
-
 
 # results for batch3; n=9200 samples total, 14 batches with n=650; hrc-32k reference
 # Minimac3-omp
 #   Number of samples does not seem to increase mem usage.
 #   Mem usage seems to be determined by ref file.
-#   20181224: sbatch: cpus-per-task=4; mem-per-cpu=14 mm3: lowMem; cpus=8 ->  9h; 54jobs; chr2 max.mem=52/56G
-#   20181223: sbatch: cpus-per-task=4; mem-per-cpu=8  mm3: lowMem         -> 14h; 46jobs; chr2 max.mem=31/32G(!)
-#   20181222: sbatch: cpus-per-task=2; mem-per-cpu=16 mm3: lowMem         -> 21h; 46jobs; chr2 max.mem=23/32G
-# Minimac4
-#   mm4: cpus-per-task=2 mem-per-cpu=8G cpu=4
+#   3) sbatch: cpus-per-task=4; mem-per-cpu=14 mm3: lowMem; cpus=8  -> 10h; 54jobs; chr2 max.mem=52/56G
+#   2) sbatch: cpus-per-task=4; mem-per-cpu=8  mm3: lowMem; cpus=4  -> 14h; 46jobs; chr2 max.mem=31/32G(!)
+#   1) sbatch: cpus-per-task=2; mem-per-cpu=16 mm3: lowMem; cpus=2  -> 21h; 46jobs; chr2 max.mem=23/32G
+"
+SBATCH_CONF_MM4="
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=04:00:00
 
+# results for batch3; n=9200 samples total, 14 batches with n=650; hrc-32k reference
+# minimac4
+#   5) sbatch: cpus-per-task=4 mem-per-cpu=2G  mm4: cpus=8  -> 1.5h; 178jobs; chr6 max.mem=7/8G
+#   4) sbatch: cpus-per-task=2 mem-per-cpu=8G  mm4: cpus=4  -> 3.0h; 126jobs; chr6 max.mem=6/16G
+"
+
+for chr in ${chromosomes} ; do
+  for samplefile in ${tmpsamplelist} ; do
+    sample=${samplefile##*_}
+    imputescriptfn="${scriptprefix}3_impute_chr${chr}_${sample}.sh"
+    case "${minimac_version}" in
+      "3")
+        minimacexec="${BASEDIR}/lib/3rd/Minimac3_march-sb_omp --lowMemory"
+        sbatch_conf=${SBATCH_CONF_MM3}
+        ;;
+      "4")
+        minimacexec=${BASEDIR}/lib/3rd/minimac4
+        sbatch_conf=${SBATCH_CONF_MM4}
+        ;;
+      *)
+        printf "error unknown minimac_version '%s'\n" "${minimac_version}" >&2
+        exit 1
+        ;;
+    esac
+    cat >> ${imputescriptfn} << EOI
+#!/usr/bin/env bash
+${sbatch_conf}
 
 set -Eeou pipefail
 source /cluster/bin/jobsetup
@@ -134,10 +159,8 @@ ${bcftoolsexec} view -S ${samplefile} -Oz \\
   > ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz
 ${timexec} ${minimacexec} \\
   --cpus \$(( num_cpus * 2 )) \\
-  --lowMemory \\
   --haps ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz \\
   --refHaps ${refprefix}_chr${chr}.m3vcf.gz \\
-  --rounds 5 --states 200 \\
   --noPhoneHome \\
   --prefix ${tmpprefix}_chr${chr}_${sample}_imputing \\
   > ${tmpprefix}_chr${chr}_${sample}_imputing.log 2>&1
