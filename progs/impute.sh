@@ -213,7 +213,7 @@ done
 
 echo 'submitting scripts..'
 
-jobscripts=$(ls ${scriptprefix}*)
+jobscripts=$(ls ${scriptprefix}* | sort -V ) # sort -V places chr1 before chr10
 
 case ${execmode} in
   "local")
