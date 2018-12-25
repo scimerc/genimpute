@@ -120,7 +120,7 @@ SBATCH_CONF_MM4="
 
 # results for batch3; n=9200 samples total, 14 batches with n=650; hrc-32k reference
 # minimac4
-#   5) sbatch: cpus-per-task=4 mem-per-cpu=2G  mm4: cpus=8  -> 1.5h; 178jobs; chr6 max.mem=7/8G
+#   5) sbatch: cpus-per-task=4 mem-per-cpu=4G  mm4: cpus=8  -> 1.5h; 178jobs; chr6 max.mem=7/16G
 #   4) sbatch: cpus-per-task=2 mem-per-cpu=8G  mm4: cpus=4  -> 3.0h; 126jobs; chr6 max.mem=6/16G
 "
 
