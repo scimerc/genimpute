@@ -68,14 +68,14 @@ tmpsamplelist=$( ls "${tmpprefix}_sample"* | grep 'sample[0-9]\+$' )
 for chr in ${chromosomes} ; do
 cat > ${scriptprefix}1_phase_chr${chr}.sh << EOI
 #!/usr/bin/env bash
-#SBATCH --cpus-per-task=10
-#SBATCH --mem-per-cpu=2G
+#SBATCH --cpus-per-task=20
+#SBATCH --mem-per-cpu=1G
 #SBATCH --time=06:00:00
 
 # Eagle's parallelization is very efficient. colossus machines seem to 
 # have 20 cpus but 40 hyperthreading cores. Therefore we use 
 # num_cpus*2 threads.
-# Running time: From 18min to 3h for batch3 (9.9k samples)
+# Running time: 10c-2G-20t From 18min to 3h for batch3 (9.9k samples)
 
 set -Eeou pipefail
 source /cluster/bin/jobsetup
