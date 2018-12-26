@@ -12,7 +12,7 @@ slurmcmd="sbatch --account=p33"
 genmap=${BASEDIR}/lib/data/genetic_map_hg19_withX.txt.gz
 
 inprefix=/cluster/projects/p33/data/genetics/rawdata/genotypes/postQC/NORMENT/norment_batch3_Jan15_qc
-outprefix=/cluster/projects/p33/nobackup/tmp/fk/batch3_5/batch3
+outprefix=/cluster/projects/p33/nobackup/tmp/fk/batch3_7/batch3
 tmpprefix=${outprefix}_tmp
 phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/ega.grch37.chr
 imputerefprefix=/cluster/projects/p33/data/genetics/external/HRC/decrypted/ega.grch37.chr
@@ -51,7 +51,7 @@ ${timexec} ${plinkexec} \\
   --bfile ${inprefix} \\
   --recode vcf bgz \\
   --out ${tmpprefix}
-${bcftoolsexec} convert -O b ${tmpprefix}.vcf.gz > ${tmpprefix}_out.bcf
+${bcftoolsexec} convert -O b ${tmpprefix}.vcf.gz --threads 3 > ${tmpprefix}_out.bcf
 ${bcftoolsexec} index ${tmpprefix}_out.bcf
 mv ${tmpprefix}_out.bcf     ${tmpprefix}.bcf
 mv ${tmpprefix}_out.bcf.csi ${tmpprefix}.bcf.csi
@@ -115,7 +115,7 @@ SBATCH_CONF_MM3="
 "
 SBATCH_CONF_MM4="
 #SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=3G
 #SBATCH --time=04:00:00
 
 # results for batch3; n=9200 samples total, 14 batches with n=650; hrc-32k reference
@@ -164,9 +164,13 @@ ${timexec} ${minimacexec} \\
   --noPhoneHome \\
   --prefix ${tmpprefix}_chr${chr}_${sample}_imputing \\
   > ${tmpprefix}_chr${chr}_${sample}_imputing.log 2>&1
-${bcftoolsexec} index ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz
+${bcftoolsexec} index -f ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz
+# convert to bcf
+${bcftoolsexec} view ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz \
+    -Ob --threads 3 \
+  > ${tmpprefix}_chr${chr}_${sample}_imputing.dose.bcf
 # fix minimac3 output
-${bcftoolsexec} view -h ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz \\
+${bcftoolsexec} view -h ${tmpprefix}_chr${chr}_${sample}_imputing.dose.bcf \\
   | awk -v genofilter='##FILTER=<ID=GENOTYPED,Description="Site was genotyped">' \\
     'BEGIN{ flag = 0 } {
       if ( \$0 ~ "^##FILTER" ) {
@@ -177,12 +181,15 @@ ${bcftoolsexec} view -h ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz \\
     }' \\
   > ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch
 ${bcftoolsexec} reheader -h ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch \\
-  ${tmpprefix}_chr${chr}_${sample}_imputing.dose.vcf.gz \\
-  > ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch.dose.vcf.gz
+  ${tmpprefix}_chr${chr}_${sample}_imputing.dose.bcf \\
+  > ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch.dose.bcf
+${bcftoolsexec} index -f ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch.dose.bcf
 mv \\
-  ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch.dose.vcf.gz \\
-  ${tmpprefix}_chr${chr}_${sample}_imputed.dose.vcf.gz
-${bcftoolsexec} index -f ${tmpprefix}_chr${chr}_${sample}_imputed.dose.vcf.gz
+  ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch.dose.bcf \\
+  ${tmpprefix}_chr${chr}_${sample}_imputed.dose.bcf
+mv \\
+  ${tmpprefix}_chr${chr}_${sample}_imputing_hdrpatch.dose.bcf.csi \\
+  ${tmpprefix}_chr${chr}_${sample}_imputed.dose.bcf.csi
 EOI
   done
 done
@@ -200,7 +207,7 @@ for chr in ${chromosomes} ; do
 
 set -Eeou pipefail
 source /cluster/bin/jobsetup
-${bcftoolsexec} merge ${tmpprefix}_chr${chr}_*_imputed.dose.vcf.gz -Oz \\
+${bcftoolsexec} merge ${tmpprefix}_chr${chr}_*_imputed.dose.bcf --threads 3 -Oz \\
   > ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz
 mv ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz \\
    ${outprefix}_chr${chr}_imputed.dose.vcf.gz
