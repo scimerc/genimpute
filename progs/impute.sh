@@ -8,7 +8,7 @@ export BASEDIR
 
 execmode="slurm"
 # this time is for imputation - expected time for phasing jobs: ~10hrs
-slurmcmd="sbatch --account=p33 --time=4-00:00:00 --mem-per-cpu=2048M --cpus-per-task=4" #1536
+slurmcmd="sbatch --account=p33 --time=4-00:00:00 --mem-per-cpu=4096M --cpus-per-task=4" #1536
 
 genmap=${BASEDIR}/lib/data/genetic_map_hg19_withX.txt.gz
 
@@ -19,7 +19,7 @@ phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/ega.grch37.chr
 imputerefprefix=/cluster/projects/p33/data/genetics/external/HRC/decrypted/ega.grch37.chr
 scriptprefix=${tmpprefix}_script
 
-chromosomes=$( seq 13 19 )
+chromosomes=$( seq 3 19 )
 igroupsize=650 # num_samples*22 / (400[=max_jobs] - 3[=num_of_chr-wise-jobs]*22[=num_of_chr])
 eaglexec=${BASEDIR}/lib/3rd/eagle
 minimacexec=${BASEDIR}/lib/3rd/minimac3
