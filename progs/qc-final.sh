@@ -41,24 +41,23 @@ cp ${opt_inprefix}.bed ${tmpprefix}_out.bed
 cp ${opt_inprefix}.bim ${tmpprefix}_out.bim
 cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
 
-# if a phenotype file was specified..
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
-  # write a control list
+  # if a phenotype file was specified write a control list
   echo "extracting control list from '${cfg_phenotypes}'.."
   awk -F $'\t' '$3 == 1' ${cfg_phenotypes} \
     | sort -u \
     | extract_sample_ids ${keepfile} \
     > ${tmpprefix}_ctrl.txt
   declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
-  # redefine phenotypes in the input plink set
+  # and redefine phenotypes in the input plink set
   ${plinkexec} --bfile ${opt_inprefix} \
                --make-pheno ${cfg_phenotypes} 2 \
                --make-bed \
                --out ${tmpprefix}_pheno \
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
-# else, if there are enough annotated controls in the original file use those
 elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
+  # else, if there are enough annotated controls in the original file use those
   echo "extracting control list from '${opt_inprefix}.fam'.."
   awk -F $'\t' '$6 == 1' ${opt_inprefix}.fam \
     | cut -f 1,2,6 \
@@ -67,11 +66,9 @@ elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
     > ${tmpprefix}_ctrl.txt
   declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
   # rename temporary plink set
-  mv ${tmpprefix}_out.bed ${tmpprefix}_pheno.bed
-  mv ${tmpprefix}_out.bim ${tmpprefix}_pheno.bim
-  mv ${tmpprefix}_out.fam ${tmpprefix}_pheno.fam
-# else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
+  rename _out _pheno ${tmpprefix}_out.*
 else
+  # else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
   echo "no controls available. using everyone.."
   cut -f 1,2,6 ${opt_inprefix}.fam \
     | extract_sample_ids ${keepfile} \
@@ -128,18 +125,16 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
   # make a copy of the files with output suffix
-  mv ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.1.bed
-  mv ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.1.bim
-  mv ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.1.fam
+  cp ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.bed
+  cp ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
+  cp ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
 fi
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.1.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.1.fam
 
 if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   > ${tmpprefix}.exclude
   for i in ${!batchfamfiles[@]} ; do
     echo "assessing batch effects for '${batchfamfiles[$i]}'.."
-    ${plinkexec} --bfile ${tmpprefix}_out.1 \
+    ${plinkexec} --bfile ${tmpprefix}_out \
                  --allow-no-sex \
                  --keep ${tmpprefix}_ctrl.txt \
                  --make-pheno ${batchfamfiles[$i]} '*' \
@@ -162,15 +157,16 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   done
   sort -u ${tmpprefix}.exclude > ${tmpprefix}.exclude.sort
   mv ${tmpprefix}.exclude.sort ${tmpprefix}.exclude
-  ${plinkexec} --bfile ${tmpprefix}_out.1 \
+  ${plinkexec} --bfile ${tmpprefix}_out \
                --exclude ${tmpprefix}.exclude \
                --make-bed \
-               --out ${tmpprefix}_out.2 \
+               --out ${tmpprefix}_nbe \
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
-  mv ${tmpprefix}_out.2.bed ${tmpprefix}_out.bed
-  mv ${tmpprefix}_out.2.bim ${tmpprefix}_out.bim
-  mv ${tmpprefix}_out.2.fam ${tmpprefix}_out.fam
+  # make a copy of the files with output suffix
+  cp ${tmpprefix}_nbe.bed ${tmpprefix}_out.bed
+  cp ${tmpprefix}_nbe.bim ${tmpprefix}_out.bim
+  cp ${tmpprefix}_nbe.fam ${tmpprefix}_out.fam
 fi
 
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim

@@ -110,6 +110,7 @@ ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              | tee -a ${debuglogfn}
 # give rel.id file a less confusing name
 mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq.id
+# identify related individuals
 ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              --set-hh-missing \
              --cluster \

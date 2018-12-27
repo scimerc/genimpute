@@ -35,6 +35,15 @@ fi
 #         - low rate of Mendel errors in trios
 
 
+echo "removing mendel errors.."
+${plinkexec} --bfile ${opt_inprefix} \
+             --me ${cfg_metrios} ${cfg_mevars} \
+             --set-me-missing \
+             --make-bed \
+             --out ${tmpprefix}_nome \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
 if [ -f "${opt_outprefixbase}.ids" ] ; then
@@ -47,13 +56,13 @@ fi
 tmp_varmiss=${cfg_varmiss}
 n=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
-${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
+echo "qc'ing non-sex chromosomes variants.."
+${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} \
              --not-chr 23,24 \
              --set-hh-missing \
              --geno ${tmp_varmiss} \
              --maf ${cfg_freqstd} \
              --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
-             --me ${cfg_metrios} ${cfg_mevars} \
              --make-just-bim \
              --out ${tmpprefix}_nonsex \
              2>&1 >> ${debuglogfn} \
@@ -69,7 +78,8 @@ if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
 if [ $( get_xvar_count ${opt_inprefix}.bim ) -ge ${cfg_minvarcount} ] ; then
-  ${plinkexec} --bfile ${opt_inprefix} ${keepflag} ${nosexflag} \
+  echo "qc'ing sex chromosomes variants.."
+  ${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} ${nosexflag} \
                --chr 23,24 \
                --set-hh-missing \
                --geno ${tmp_varmiss} \
@@ -86,12 +96,12 @@ unset nosexflag
   exit 1;
 }
 cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}.mrk
-plink --bfile ${opt_inprefix} \
-      --extract ${tmpprefix}.mrk \
-      --make-bed \
-      --out ${tmpprefix}_out \
-      2>&1 >> ${debuglogfn} \
-      | tee -a ${debuglogfn}
+${plinkexec} --bfile ${opt_inprefix} \
+             --extract ${tmpprefix}.mrk \
+             --make-bed \
+             --out ${tmpprefix}_out \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 

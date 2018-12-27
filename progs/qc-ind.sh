@@ -27,9 +27,8 @@ fi
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l ${opt_inprefix}.bim | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
+echo "qc'ing individuals.."
 ${plinkexec} --bfile ${opt_inprefix} \
-             --set-hh-missing \
-             --set-me-missing \
              --mind ${tmp_samplemiss} \
              --make-bed \
              --out ${tmpprefix}_out \
