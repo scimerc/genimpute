@@ -7,6 +7,7 @@ declare -ra batchfiles=( ${opt_inputfiles} )
 declare  cfg_genomebuild; 
          cfg_genomebuild="$( cfgvar_get genomebuild )"; 
 readonly cfg_genomebuild
+
 declare  cfg_refallelesfn
          cfg_refallelesfn="$( cfgvar_get refallelesfn )"
 readonly cfg_refallelesfn

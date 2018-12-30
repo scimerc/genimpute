@@ -111,7 +111,14 @@ export opt_outprefixbase
 
 # set user configuration, if any, and print all information
 
-[ ! -z "${opt_cfgfile+x}" ] && [ -s "${opt_cfgfile}" ] && cfgvar_update_from_file "${opt_cfgfile}"
+if [ ! -z "${opt_cfgfile+x}" ] ; then
+  if [ ! -s "${opt_cfgfile}" ] ; then
+    printf "configuration file '%s' is unusable. aborting..\n" "${opt_cfgfile}"
+    exit 1
+  else
+    cfgvar_update_from_file "${opt_cfgfile}"
+  fi
+fi
 
 echo
 echo -e "================================================================================"
@@ -215,11 +222,13 @@ declare qciter=0
 
 export opt_outprefix=${opt_outprefixbase}_a_proc
 
-# initialize sample biography file
-declare cfg_uid; cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
-cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${cfg_uid} '
-BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
-' | sort -u -k 1,1 > ${opt_outprefixbase}.bio
+if [ ! -f ${opt_outprefixbase}.bio ] ; then
+  # initialize sample biography file
+  declare cfg_uid; cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
+  cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${cfg_uid} '
+  BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
+  ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio
+fi
 
 # ...
 
