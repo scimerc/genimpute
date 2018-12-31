@@ -28,6 +28,7 @@ fi
 #         - more stringent control Hardy-Weinberg equilibrium
 #         - no control batch effects
 
+echo 'performing final qc..'
 
 declare keepfile=''
 declare keepflag=''
@@ -130,6 +131,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   cp ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
 fi
 
+echo "${#batchfamfiles[*]} batches found."
 if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   > ${tmpprefix}.exclude
   for i in ${!batchfamfiles[@]} ; do
