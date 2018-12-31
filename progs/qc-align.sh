@@ -14,57 +14,53 @@ readonly cfg_refallelesfn
 
 #-------------------------------------------------------------------------------
 
-# stdin: plink tped; stdout: rs
+# stdin: plink tped sorted on chromosome and genomic position; stdout: rs
 # spare only one variant from sets of coherent colocalized variants, blacklist all else
 get_tped_blacklist() {
   awk '{
     blackflag = 0
     varid = $1"_"$4
-    # was varid already added to variome?
-    # note: we query the first possible entry (5) in the simulated multidim array
-    if ( (varid,5) in variome ) {
+    if ( NR > 1 && varid == curvarid ) {
       missing = 0
       for ( k = 5; k <= NF; k++ ) {
-        # if the new entry is not valid set it to the current one
-        if ( variome[varid,k] <= 0 ) variome[varid,k] = $k
-        # else, if the new entry is valid
-        else if ( $k > 0 ) {
-          # if the new entry is valid but different from the current one
-          if ( variome[varid,k] != $k ) {
-            variome[varid,k] = "_NA_"
-            blackflag = 1
-          }
-        }
-        # else increment the missing counter
+        # if the current entry is not valid increment the missing counter
+        # else, if the recorded entry is not valid set it to the current one
+        # else, if the recorded entry is different from the current one
         if ( $k <= 0 ) missing++
+        else if ( variome[k] <= 0 ) variome[k] = $k
+        else if ( variome[k] != $k ) {
+          variome[k] = "_NA_"
+          blackflag = 1
+        }
       }
       if ( blackflag == 1 ) {
-        split( varnames[varid], varlist, SUBSEP )
+        split( varnames, varlist, SUBSEP )
         # add current list of names varid goes by to blacklist
-        for ( k in varlist ) print varlist[k]
+        for ( n in varlist ) print varlist[n]
         # add new name to blacklist
         print $2
       }
       # if the current version of varid has fewer missing
-      if ( missing < missome[varid] ) {
+      if ( missing < curmissing ) {
         # reset the recorded missing counter for varid
-        missome[varid] = missing
-        split( varnames[varid], varlist, SUBSEP )
+        curmissing = missing
+        split( varnames, varlist, SUBSEP )
         # add all names varid went by to blacklist
-        for ( k in varlist ) print varlist[k]
+        for ( n in varlist ) print varlist[n]
       } else print $2 # add new varid name to blacklist
       # add new name to varid name string
-      varnames[varid] = varnames[varid] SUBSEP $2
+      varnames = varnames SUBSEP $2
     }
     else {
       # else initialize varid arrays
-      missome[varid] = 0
-      varnames[varid] = $2
+      curmissing = 0
+      varnames = $2
       for ( k = 5; k <= NF; k++ ) {
-        variome[varid,k] = $k
-        if ( $k <= 0 ) missome[varid]++
+        variome[k] = $k
+        if ( $k <= 0 ) curmissing++
       }
     }
+    curvarid = varid
   }' "${*:-/dev/stdin}"
 }
 
@@ -100,9 +96,9 @@ for i in ${!batchfiles[@]} ; do
   declare tmpvarctrl=${tmpprefix}_varctrl
   declare batchblacklist=${tmpprefix}.blacklist
   declare batchfliplist=${tmpprefix}.fliplist
-  get_tped_blacklist ${b_inprefix}.tped | sort -u > ${batchblacklist} 
+  sort -k 1,1 -k 4,4 ${b_inprefix}.tped | get_tped_blacklist | sort -u > ${batchblacklist} 
   echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
-  echo "duplicate variants marked for deletion."
+  echo "colocalized variants marked for deletion."
   # use ref alleles if specified or if we have more than one batch
   if [ -z "${cfg_refallelesfn}" ] ; then
     printf "error: reference is not set.\n" >&2;
