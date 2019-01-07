@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 
 extract_sample_ids() {
-  if [ ${#@} -le 1 ] ; then
-    cat "${1:-/dev/stdin}"
+  local -r idfile=$1
+  if [ -z "${idfile}" ] ; then
+    cat
   else
-    local -r idfile=$1
-    shift
     awk -F $'\t' '{
       if ( NR == FNR ) idarr[$1,$2] = 1
       else if ( ($1,$2) in idarr ) print
-    }' "${idfile}" "${*:-/dev/stdin}"
+    }' "${idfile}" /dev/stdin
   fi
 }
 

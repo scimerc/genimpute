@@ -74,9 +74,10 @@ else
   cut -f 1,2,6 ${opt_inprefix}.fam \
     | extract_sample_ids ${keepfile} \
     | sort -u \
-    > ${tmpprefix}_ctrl.txt
+    > ${tmpprefix}_ctrl.txt 
   declare -r Nctrl=0
 fi
+echo "$Nctrl actual controls found."
 # if Nctrl is not zero a plink *_pheno set should exist
 if [ $Nctrl -ge $cfg_minindcount ] ; then
   declare plinkflag=''
