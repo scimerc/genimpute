@@ -49,9 +49,12 @@ pihatrel=0.1
 # pihat threshold for establishing identity between idividuals
 pihat=0.9
 
-# variant alleles reference file (leave empty if no alignment is required)
+# reference files prefix; different suffixes are expected for different uses:
+# qc -> '.all.haplotypes.[bcf.gz|gpa]
+# phase -> '.chr###.haplotypes.bcf.gz
+# impute -> '.chr###.haplotypes.m3vcf.gz
 # NOTE: make sure that the sex chromosomes are compatibly encoded
-refallelesfn=''
+refprefix=''
 
 # maximum missingness for an individual
 samplemiss=0.05

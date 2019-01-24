@@ -8,9 +8,9 @@ declare  cfg_genomebuild;
          cfg_genomebuild="$( cfgvar_get genomebuild )"; 
 readonly cfg_genomebuild
 
-declare  cfg_refallelesfn
-         cfg_refallelesfn="$( cfgvar_get refallelesfn )"
-readonly cfg_refallelesfn
+declare  cfg_refprefix
+         cfg_refprefix="$( cfgvar_get refprefix )"
+readonly cfg_refprefix
 
 #-------------------------------------------------------------------------------
 
@@ -100,20 +100,20 @@ for i in ${!batchfiles[@]} ; do
   echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
   echo "colocalized variants marked for deletion."
   # use ref alleles if specified or if we have more than one batch
-  if [ -z "${cfg_refallelesfn}" ] ; then
+  if [ -z "${cfg_refprefix}" ] ; then
     printf "error: reference is not set.\n" >&2;
     exit 1
   fi
   echo "matching variants to reference.."
-  [ -s "${cfg_refallelesfn}" ] || {
-    printf "error: file '%s' is unusable.\n" "${cfg_refallelesfn}" >&2;
+  [ -s "${cfg_refprefix}.all.haplotypes.gpa" ] || {
+    printf "error: file '%s' is unusable.\n" "${cfg_refprefix}.all.haplotypes.gpa" >&2;
     exit 1;
   }
-  #TODO: change refallelesfn to the actual vcf reference file and code allele extraction
-  # get chr:bp strings from bim file and join with the corresponding field of refallelesfn
+  # get chr:bp strings from bim file and join with the corresponding field of refprefix
   awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${b_inprefix}.bim \
     | sort -t $'\t' -k 7,7 \
-    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' ${cfg_refallelesfn} - \
+    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' \
+      ${cfg_refprefix}.all.haplotypes.gpa - \
     | awk -F $'\t' \
       -f ${BASEDIR}/lib/awk/nucleocode.awk \
       -f ${BASEDIR}/lib/awk/genotype.awk \

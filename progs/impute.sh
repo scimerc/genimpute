@@ -15,8 +15,7 @@ inprefix=/cluster/projects/p33/data/genetics/rawdata/genotypes/postQC/NORMENT/no
 outprefix=/cluster/projects/p33/nobackup/tmp/fk/batch3_7/batch3
 tmpprefix=${outprefix}_tmp
 phaserefprefix=/cluster/projects/p33/users/franbe/norment_2018/ega.grch37.chr
-imputerefprefix=/cluster/projects/p33/data/genetics/external/HRC/decrypted/ega.grch37.chr
-refprefix=/cluster/projects/p33/nobackup/tmp/ref/hrc_refhaps
+imputerefprefix=/cluster/projects/p33/nobackup/tmp/ref/hrc_refhaps
 scriptprefix=${tmpprefix}_script
 
 chromosomes=$( seq 1 22 )
@@ -160,7 +159,7 @@ ${bcftoolsexec} view -S ${samplefile} -Oz \\
 ${timexec} ${minimacexec} \\
   --cpus \$(( num_cpus * 2 )) \\
   --haps ${tmpprefix}_chr${chr}_${sample}_phased.vcf.gz \\
-  --refHaps ${refprefix}_chr${chr}.m3vcf.gz \\
+  --refHaps ${imputerefprefix}_chr${chr}.m3vcf.gz \\
   --noPhoneHome \\
   --prefix ${tmpprefix}_chr${chr}_${sample}_imputing \\
   > ${tmpprefix}_chr${chr}_${sample}_imputing.log 2>&1
