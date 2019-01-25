@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
+# exit on error
 set -Eeou pipefail
-
-declare -ra batchfiles=( ${opt_inputfiles} )
 
 declare  cfg_genomebuild; 
          cfg_genomebuild="$( cfgvar_get genomebuild )"; 
@@ -11,6 +10,9 @@ readonly cfg_genomebuild
 declare  cfg_refprefix
          cfg_refprefix="$( cfgvar_get refprefix )"
 readonly cfg_refprefix
+
+declare -ra batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+declare -r  refcode=$( get_unique_filename_from_path "${cfg_refprefix}.all.haplotypes.bcf.gz" )
 
 #-------------------------------------------------------------------------------
 
@@ -209,6 +211,11 @@ for i in ${!batchfiles[@]} ; do
   mv ${tmpprefix}_out.bed ${b_outprefix}.bed
   mv ${tmpprefix}_out.bim ${b_outprefix}.bim
   mv ${tmpprefix}_out.fam ${b_outprefix}.fam
+  if [ "${batchcode}" == "${refcode}" ] ; then
+    mv ${b_outprefix}.bed ${opt_refprefix}.bed
+    mv ${b_outprefix}.bim ${opt_refprefix}.bim
+    mv ${b_outprefix}.fam ${opt_refprefix}.fam
+  fi
   rm ${tmpprefix}*
   unset batchcode
   unset b_inprefix

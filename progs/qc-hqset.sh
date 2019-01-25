@@ -55,8 +55,24 @@ declare -r regionblacklist=${BASEDIR}/lib/data/${cfg_genomeblacklist}
 }
 declare -r regexcludeflag="--exclude range ${regionblacklist}"
 
+if [ ! -z "${1+x}" ] ; then
+  declare -r refopt="$1"
+  # if requested merge with reference
+  if [ "${refopt}" == 'wrefset' ] ; then
+    ${plinkexec} --bfile ${opt_inprefix} \
+                 --bmerge ${opt_refprefix} \
+                 --out ${tmpprefix}_proc \
+                 2>&1 >> ${debuglogfn} \
+                 | tee -a ${debuglogfn}
+  fi
+else
+  cp ${opt_inprefix}.bed ${tmpprefix}_proc.bed
+  cp ${opt_inprefix}.bim ${tmpprefix}_proc.bim
+  cp ${opt_inprefix}.fam ${tmpprefix}_proc.fam
+fi
+
 # get non sex hq-variants from input file
-${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
+${plinkexec} --bfile ${tmpprefix}_proc ${keepflag} \
              --not-chr 23,24 ${regexcludeflag} ${extractflag} \
              --geno ${cfg_varmiss} \
              --maf ${cfg_freqhq} \
@@ -66,9 +82,9 @@ ${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
 
-if [ $( get_xvar_count ${opt_inprefix}.bim ) -ge ${cfg_minvarcount} ] ; then
+if [ $( get_xvar_count ${tmpprefix}_proc.bim ) -ge ${cfg_minvarcount} ] ; then
   # get sex hq-variants from input file
-  ${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
+  ${plinkexec} --bfile ${tmpprefix}_proc ${keepflag} \
                --chr 23,24 ${regexcludeflag} ${extractflag} \
                --geno ${cfg_varmiss} \
                --maf ${cfg_freqhq} \
@@ -86,7 +102,7 @@ fi
 
 # extract all hq variants from input file and make hq plink set
 cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}_hq.mrk
-${plinkexec} --bfile ${opt_inprefix} \
+${plinkexec} --bfile ${tmpprefix}_proc \
              --extract ${tmpprefix}_hq.mrk \
              --make-bed \
              --out ${tmpprefix}_hq \

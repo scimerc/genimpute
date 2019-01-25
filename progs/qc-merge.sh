@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# exit on error
 set -Eeou pipefail
 
 declare -r  tmpprefix=${opt_outprefix}_tmp

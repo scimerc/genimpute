@@ -131,8 +131,9 @@ echo
 # lock variables and print them
 cfgvar_setall_readonly
 cfgvar_show_config
+echo
 
-echo -e "\n================================================================================\n"
+echo -e "================================================================================\n"
 
 #---------------------------------------------------------------------------------------------------
 
@@ -140,7 +141,6 @@ echo -e "\n=====================================================================
 
 plinkexec="${BASEDIR}/lib/3rd/plink --allow-extra-chr"
 export plinkexec
-
 
 #---------------------------------------------------------------------------------------------------
 
@@ -171,6 +171,7 @@ source ${BASEDIR}/progs/qc-tools.sh
 export opt_minivarset
 export opt_samplewhitelist
 export opt_varwhitelist=${opt_outprefixbase}_a_vwlist.mrk
+export opt_refprefix=${opt_outprefixbase}_a_refset
 export opt_outprefix=${opt_outprefixbase}_a_intsec
 
 # call wlist?
@@ -319,7 +320,7 @@ export opt_inprefix=${opt_outprefixbase}_e_finqc
 export opt_hqprefix=${opt_outprefixbase}_e_hqset
 
 # call hqset
-bash ${BASEDIR}/progs/qc-hqset.sh
+bash ${BASEDIR}/progs/qc-hqset.sh wrefset
 
 # cleanup
 unset opt_inprefix

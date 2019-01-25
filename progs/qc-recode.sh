@@ -3,7 +3,9 @@
 # exit on error
 set -Eeou pipefail
 
-declare -ra batchfiles=( ${opt_inputfiles} )
+declare -r  cfg_refprefix=$( cfgvar_get refprefix )
+
+declare -ra batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
 
 #-------------------------------------------------------------------------------
 
