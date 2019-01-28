@@ -171,8 +171,8 @@ source ${BASEDIR}/progs/qc-tools.sh
 export opt_minivarset
 export opt_samplewhitelist
 export opt_varwhitelist=${opt_outprefixbase}_a_vwlist.mrk
-export opt_refprefix=${opt_outprefixbase}_a_refset
-export opt_outprefix=${opt_outprefixbase}_a_intsec
+export opt_outprefix=${opt_outprefixbase}_a_vwlist
+export opt_refprefix=${opt_outprefixbase}_b_refset
 
 # call wlist?
 if [ $opt_minivarset -eq 1 ] ; then
@@ -182,7 +182,7 @@ fi
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_outprefix=${opt_outprefixbase}_a_recode
+export opt_outprefix=${opt_outprefixbase}_c_recode
 
 # call recode
 bash ${BASEDIR}/progs/qc-recode.sh
@@ -192,8 +192,8 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_inprefix=${opt_outprefixbase}_a_recode
-export opt_outprefix=${opt_outprefixbase}_a_align
+export opt_inprefix=${opt_outprefixbase}_c_recode
+export opt_outprefix=${opt_outprefixbase}_d_align
 
 # call align
 bash ${BASEDIR}/progs/qc-align.sh
@@ -204,8 +204,8 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_inprefix=${opt_outprefixbase}_a_align
-export opt_outprefix=${opt_outprefixbase}_a_proc
+export opt_inprefix=${opt_outprefixbase}_d_align
+export opt_outprefix=${opt_outprefixbase}_e_proc
 
 # call merge
 bash ${BASEDIR}/progs/qc-merge.sh
@@ -221,7 +221,7 @@ declare qciter=0
 
 # biography
 
-export opt_outprefix=${opt_outprefixbase}_a_proc
+export opt_outprefix=${opt_outprefixbase}_e_proc
 
 if [ ! -f ${opt_outprefixbase}.bio ] ; then
   # initialize sample biography file
@@ -241,9 +241,9 @@ unset opt_outprefix
 # get high quality set and identify duplicate, mixup and related individuals
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_a_proc
-export opt_hqprefix=${opt_outprefixbase}_a_hqset
-export opt_outprefix=${opt_outprefixbase}_b_clean
+export opt_hqprefix=${opt_outprefixbase}_f_hqset
+export opt_inprefix=${opt_outprefixbase}_e_proc
+export opt_outprefix=${opt_outprefixbase}_g_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call hqset and mixrel
@@ -251,8 +251,8 @@ bash ${BASEDIR}/progs/qc-hqset.sh
 bash ${BASEDIR}/progs/qc-mixrel.sh
 
 # cleanup
-unset opt_inprefix
 unset opt_hqprefix
+unset opt_inprefix
 unset opt_outprefix
 unset opt_biofile
 
@@ -261,16 +261,16 @@ unset opt_biofile
 # perform standard variant-level QC
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_b_clean
-export opt_hqprefix=${opt_outprefixbase}_a_hqset
-export opt_outprefix=${opt_outprefixbase}_c_varqc
+export opt_hqprefix=${opt_outprefixbase}_f_hqset
+export opt_inprefix=${opt_outprefixbase}_g_clean
+export opt_outprefix=${opt_outprefixbase}_h_varqc
 
 # call qcvar
 bash ${BASEDIR}/progs/qc-var.sh
 
 # cleanup
-unset opt_inprefix
 unset opt_hqprefix
+unset opt_inprefix
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
@@ -278,17 +278,17 @@ unset opt_outprefix
 # perform standard individual-level QC
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_c_varqc
-export opt_hqprefix=${opt_outprefixbase}_a_hqset
-export opt_outprefix=${opt_outprefixbase}_d_indqc
+export opt_hqprefix=${opt_outprefixbase}_f_hqset
+export opt_inprefix=${opt_outprefixbase}_h_varqc
+export opt_outprefix=${opt_outprefixbase}_i_indqc
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call qcind
 bash ${BASEDIR}/progs/qc-ind.sh
 
 # cleanup
-unset opt_inprefix
 unset opt_hqprefix
+unset opt_inprefix
 unset opt_outprefix
 unset opt_biofile
 
@@ -297,17 +297,17 @@ unset opt_biofile
 # perform final QC (control-HWE? batch effects?)
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_d_indqc
-export opt_hqprefix=${opt_outprefixbase}_a_hqset
-export opt_outprefix=${opt_outprefixbase}_e_finqc
-export opt_batchoutprefix=${opt_outprefixbase}_a_proc_batch
+export opt_hqprefix=${opt_outprefixbase}_f_hqset
+export opt_inprefix=${opt_outprefixbase}_i_indqc
+export opt_outprefix=${opt_outprefixbase}_j_finqc
+export opt_batchoutprefix=${opt_outprefixbase}_e_proc_batch
 
 # call qcfinal
 bash ${BASEDIR}/progs/qc-final.sh
 
 # cleanup
-unset opt_inprefix
 unset opt_hqprefix
+unset opt_inprefix
 unset opt_outprefix
 unset opt_batchoutprefix
 
@@ -316,23 +316,23 @@ unset opt_batchoutprefix
 # get high quality set
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_e_finqc
-export opt_hqprefix=${opt_outprefixbase}_e_hqset
+export opt_hqprefix=${opt_outprefixbase}_k_hqset
+export opt_inprefix=${opt_outprefixbase}_j_finqc
 
 # call hqset
 bash ${BASEDIR}/progs/qc-hqset.sh wrefset
 
 # cleanup
-unset opt_inprefix
 unset opt_hqprefix
+unset opt_inprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # compute genetic PCs
 
 # export vars
-export opt_hqprefix=${opt_outprefixbase}_e_hqset
-export opt_outprefix=${opt_outprefixbase}_e_finqc
+export opt_hqprefix=${opt_outprefixbase}_k_hqset
+export opt_outprefix=${opt_outprefixbase}_j_finqc
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call getpcs

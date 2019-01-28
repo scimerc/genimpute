@@ -114,9 +114,10 @@ for i in ${!batchfiles[@]} ; do
   # get chr:bp strings from bim file and join with the corresponding field of refprefix
   awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${b_inprefix}.bim \
     | sort -t $'\t' -k 7,7 \
-    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' \
-      ${cfg_refprefix}.all.haplotypes.gpa - \
-    | awk -F $'\t' \
+    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' <( \
+      awk '{ OFS="\t"; print( $1":"$2, $3, $4 ); }' ${cfg_refprefix}.all.haplotypes.gpa \
+      | sort -t $'\t' -k 1,1 - \
+    ) - | awk -F $'\t' \
       -f ${BASEDIR}/lib/awk/nucleocode.awk \
       -f ${BASEDIR}/lib/awk/genotype.awk \
       -f ${BASEDIR}/lib/awk/gflip.awk \
