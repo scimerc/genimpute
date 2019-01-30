@@ -37,6 +37,7 @@ bimtogprs() {
 
 for i in ${!batchfiles[@]} ; do
   declare plinkflag=""
+  [ -f "${batchfiles[$i]}" ] || { printf "file '%s' not found." "${batchfiles[$i]}"; exit 1; }
   declare fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
   case "${fformat}" in
     "bed" ) 
