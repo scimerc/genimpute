@@ -98,6 +98,7 @@ for i in ${!batchfiles[@]} ; do
   declare tmpvarctrl=${tmpprefix}_varctrl
   declare batchblacklist=${tmpprefix}.blacklist
   declare batchfliplist=${tmpprefix}.fliplist
+  declare batchidmap=${tmpprefix}.idmap
   sort -k 1,1 -k 4,4 ${b_inprefix}.tped | get_tped_blacklist | sort -u > ${batchblacklist} 
   echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
   echo "colocalized variants marked for deletion."
@@ -124,6 +125,7 @@ for i in ${!batchfiles[@]} ; do
       -f ${BASEDIR}/lib/awk/gmatch.awk \
       -v batchblacklist=${batchblacklist} \
       -v batchfliplist=${batchfliplist} \
+      -v batchidmap=${batchidmap} \
       --source 'BEGIN{
           OFS="\t"
           total_miss = 0
@@ -137,7 +139,7 @@ for i in ${!batchfiles[@]} ; do
             total_miss++
           }
           else {
-            if ( !gmatch( $2, $3, $5, $6 ) ) {
+            if ( !gmatchx( $2, $3, $5, $6 ) ) {
               print( $4 ) >>batchblacklist
               total_mism++
             }
@@ -146,12 +148,14 @@ for i in ${!batchfiles[@]} ; do
               total_flip++
             }
           }
+          print( $4, $1"_"$5"_"$6 ) >batchidmap
         } END{
           print( "total missing:  ", total_miss )
           print( "total mismatch: ", total_mism )
           print( "total flipped:  ", total_flip )
           close( batchblacklist )
-          close( batchfliplist)
+          close( batchfliplist )
+          close( batchidmap )
         }'
   # list unique
   sort -u ${batchfliplist} > $tmpvarctrl
@@ -193,15 +197,22 @@ for i in ${!batchfiles[@]} ; do
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbf.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbf.fam
   # rename variants to universal code chr:bp_a1_a2
-  make_variant_names_universal_in_bim_file ${tmpprefix}_nbf.bim
+  ${plinkexec} \
+        --bfile ${tmpprefix}_nbf \
+        --update-name ${batchidmap} \
+        --make-bed \
+        --out ${tmpprefix}_rn \
+        2>&1 >> ${debuglogfn} \
+        | tee -a ${debuglogfn}
+  make_variant_names_universal_in_bim_file ${tmpprefix}_rn.bim
   # pre-process sex chromosomes variants
   declare plinkflag=''
-  parcount=$( awk '$1 == 25' ${tmpprefix}_nbf.bim | wc -l )
+  parcount=$( awk '$1 == 25' ${tmpprefix}_rn.bim | wc -l )
   if [ $parcount -eq 0 ] ; then
     plinkflag="--split-x ${cfg_genomebuild} no-fail" 
   fi
   ${plinkexec} \
-        --bfile ${tmpprefix}_nbf ${plinkflag} \
+        --bfile ${tmpprefix}_rn ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_out \
         2>&1 >> ${debuglogfn} \
@@ -213,9 +224,9 @@ for i in ${!batchfiles[@]} ; do
   mv ${tmpprefix}_out.bim ${b_outprefix}.bim
   mv ${tmpprefix}_out.fam ${b_outprefix}.fam
   if [ "${batchcode}" == "${refcode}" ] ; then
-    mv ${b_outprefix}.bed ${opt_refprefix}.bed
-    mv ${b_outprefix}.bim ${opt_refprefix}.bim
-    mv ${b_outprefix}.fam ${opt_refprefix}.fam
+    cp ${b_outprefix}.bed ${opt_refprefix}.bed
+    cp ${b_outprefix}.bim ${opt_refprefix}.bim
+    cp ${b_outprefix}.fam ${opt_refprefix}.fam
   fi
   rm ${tmpprefix}*
   unset batchcode
