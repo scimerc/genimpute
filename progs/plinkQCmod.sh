@@ -221,28 +221,24 @@ declare qciter=0
 
 # biography
 
-export opt_outprefix=${opt_outprefixbase}_e_proc
-
 if [ ! -f ${opt_outprefixbase}.bio ] ; then
   # initialize sample biography file
-  declare cfg_uid; cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
+  declare cfg_uid
+  cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
+  export opt_outprefix=${opt_outprefixbase}_e_proc
   cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${cfg_uid} '
   BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
   ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio
+  unset opt_outprefix
 fi
-
-# ...
-
-# cleanup
-unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # get high quality set and identify duplicate, mixup and related individuals
 
 # export vars
-export opt_hqprefix=${opt_outprefixbase}_f_hqset
 export opt_inprefix=${opt_outprefixbase}_e_proc
+export opt_hqprefix=${opt_outprefixbase}_f_hqset
 export opt_outprefix=${opt_outprefixbase}_g_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
@@ -332,6 +328,7 @@ unset opt_inprefix
 
 # export vars
 export opt_hqprefix=${opt_outprefixbase}_k_hqset
+export opt_inprefix=${opt_outprefixbase}_j_finqc
 export opt_outprefix=${opt_outprefixbase}_j_finqc
 export opt_biofile=${opt_outprefixbase}.bio
 
@@ -340,6 +337,7 @@ bash ${BASEDIR}/progs/qc-getpcs.sh
 
 # cleanup
 unset opt_hqprefix
+unset opt_inprefix
 unset opt_outprefix
 unset opt_biofile
 

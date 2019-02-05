@@ -58,10 +58,7 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.bio
 cp ${tmpprefix}.bio ${opt_biofile}
 
-mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
-mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
-mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
-mv ${tmpprefix}_out.log ${opt_outprefix}.log
+rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
 
 rm ${tmpprefix}*
 

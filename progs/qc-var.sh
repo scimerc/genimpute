@@ -105,10 +105,7 @@ ${plinkexec} --bfile ${opt_inprefix} \
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 
-mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
-mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
-mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
-mv ${tmpprefix}_out.log ${opt_outprefix}.log
+rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
 
 rm ${tmpprefix}*
 

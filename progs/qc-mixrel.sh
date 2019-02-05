@@ -92,6 +92,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   plinkflag="--keep ${tmpprefix}_out.clean.id"
 fi
 # identify identical individuals
+#TODO: suppress identification of identical individuals
 echo "identifying identical individuals.."
 ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              --set-hh-missing \
@@ -207,9 +208,7 @@ ${plinkexec} --bfile ${opt_inprefix} \
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 
-mv ${tmpprefix}_out.bed ${opt_outprefix}.bed
-mv ${tmpprefix}_out.bim ${opt_outprefix}.bim
-mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
+rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
 
 rm ${tmpprefix}*
 

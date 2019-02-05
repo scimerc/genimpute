@@ -177,12 +177,12 @@ _cfgvar_read_file() {
     if [[ "${line}" =~ ^# ]] ; then
       continue
     fi
-    # TODO if line does not contain a '=' return an error
+    #TODO if line does not contain a '=' return an error
     # remove spaces at end of name and at beginning of value
     line="$( printf '%s' "${line}" | sed 's/\ *=\ */=/g;' )"
     # split line in name and value
     name=${line%%=*}
-    # TODO if name is empty return an error
+    #TODO if name is empty return an error
     value=${line#*=}
     # do stuff with name and value
     value="$( printf '%s' "${value}" | sed 's/^["'\'']//g;''s/["'\'']$//g;' )"
