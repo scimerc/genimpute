@@ -129,7 +129,7 @@ for chr in ${chromosomes} ; do
     imputescriptfn="${scriptprefix}3_impute_chr${chr}_${sample}.sh"
     case "${minimac_version}" in
       "3")
-        minimacexec="${BASEDIR}/lib/3rd/Minimac3_march-sb_omp --lowMemory"
+        minimacexec="${BASEDIR}/lib/3rd/minimac3_march-sb_omp --lowMemory"
         sbatch_conf=${SBATCH_CONF_MM3}
         ;;
       "4")
