@@ -30,7 +30,6 @@ fi
 # input: clean plink set
 # output: plink genotype set for variants passing QC criteria:
 #         - good coverage
-#         - sufficient minor allele frequency
 #         - HW equilibrium (possibly different for sex and non-sex chromosomes)
 #         - low rate of Mendel errors in trios
 
@@ -61,7 +60,6 @@ ${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} \
              --not-chr 23,24 \
              --set-hh-missing \
              --geno ${tmp_varmiss} \
-             --maf ${cfg_freqstd} \
              --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
              --make-just-bim \
              --out ${tmpprefix}_nonsex \
@@ -83,7 +81,6 @@ if [ $( get_xvar_count ${opt_inprefix}.bim ) -ge ${cfg_minvarcount} ] ; then
                --chr 23,24 \
                --set-hh-missing \
                --geno ${tmp_varmiss} \
-               --maf ${cfg_freqstd} \
                --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
                --make-just-bim \
                --out ${tmpprefix}_sex \
