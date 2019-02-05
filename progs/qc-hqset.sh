@@ -6,8 +6,8 @@ set -Eeou pipefail
 declare -r tmpprefix=${opt_hqprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_varmiss=$( cfgvar_get varmiss )
-declare -r cfg_freqhq=$( cfgvar_get freqhq )
+declare -r cfg_varmiss=$( cfgvar_get varmisshq )
+declare -r cfg_freq=$( cfgvar_get freqhq )
 declare -r cfg_genomeblacklist=$( cfgvar_get genomeblacklist )
 declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
 declare -r cfg_hweflag=$( cfgvar_get hweflag )
@@ -75,7 +75,7 @@ fi
 ${plinkexec} --bfile ${tmpprefix}_proc ${keepflag} \
              --not-chr 23,24 ${regexcludeflag} ${extractflag} \
              --geno ${cfg_varmiss} \
-             --maf ${cfg_freqhq} \
+             --maf ${cfg_freq} \
              --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
              --make-just-bim \
              --out ${tmpprefix}_nonsex \
@@ -87,7 +87,7 @@ if [ $( get_xvar_count ${tmpprefix}_proc.bim ) -ge ${cfg_minvarcount} ] ; then
   ${plinkexec} --bfile ${tmpprefix}_proc ${keepflag} \
                --chr 23,24 ${regexcludeflag} ${extractflag} \
                --geno ${cfg_varmiss} \
-               --maf ${cfg_freqhq} \
+               --maf ${cfg_freq} \
                --make-just-bim \
                --out ${tmpprefix}_sex \
                2>&1 >> ${debuglogfn} \

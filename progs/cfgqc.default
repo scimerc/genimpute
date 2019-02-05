@@ -67,3 +67,7 @@ uid=000UID
 
 # maximum missingness for a variant
 varmiss=0.05
+
+# maximum missingness for a variant
+varmisshq=0.01
+
