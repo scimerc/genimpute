@@ -31,6 +31,12 @@ ${plinkexec} --bfile ${opt_hqprefix} \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
 
+${plinkexec} --bfile ${opt_inprefix} \
+             --missing \
+             --out ${opt_outprefix} \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+
 # update biography file with genetic PCs
 {
   paste_sample_ids ${opt_hqprefix}.eigenvec \
@@ -47,6 +53,23 @@ ${plinkexec} --bfile ${opt_hqprefix} \
     }'
 } | sort -u -k 1,1 > ${tmpprefix}.1.bio
 cp ${tmpprefix}.1.bio ${opt_biofile}
+
+# update biography file with missingness statistics
+{
+  paste_sample_ids ${opt_outprefix}.imiss \
+    | join -t $'\t' ${opt_biofile} - \
+    | tee ${tmpprefix}.2.bio
+  TNF=$( wc -l ${tmpprefix}.2.bio | tabulate | cut -f 1 )
+  paste_sample_ids ${opt_outprefix}.imiss \
+    | join -t $'\t' -v1 ${opt_biofile} - \
+    | awk -F $'\t' -v TNF=${TNF} '{
+      OFS="\t"
+      printf($0)
+      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
+      printf("\n")
+    }'
+} | sort -u -k 1,1 > ${tmpprefix}.3.bio
+cp ${tmpprefix}.3.bio ${opt_biofile}
 
 # purge fam file ids of any unwanted characters
 cp ${opt_inprefix}.fam ${opt_outprefix}.fam.org
