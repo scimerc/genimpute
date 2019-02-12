@@ -69,7 +69,7 @@ export -f get_unique_filename_from_path
 
 #-------------------------------------------------------------------------------
 
-# in: (rs, chr, cm, bp[, a[, m]]) sorted on rs; stdout: same
+# in: space-separated (rs, chr, cm, bp[, a[, m]]) sorted on rs; stdout: same
 # get unique chr,cm,bp[,a[,m]] entries [sort|uniq]
 # sort on rsnumbers corresponding to unique entries
 # get complementary set of entries (duplicated vars) [join -v1]
@@ -95,11 +95,19 @@ export -f get_xvar_count
 #-------------------------------------------------------------------------------
 
 # in: tab-separated plink bim; out: same
-make_variant_names_universal_in_bim_file() {
+standardize_bim_file() {
   local -r fn=$1
   awk -F $'\t' '{
     OFS="\t"
-    a[1] = $5; a[2] = $6; asort(a)
+    a[1] = toupper($5)
+    a[2] = toupper($6)
+    if ( a[1] <= 0 ) a[1] = 0
+    if ( a[2] <= 0 ) a[2] = 0
+    asort(a)
+    if ( $1 ~ "^X" )  $1 == 23
+    if ( $1 ~ "^XY" ) $1 == 25
+    if ( $1 ~ "^Y" )  $1 == 24
+    if ( $1 ~ "^MT" ) $1 == 26
     $2 = $1":"$4"_"a[1]"_"a[2]
     if ( $2 in catalog ) {
       catalog[$2]++
@@ -110,7 +118,7 @@ make_variant_names_universal_in_bim_file() {
   mv ${fn}.tmp ${fn}
 }
 
-export -f make_variant_names_universal_in_bim_file
+export -f standardize_bim_file
 
 #-------------------------------------------------------------------------------
 

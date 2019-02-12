@@ -6,13 +6,13 @@ set -Eeou pipefail
 declare -r tmpprefix=${opt_hqprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_varmiss=$( cfgvar_get varmisshq )
 declare -r cfg_freq=$( cfgvar_get freqhq )
 declare -r cfg_genomeblacklist=$( cfgvar_get genomeblacklist )
 declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
 declare -r cfg_hweflag=$( cfgvar_get hweflag )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
 declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
+declare -r cfg_pruneflags=$( cfgvar_get pruneflags )
 declare -r cfg_uid=$( cfgvar_get uid )
 
 if [ -f "${opt_hqprefix}.bed" -a -f "${opt_hqprefix}.bim" -a -f "${opt_hqprefix}.fam" ] ; then
@@ -55,54 +55,61 @@ declare -r regionblacklist=${BASEDIR}/lib/data/${cfg_genomeblacklist}
 }
 declare -r regexcludeflag="--exclude range ${regionblacklist}"
 
+cp ${opt_inprefix}.bed ${tmpprefix}_draft.bed
+cp ${opt_inprefix}.bim ${tmpprefix}_draft.bim
+cp ${opt_inprefix}.fam ${tmpprefix}_draft.fam
+
 if [ ! -z "${1+x}" ] ; then
-  declare -r refopt="$1"
-  # if requested merge with reference
-  if [ "${refopt}" == 'wrefset' ] ; then
-    ${plinkexec} --bfile ${opt_inprefix} \
-                 --bmerge ${opt_refprefix} \
-                 --out ${tmpprefix}_proc \
-                 2>&1 >> ${debuglogfn} \
-                 | tee -a ${debuglogfn}
-  fi
-else
-  cp ${opt_inprefix}.bed ${tmpprefix}_proc.bed
-  cp ${opt_inprefix}.bim ${tmpprefix}_proc.bim
-  cp ${opt_inprefix}.fam ${tmpprefix}_proc.fam
-fi
-
-# get non sex hq-variants from input file
-${plinkexec} --bfile ${tmpprefix}_proc ${keepflag} \
-             --not-chr 23,24 ${regexcludeflag} ${extractflag} \
-             --geno ${cfg_varmiss} \
-             --maf ${cfg_freq} \
-             --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
-             --make-just-bim \
-             --out ${tmpprefix}_nonsex \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
-
-if [ $( get_xvar_count ${tmpprefix}_proc.bim ) -ge ${cfg_minvarcount} ] ; then
-  # get sex hq-variants from input file
-  ${plinkexec} --bfile ${tmpprefix}_proc ${keepflag} \
-               --chr 23,24 ${regexcludeflag} ${extractflag} \
-               --geno ${cfg_varmiss} \
-               --maf ${cfg_freq} \
-               --make-just-bim \
-               --out ${tmpprefix}_sex \
+# if requested merge with reference
+  ${plinkexec} --bfile ${opt_inprefix} \
+               --bmerge ${opt_refprefix} \
+               --out ${tmpprefix}_draft \
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
 fi
 
+declare tmpindex=0
+declare -a tmp_varmiss=( 0.01 0.05 0.1 )
+declare Ntot
+declare Nmin
+declare Nhq
+Ntot=$( wc -l ${tmpprefix}_draft.bim | tabulate | cut -f 1 )
+Nmin=$(( Ntot / 3 ))
+Nhq=0
+# get non sex hq-variants from input file
+while [ $Nhq -lt $Nmin -a $tmpindex -lt 3 ] ; do
+  ${plinkexec} --bfile ${tmpprefix}_draft ${keepflag} \
+               --not-chr 23,24 ${regexcludeflag} ${extractflag} \
+               --geno ${tmp_varmiss[${tmpindex}]} \
+               --maf ${cfg_freq} \
+               --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
+               --make-just-bim \
+               --out ${tmpprefix}_nonsex \
+               2>&1 >> ${debuglogfn} \
+               | tee -a ${debuglogfn}
+  if [ $( get_xvar_count ${tmpprefix}_draft.bim ) -ge ${cfg_minvarcount} ] ; then
+    # get sex hq-variants from input file
+    ${plinkexec} --bfile ${tmpprefix}_draft ${keepflag} \
+                 --chr 23,24 ${regexcludeflag} ${extractflag} \
+                 --geno ${tmp_varmiss[${tmpindex}]} \
+                 --maf ${cfg_freq} \
+                 --make-just-bim \
+                 --out ${tmpprefix}_sex \
+                 2>&1 >> ${debuglogfn} \
+                 | tee -a ${debuglogfn}
+  fi
+  Nhq=$( sort -u -k 2,2 ${tmpprefix}_*sex.bim | wc -l )
+  tmpindex=$(( tmpindex + 1 ))
+done
 # check if we have anything of high quality
-[ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
-  printf "error: no variants left in high quality set." >&2;
+[ $Nhq -ge $cfg_minvarcount ] || {
+  printf "error: not enough variants left in high quality set." >&2;
   exit 1;
 }
 
 # extract all hq variants from input file and make hq plink set
 cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}_hq.mrk
-${plinkexec} --bfile ${tmpprefix}_proc \
+${plinkexec} --bfile ${tmpprefix}_draft \
              --extract ${tmpprefix}_hq.mrk \
              --make-bed \
              --out ${tmpprefix}_hq \
@@ -111,7 +118,7 @@ ${plinkexec} --bfile ${tmpprefix}_proc \
 
 # LD-prune hq variants
 ${plinkexec} --bfile ${tmpprefix}_hq ${keepflag} \
-             --indep-pairphase 500 5 0.2 \
+             ${cfg_pruneflags} \
              --out ${tmpprefix}_hq_LD \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}

@@ -40,7 +40,7 @@ function i_to_A(nucleotide)
     else if ( nucleotide == "2" ) return "C";
     else if ( nucleotide == "3" ) return "G";
     else if ( nucleotide == "4" ) return "T";
-    else return "N";
+    else return "0";
 }
 
 function i_to_a(nucleotide)
@@ -49,7 +49,7 @@ function i_to_a(nucleotide)
     else if ( nucleotide == "2" ) return "c";
     else if ( nucleotide == "3" ) return "g";
     else if ( nucleotide == "4" ) return "t";
-    else return "n";
+    else return "0";
 }
 
 function sepcode()

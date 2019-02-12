@@ -3,9 +3,16 @@
 # exit on error
 set -Eeou pipefail
 
-declare -r  cfg_refprefix=$( cfgvar_get refprefix )
+declare  cfg_refprefix
+         cfg_refprefix="$( cfgvar_get refprefix )"
+readonly cfg_refprefix
 
-declare -ra batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+if [ ! -z "${cfg_refprefix}" ] ; then
+  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+else
+  declare -a batchfiles=( ${opt_inputfiles} )
+fi
+readonly batchfiles
 
 #-------------------------------------------------------------------------------
 
@@ -71,6 +78,8 @@ for i in ${!batchfiles[@]} ; do
     --out ${tmpprefix}_mx \
     2>&1 >> ${debuglogfn} \
     | tee -a ${debuglogfn}
+  # re-write variant info in universal format
+  standardize_bim_file ${tmpprefix}_mx.bim
   if [ ! -z "${bedflag}" ] ; then
     ${plinkexec} \
       --bfile ${tmpprefix}_mx ${bedflag} \
@@ -84,16 +93,14 @@ for i in ${!batchfiles[@]} ; do
     mv ${tmpprefix}_mx.bim ${tmpprefix}_out.bim
     mv ${tmpprefix}_mx.fam ${tmpprefix}_out.fam
   fi
-  # rename variants to universal code chr:bp_a1_a2
-  make_variant_names_universal_in_bim_file ${tmpprefix}_out.bim
   # extract colocalized variant positions from gp file and make a tped file set from them
-  awk '{ print( $2, $1, 0, $4 ); }' ${tmpprefix}_out.bim \
-    | sort -k 1,1 > ${tmpprefix}.gp
+  awk '{ print( $2, $1, 0, $4 ); }' ${tmpprefix}_out.bim | sort -k 1,1 > ${tmpprefix}.gp
   get_variant_info_for_dup_chr_cm_bp_aa_mm ${tmpprefix}.gp \
     | awk '{
         OFS="\t"
+        pos1=$4
         pos0=$4>0?($4-1):0
-        print( $2, pos0, $4, $1 )
+        print( $2, pos0, pos1, $1 )
       }' \
     | sort -u \
     > ${tmpprefix}.coloc.rng

@@ -122,7 +122,6 @@ ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              | tee -a ${debuglogfn}
 # give rel.id file a less confusing name
 mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq_unrel.id
-unset plinkflag
 
 extract_related_lists_from_grm_file() {
   local -r infile="$1"
@@ -198,15 +197,15 @@ mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
 
 # remove mixups and update sex in input set
 echo "removing potential mixup individuals and updating sex.."
-${plinkexec} --bfile ${opt_inprefix} \
+${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --update-sex ${opt_hqprefix}.fam 3 \
-             --keep ${tmpprefix}_out.clean.id \
              --make-bed \
              --out ${tmpprefix}_out \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+unset plinkflag
 
 rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
 

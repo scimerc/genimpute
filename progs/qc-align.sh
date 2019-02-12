@@ -11,23 +11,37 @@ declare  cfg_refprefix
          cfg_refprefix="$( cfgvar_get refprefix )"
 readonly cfg_refprefix
 
-declare -ra batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
-declare -r  refcode=$( get_unique_filename_from_path "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+if [ ! -z "${cfg_refprefix}" ] ; then
+  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+else
+  declare -a batchfiles=( ${opt_inputfiles} )
+fi
+readonly batchfiles
+
+declare  varreffile=${cfg_refprefix}.all.haplotypes.gpa
+
+declare  opt_refcode
+         opt_refcode=$( get_unique_filename_from_path "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+readonly opt_refcode
 
 #-------------------------------------------------------------------------------
 
-# stdin: plink tped sorted on chromosome and genomic position; stdout: rs
+# stdin: plink universal variant info file sorted on chromosome and genomic position; stdout: rs
 # spare only one variant from sets of coherent colocalized variants, blacklist all else
-get_tped_blacklist() {
+get_plink_varinfo_blacklist() {
   awk '{
     blackflag = 0
-    varid = $1"_"$4
-    if ( NR > 1 && varid == curvarid ) {
+    vargp = $1"_"$4
+    varid = $2
+    split( varid, avec, "_" )
+    coloc_with_missing = vargp == curvargp && avec[2] == 0 || avec[3] == 0
+    if ( NR > 1 && ( varid == curvarid || coloc_with_missing ) ) {
       missing = 0
       for ( k = 5; k <= NF; k++ ) {
         # if the current entry is not valid increment the missing counter
         # else, if the recorded entry is not valid set it to the current one
-        # else, if the recorded entry is different from the current one
+        # else, if the recorded entry is different from the current one raise
+        # the blackflag
         if ( $k <= 0 ) missing++
         else if ( variome[k] <= 0 ) variome[k] = $k
         else if ( variome[k] != $k ) {
@@ -40,7 +54,7 @@ get_tped_blacklist() {
         # add current list of names varid goes by to blacklist
         for ( n in varlist ) print varlist[n]
         # add new name to blacklist
-        print $2
+        print varid
       }
       # if the current version of varid has fewer missing
       if ( missing < curmissing ) {
@@ -49,19 +63,20 @@ get_tped_blacklist() {
         split( varnames, varlist, SUBSEP )
         # add all names varid went by to blacklist
         for ( n in varlist ) print varlist[n]
-      } else print $2 # add new varid name to blacklist
+      } else print varid # add new varid name to blacklist
       # add new name to varid name string
-      varnames = varnames SUBSEP $2
+      varnames = varnames SUBSEP varid
     }
     else {
       # else initialize varid arrays
       curmissing = 0
-      varnames = $2
+      varnames = varid
       for ( k = 5; k <= NF; k++ ) {
         variome[k] = $k
         if ( $k <= 0 ) curmissing++
       }
     }
+    curvargp = vargp
     curvarid = varid
   }' "${*:-/dev/stdin}"
 }
@@ -77,6 +92,25 @@ get_tped_blacklist() {
 # keep blacklists and fliplists just in case
 
 
+if [ -z "${cfg_refprefix}" ] ; then
+  declare tmpprefix=${opt_outprefix}_tmp
+  varreffile=${tmpprefix}.gpa
+  for i in ${!batchfiles[@]} ; do
+    declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
+    declare b_inprefix=${opt_inprefix}_batch_${batchcode}
+    cut -f 2 ${b_inprefix}.bim \
+      | awk -F ':' '{
+        OFS="\t"
+        split( $2, infovec, "_" )
+        print( $1, infovec[1], infovec[2], infovec[3] );
+      }'
+  done \
+    | sort -u | sort -k 1,1n -k 4,4n \
+    > ${varreffile}
+  unset batchcode
+  unset b_inprefix
+  unset tmpprefix
+fi
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
   declare b_inprefix=${opt_inprefix}_batch_${batchcode}
@@ -96,76 +130,15 @@ for i in ${!batchfiles[@]} ; do
   echo "purging and aligning batch ${batchfiles[$i]}.."
   # define input specific plink settings
   declare tmpvarctrl=${tmpprefix}_varctrl
+  declare batchallelemap=${tmpprefix}.allelemap
   declare batchblacklist=${tmpprefix}.blacklist
   declare batchfliplist=${tmpprefix}.fliplist
   declare batchidmap=${tmpprefix}.idmap
-  sort -k 1,1 -k 4,4 ${b_inprefix}.tped | get_tped_blacklist | sort -u > ${batchblacklist} 
+  sort -k 1,1 -k 4,4 ${b_inprefix}.tped \
+    | get_plink_varinfo_blacklist \
+    | sort -u > ${batchblacklist} 
   echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
   echo "colocalized variants marked for deletion."
-  # use ref alleles if specified or if we have more than one batch
-  if [ -z "${cfg_refprefix}" ] ; then
-    printf "error: reference is not set.\n" >&2;
-    exit 1
-  fi
-  echo "matching variants to reference.."
-  [ -s "${cfg_refprefix}.all.haplotypes.gpa" ] || {
-    printf "error: file '%s' is unusable.\n" "${cfg_refprefix}.all.haplotypes.gpa" >&2;
-    exit 1;
-  }
-  # get chr:bp strings from bim file and join with the corresponding field of refprefix
-  awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${b_inprefix}.bim \
-    | sort -t $'\t' -k 7,7 \
-    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' <( \
-      awk '{ OFS="\t"; print( $1":"$2, $3, $4 ); }' ${cfg_refprefix}.all.haplotypes.gpa \
-      | sort -t $'\t' -k 1,1 - \
-    ) - | awk -F $'\t' \
-      -f ${BASEDIR}/lib/awk/nucleocode.awk \
-      -f ${BASEDIR}/lib/awk/genotype.awk \
-      -f ${BASEDIR}/lib/awk/gflip.awk \
-      -f ${BASEDIR}/lib/awk/gmatch.awk \
-      -v batchblacklist=${batchblacklist} \
-      -v batchfliplist=${batchfliplist} \
-      -v batchidmap=${batchidmap} \
-      --source 'BEGIN{
-          OFS="\t"
-          total_miss = 0
-          total_mism = 0
-          total_flip = 0
-          printf( "" ) >>batchblacklist
-          printf( "" ) >>batchfliplist
-        } {
-          if ( $5 == "-" || $6 == "-" ) {
-            print( $4 ) >>batchblacklist
-            total_miss++
-          }
-          else {
-            if ( !gmatchx( $2, $3, $5, $6 ) ) {
-              print( $4 ) >>batchblacklist
-              total_mism++
-            }
-            else if ( gflip( $2, $3, $5, $6 ) ) {
-              print( $4 ) >>batchfliplist
-              total_flip++
-            }
-          }
-          print( $4, $1"_"$5"_"$6 ) >batchidmap
-        } END{
-          print( "total missing:  ", total_miss )
-          print( "total mismatch: ", total_mism )
-          print( "total flipped:  ", total_flip )
-          close( batchblacklist )
-          close( batchfliplist )
-          close( batchidmap )
-        }'
-  # list unique
-  sort -u ${batchfliplist} > $tmpvarctrl
-  mv $tmpvarctrl ${batchfliplist}
-  echo "$( wc -l ${batchfliplist} ) variants to be flipped."
-  # list unique
-  sort -u ${batchblacklist} > $tmpvarctrl
-  mv $tmpvarctrl ${batchblacklist}
-  echo "$( wc -l ${batchblacklist} ) variants to be excluded."
-
   declare plinkflag=""
   if [ -s "${batchblacklist}" ] ; then
     plinkflag="--exclude ${batchblacklist}"
@@ -181,13 +154,146 @@ for i in ${!batchfiles[@]} ; do
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.fam
+  # check usability of reference
+  echo "matching variants to reference.."
+  [ -s "${varreffile}" ] || {
+    printf "error: file '%s' is unusable.\n" "${varreffile}" >&2;
+    exit 1;
+  }
+  # get chr:bp strings from bim file and join with the corresponding field of refprefix
+  awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${tmpprefix}_nb.bim \
+    | sort -t $'\t' -k 7,7 \
+    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' <( \
+      awk '{
+        OFS="\t"
+        chr = $1
+        if ( chr == "MT" ) chr = 26
+        if ( chr == "X" || chr == "XY" ) chr = 23
+        if ( chr == "Y" ) chr = 24
+        print( $1":"$2, $3, $4 )
+      }' ${varreffile} \
+      | sort -t $'\t' -k 1,1 - \
+    ) - | awk -F $'\t' \
+      -f ${BASEDIR}/lib/awk/nucleocode.awk \
+      -f ${BASEDIR}/lib/awk/genotype.awk \
+      -f ${BASEDIR}/lib/awk/gflip.awk \
+      -f ${BASEDIR}/lib/awk/gmatch.awk \
+      -v batchallelemap=${batchallelemap} \
+      -v batchblacklist=${batchblacklist} \
+      -v batchfliplist=${batchfliplist} \
+      -v batchidmap=${batchidmap} \
+      --source 'BEGIN{
+          OFS="\t"
+          total_miss = 0
+          total_mism = 0
+          total_flip = 0
+          total_ambi = 0
+          printf( "" ) >batchallelemap
+          printf( "" ) >batchblacklist
+          printf( "" ) >batchfliplist
+          printf( "" ) >batchidmap
+        } {
+          if ( $5 == "-" || $6 == "-" ) {
+            print( $4 ) >batchblacklist
+            print( $4 ) >"asd.miss"
+            blackcatalog[$4] = 1
+            total_miss++
+          }
+          else {
+            if ( nucleocode($2) == comp_nucleocode($3) ) {
+              print( $4 ) >batchblacklist
+              blackcatalog[$4] = 1
+              total_ambi++
+            }
+            else {
+              if ( !gmatchx( $2, $3, $5, $6 ) ) {
+                print( $4 ) >batchblacklist
+                blackcatalog[$4] = 1
+                total_mism++
+              }
+              else {
+                if ( gflip( $2, $3, $5, $6 ) ) {
+                  print( $4 ) >batchfliplist
+                  flipcatalog[$4] = 1
+                  total_flip++
+                }
+                if ( $4 in idmapcatalog ) {
+                  print( $4 ) >batchblacklist
+                  delete idmapcatalog[$4]
+                  blackcatalog[$4] = 1
+                }
+                else {
+                  newid = $1"_"$5"_"$6
+                  if ( newid in idcatalog ) {
+                    idcatalog[newid]++
+                    newid = newid"_"idcatalog[newid]
+                  } else idcatalog[newid] = 1
+                  idmapcatalog[$4] = newid
+                  if ( $2 == 0 || $3 == 0 ) {
+                    if ( $2 == 0 ) nref = 3
+                    if ( $3 == 0 ) nref = 2
+                    aref = $(nref)
+                    if ( $4 in flipcatalog )
+                      aref = i_to_A( comp_nucleocode(aref) )
+                    if ( $5 == aref ) allelemap[$4] = $6
+                    if ( $6 == aref ) allelemap[$4] = $5
+                  }
+                }
+              }
+            }
+          }
+        } END{
+          print( "total missing:    ", total_miss )
+          print( "total mismatch:   ", total_mism )
+          print( "total flipped:    ", total_flip )
+          print( "total ambiguous:  ", total_ambi )
+          for ( varid in idmapcatalog ) {
+            split( varid, avec, "_" )
+            if ( avec[2] == 0 ) aref = avec[3]
+            if ( avec[3] == 0 ) aref = avec[2]
+            print( varid, idmapcatalog[varid] ) >batchidmap
+            if ( varid in allelemap )
+              print( idmapcatalog[varid], 0, aref, allelemap[varid], aref ) >batchallelemap
+          }
+          close( batchallelemap )
+          close( batchblacklist )
+          close( batchfliplist )
+          close( batchidmap )
+        }'
+  # update idmap
+  sort -t $'\t' -k 1,1 ${batchidmap} > $tmpvarctrl
+  mv $tmpvarctrl ${batchidmap}
+  # list unique
+  sort -t $'\t' -u ${batchfliplist} > $tmpvarctrl
+  mv $tmpvarctrl ${batchfliplist}
+  echo "$( wc -l ${batchfliplist} ) variants to be flipped."
+  # list unique
+  sort -t $'\t' -u ${batchblacklist} | join -v1 -t $'\t' - ${batchidmap} > $tmpvarctrl
+  mv $tmpvarctrl ${batchblacklist}
+  echo "$( wc -l ${batchblacklist} ) variants to be excluded."
+
+  declare plinkflag=""
+  if [ -s "${batchblacklist}" ] ; then
+    plinkflag="--exclude ${batchblacklist}"
+  fi
+  # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
+  ${plinkexec} \
+        --bfile ${tmpprefix}_nb ${plinkflag} \
+        --make-bed \
+        --out ${tmpprefix}_nbb \
+        2>&1 >> ${debuglogfn} \
+        | tee -a ${debuglogfn}
+  unset plinkflag
+  # tab-separate all human-readable plink files
+  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbb.bim
+  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbb.fam
   declare plinkflag=""
   if [ -s "${batchfliplist}" ] ; then
     plinkflag="--flip ${batchfliplist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
   ${plinkexec} \
-        --bfile ${tmpprefix}_nb ${plinkflag} \
+        --bfile ${tmpprefix}_nbb ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_nbf \
         2>&1 >> ${debuglogfn} \
@@ -196,7 +302,6 @@ for i in ${!batchfiles[@]} ; do
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbf.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbf.fam
-  # rename variants to universal code chr:bp_a1_a2
   ${plinkexec} \
         --bfile ${tmpprefix}_nbf \
         --update-name ${batchidmap} \
@@ -204,15 +309,21 @@ for i in ${!batchfiles[@]} ; do
         --out ${tmpprefix}_rn \
         2>&1 >> ${debuglogfn} \
         | tee -a ${debuglogfn}
-  make_variant_names_universal_in_bim_file ${tmpprefix}_rn.bim
+  ${plinkexec} \
+        --bfile ${tmpprefix}_rn \
+        --update-alleles ${batchallelemap} \
+        --make-bed \
+        --out ${tmpprefix}_rna \
+        2>&1 >> ${debuglogfn} \
+        | tee -a ${debuglogfn}
   # pre-process sex chromosomes variants
   declare plinkflag=''
-  parcount=$( awk '$1 == 25' ${tmpprefix}_rn.bim | wc -l )
+  parcount=$( awk '$1 == 25' ${tmpprefix}_rna.bim | wc -l )
   if [ $parcount -eq 0 ] ; then
     plinkflag="--split-x ${cfg_genomebuild} no-fail" 
   fi
   ${plinkexec} \
-        --bfile ${tmpprefix}_rn ${plinkflag} \
+        --bfile ${tmpprefix}_rna ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_out \
         2>&1 >> ${debuglogfn} \
@@ -223,7 +334,7 @@ for i in ${!batchfiles[@]} ; do
   mv ${tmpprefix}_out.bed ${b_outprefix}.bed
   mv ${tmpprefix}_out.bim ${b_outprefix}.bim
   mv ${tmpprefix}_out.fam ${b_outprefix}.fam
-  if [ "${batchcode}" == "${refcode}" ] ; then
+  if [ "${batchcode}" == "${opt_refcode}" ] ; then
     cp ${b_outprefix}.bed ${opt_refprefix}.bed
     cp ${b_outprefix}.bim ${opt_refprefix}.bim
     cp ${b_outprefix}.fam ${opt_refprefix}.fam
@@ -233,5 +344,6 @@ for i in ${!batchfiles[@]} ; do
   unset b_inprefix
   unset b_outprefix
   unset debuglogfn
+  unset tmpprefix
 done
 

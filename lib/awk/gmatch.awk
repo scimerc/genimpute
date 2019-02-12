@@ -79,22 +79,22 @@ function gmatchx(a1,a2,b1,b2)
       c1code = c2code;
       c2code = dmcode;
     }
-    bmatch = 0;
-    cmatch = 0;
-    brmatch = 0;
-    crmatch = 0;
+    bmatch = 1;
+    cmatch = 1;
+    brmatch = 1;
+    crmatch = 1;
     split( a1code a2code, avec, "" );
     split( b1code b2code, bvec, "" );
     split( c1code c2code, cvec, "" );
     split( b2code b1code, brvec, "" );
     split( c2code c1code, crvec, "" );
     for ( k = 1; k <= a1len + a2len; k++ ) {
-      if ( avec[k] != 0 && bvec[k] != 0 && avec[k] != bvec[k] ) bmatch = -1;
-      if ( avec[k] != 0 && cvec[k] != 0 && avec[k] != cvec[k] ) cmatch = -1;
-      if ( avec[k] != 0 && brvec[k] != 0 && avec[k] != brvec[k] ) brmatch = -1;
-      if ( avec[k] != 0 && crvec[k] != 0 && avec[k] != crvec[k] ) crmatch = -1;
+      if ( avec[k] != 0 && bvec[k] != 0 && avec[k] != bvec[k] ) bmatch = 0;
+      if ( avec[k] != 0 && cvec[k] != 0 && avec[k] != cvec[k] ) cmatch = 0;
+      if ( avec[k] != 0 && brvec[k] != 0 && avec[k] != brvec[k] ) brmatch = 0;
+      if ( avec[k] != 0 && crvec[k] != 0 && avec[k] != crvec[k] ) crmatch = 0;
     }
-    if ( bmatch == 0 || cmatch == 0 || brmatch == 0 || crmatch == 0 ) return(1);
+    if ( bmatch == 1 || cmatch == 1 || brmatch == 1 || crmatch == 1 ) return(1);
     else return(0);
   }
 }

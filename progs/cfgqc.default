@@ -49,6 +49,9 @@ pihatrel=0.1
 # pihat threshold for establishing identity between idividuals
 pihat=0.9
 
+# plink LD-pruning flags
+pruneflags='--indep-pairphase 500 5 0.2'
+
 # reference files prefix; different suffixes are expected for different uses:
 # qc -> '.all.haplotypes.[bcf.gz|gpa]
 # phase -> '.chr###.haplotypes.bcf.gz
@@ -67,7 +70,4 @@ uid=000UID
 
 # maximum missingness for a variant
 varmiss=0.05
-
-# maximum missingness for a variant
-varmisshq=0.01
 

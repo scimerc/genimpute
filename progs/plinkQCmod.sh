@@ -139,7 +139,8 @@ echo -e "=======================================================================
 
 # define executables
 
-plinkexec="${BASEDIR}/lib/3rd/plink --allow-extra-chr"
+# plinkexec="plink2 --allow-extra-chr"
+plinkexec="valgrind ${BASEDIR}/lib/3rd/plink --allow-extra-chr"
 export plinkexec
 
 #---------------------------------------------------------------------------------------------------
@@ -172,7 +173,7 @@ export opt_minivarset
 export opt_samplewhitelist
 export opt_varwhitelist=${opt_outprefixbase}_a_vwlist.mrk
 export opt_outprefix=${opt_outprefixbase}_a_vwlist
-export opt_refprefix=${opt_outprefixbase}_b_refset
+export opt_refprefix=${opt_outprefixbase}_refset
 
 # call wlist?
 if [ $opt_minivarset -eq 1 ] ; then
@@ -182,7 +183,7 @@ fi
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_outprefix=${opt_outprefixbase}_c_recode
+export opt_outprefix=${opt_outprefixbase}_b_recode
 
 # call recode
 bash ${BASEDIR}/progs/qc-recode.sh
@@ -192,8 +193,8 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_inprefix=${opt_outprefixbase}_c_recode
-export opt_outprefix=${opt_outprefixbase}_d_align
+export opt_inprefix=${opt_outprefixbase}_b_recode
+export opt_outprefix=${opt_outprefixbase}_c_align
 
 # call align
 bash ${BASEDIR}/progs/qc-align.sh
@@ -204,8 +205,8 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-export opt_inprefix=${opt_outprefixbase}_d_align
-export opt_outprefix=${opt_outprefixbase}_e_proc
+export opt_inprefix=${opt_outprefixbase}_c_align
+export opt_outprefix=${opt_outprefixbase}_d_proc
 
 # call merge
 bash ${BASEDIR}/progs/qc-merge.sh
@@ -225,7 +226,7 @@ if [ ! -f ${opt_outprefixbase}.bio ] ; then
   # initialize sample biography file
   declare cfg_uid
   cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
-  export opt_outprefix=${opt_outprefixbase}_e_proc
+  export opt_outprefix=${opt_outprefixbase}_d_proc
   cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${cfg_uid} '
   BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
   ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio
@@ -237,9 +238,9 @@ fi
 # get high quality set and identify duplicate, mixup and related individuals
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_e_proc
-export opt_hqprefix=${opt_outprefixbase}_f_hqset
-export opt_outprefix=${opt_outprefixbase}_g_clean
+export opt_inprefix=${opt_outprefixbase}_d_proc
+export opt_hqprefix=${opt_outprefixbase}_e_hqset
+export opt_outprefix=${opt_outprefixbase}_f_clean
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call hqset and mixrel
@@ -257,9 +258,9 @@ unset opt_biofile
 # perform standard variant-level QC
 
 # export vars
-export opt_hqprefix=${opt_outprefixbase}_f_hqset
-export opt_inprefix=${opt_outprefixbase}_g_clean
-export opt_outprefix=${opt_outprefixbase}_h_varqc
+export opt_hqprefix=${opt_outprefixbase}_e_hqset
+export opt_inprefix=${opt_outprefixbase}_f_clean
+export opt_outprefix=${opt_outprefixbase}_g_varqc
 
 # call qcvar
 bash ${BASEDIR}/progs/qc-var.sh
@@ -274,9 +275,9 @@ unset opt_outprefix
 # perform standard individual-level QC
 
 # export vars
-export opt_hqprefix=${opt_outprefixbase}_f_hqset
-export opt_inprefix=${opt_outprefixbase}_h_varqc
-export opt_outprefix=${opt_outprefixbase}_i_indqc
+export opt_hqprefix=${opt_outprefixbase}_e_hqset
+export opt_inprefix=${opt_outprefixbase}_g_varqc
+export opt_outprefix=${opt_outprefixbase}_h_indqc
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call qcind
@@ -293,10 +294,10 @@ unset opt_biofile
 # perform final QC (control-HWE? batch effects?)
 
 # export vars
-export opt_hqprefix=${opt_outprefixbase}_f_hqset
-export opt_inprefix=${opt_outprefixbase}_i_indqc
-export opt_outprefix=${opt_outprefixbase}_j_finqc
-export opt_batchoutprefix=${opt_outprefixbase}_e_proc_batch
+export opt_hqprefix=${opt_outprefixbase}_e_hqset
+export opt_inprefix=${opt_outprefixbase}_h_indqc
+export opt_outprefix=${opt_outprefixbase}_i_finqc
+export opt_batchoutprefix=${opt_outprefixbase}_d_proc_batch
 
 # call qcfinal
 bash ${BASEDIR}/progs/qc-final.sh
@@ -312,11 +313,11 @@ unset opt_batchoutprefix
 # get high quality set
 
 # export vars
-export opt_hqprefix=${opt_outprefixbase}_k_hqset
-export opt_inprefix=${opt_outprefixbase}_j_finqc
+export opt_inprefix=${opt_outprefixbase}_i_finqc
+export opt_hqprefix=${opt_outprefixbase}_j_hqset
 
 # call hqset
-bash ${BASEDIR}/progs/qc-hqset.sh wrefset
+bash ${BASEDIR}/progs/qc-hqset.sh $( cfgvar_get refprefix )
 
 # cleanup
 unset opt_hqprefix
@@ -327,9 +328,9 @@ unset opt_inprefix
 # compute genetic PCs
 
 # export vars
-export opt_hqprefix=${opt_outprefixbase}_k_hqset
-export opt_inprefix=${opt_outprefixbase}_j_finqc
-export opt_outprefix=${opt_outprefixbase}_j_finqc
+export opt_hqprefix=${opt_outprefixbase}_j_hqset
+export opt_inprefix=${opt_outprefixbase}_i_finqc
+export opt_outprefix=${opt_outprefixbase}_i_finqc
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call getpcs
@@ -342,6 +343,8 @@ unset opt_outprefix
 unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
+
+unset opt_refprefix
 
 echo -e "\nall done. check your output files out."
 echo -e "\n================================================================================\n"

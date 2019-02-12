@@ -3,11 +3,19 @@
 # exit on error
 set -Eeou pipefail
 
-declare -r  cfg_refprefix=$( cfgvar_get refprefix )
+declare  cfg_refprefix
+         cfg_refprefix="$( cfgvar_get refprefix )"
+readonly cfg_refprefix
 
-declare -r  tmpprefix=${opt_outprefix}_tmp
-declare -r  debuglogfn=${tmpprefix}_debug.log
-declare -ra batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+if [ ! -z "${cfg_refprefix}" ] ; then
+  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+else
+  declare -a batchfiles=( ${opt_inputfiles} )
+fi
+readonly batchfiles
+
+declare -r tmpprefix=${opt_outprefix}_tmp
+declare -r debuglogfn=${tmpprefix}_debug.log
 
 #-------------------------------------------------------------------------------
 
