@@ -139,8 +139,7 @@ echo -e "=======================================================================
 
 # define executables
 
-# plinkexec="plink2 --allow-extra-chr"
-plinkexec="valgrind ${BASEDIR}/lib/3rd/plink --allow-extra-chr"
+plinkexec="${BASEDIR}/lib/3rd/plink --allow-extra-chr"
 export plinkexec
 
 #---------------------------------------------------------------------------------------------------
