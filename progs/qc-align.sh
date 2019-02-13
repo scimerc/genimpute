@@ -170,9 +170,9 @@ for i in ${!batchfiles[@]} ; do
         if ( chr == "MT" ) chr = 26
         if ( chr == "X" || chr == "XY" ) chr = 23
         if ( chr == "Y" ) chr = 24
-        print( $1":"$2, $3, $4 )
+        print( chr":"$2, $3, $4 )
       }' ${varreffile} \
-      | sort -t $'\t' -k 1,1 - \
+      | sort -t $'\t' -k 1,1 \
     ) - | awk -F $'\t' \
       -f ${BASEDIR}/lib/awk/nucleocode.awk \
       -f ${BASEDIR}/lib/awk/genotype.awk \
@@ -339,7 +339,7 @@ for i in ${!batchfiles[@]} ; do
     cp ${b_outprefix}.bim ${opt_refprefix}.bim
     cp ${b_outprefix}.fam ${opt_refprefix}.fam
   fi
-  rm ${tmpprefix}*
+#   rm ${tmpprefix}*
   unset batchcode
   unset b_inprefix
   unset b_outprefix
