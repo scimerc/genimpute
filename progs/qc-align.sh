@@ -339,7 +339,7 @@ for i in ${!batchfiles[@]} ; do
     cp ${b_outprefix}.bim ${opt_refprefix}.bim
     cp ${b_outprefix}.fam ${opt_refprefix}.fam
   fi
-#   rm ${tmpprefix}*
+  rm ${tmpprefix}*
   unset batchcode
   unset b_inprefix
   unset b_outprefix
