@@ -119,7 +119,7 @@ for i in ${!batchfiles[@]} ; do
   declare debuglogfn=${tmpprefix}_debug.log
   # check for hash collisions
   if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
-    printf "'%s' already exists - skipping recode step..\n" "${b_outprefix}.bed"
+    printf "'%s' already exists - skipping alignment step..\n" "${b_outprefix}.bed"
     printf "try increasing 'numchars' in the hash function if you think this should not happen.\n"
     continue
   fi
@@ -195,7 +195,6 @@ for i in ${!batchfiles[@]} ; do
         } {
           if ( $5 == "-" || $6 == "-" ) {
             print( $4 ) >batchblacklist
-            print( $4 ) >"asd.miss"
             blackcatalog[$4] = 1
             total_miss++
           }
@@ -212,7 +211,7 @@ for i in ${!batchfiles[@]} ; do
                 total_mism++
               }
               else {
-                if ( gflip( $2, $3, $5, $6 ) ) {
+                if ( gflipx( $2, $3, $5, $6 ) ) {
                   print( $4 ) >batchfliplist
                   flipcatalog[$4] = 1
                   total_flip++
@@ -306,24 +305,24 @@ for i in ${!batchfiles[@]} ; do
         --bfile ${tmpprefix}_nbf \
         --update-name ${batchidmap} \
         --make-bed \
-        --out ${tmpprefix}_rn \
+        --out ${tmpprefix}_un \
         2>&1 >> ${debuglogfn} \
         | tee -a ${debuglogfn}
   ${plinkexec} \
-        --bfile ${tmpprefix}_rn \
+        --bfile ${tmpprefix}_un \
         --update-alleles ${batchallelemap} \
         --make-bed \
-        --out ${tmpprefix}_rna \
+        --out ${tmpprefix}_una \
         2>&1 >> ${debuglogfn} \
         | tee -a ${debuglogfn}
   # pre-process sex chromosomes variants
   declare plinkflag=''
-  parcount=$( awk '$1 == 25' ${tmpprefix}_rna.bim | wc -l )
+  parcount=$( awk '$1 == 25' ${tmpprefix}_una.bim | wc -l )
   if [ $parcount -eq 0 ] ; then
     plinkflag="--split-x ${cfg_genomebuild} no-fail" 
   fi
   ${plinkexec} \
-        --bfile ${tmpprefix}_rna ${plinkflag} \
+        --bfile ${tmpprefix}_una ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_out \
         2>&1 >> ${debuglogfn} \
