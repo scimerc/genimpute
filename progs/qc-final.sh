@@ -12,6 +12,7 @@ declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
 declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
+declare -r cfg_samplemiss=$( cfgvar_get samplemiss )
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "skipping final QC step..\n"
@@ -41,6 +42,22 @@ fi
 cp ${opt_inprefix}.bed ${tmpprefix}_out.bed
 cp ${opt_inprefix}.bim ${tmpprefix}_out.bim
 cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
+
+tmp_samplemiss=${cfg_samplemiss}
+N=$( wc -l ${opt_inprefix}.bim | cut -d ' ' -f 1 )
+if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
+echo "extracting high coverage individuals.."
+${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
+             --mind ${tmp_samplemiss} \
+             --make-just-fam \
+             --out ${tmpprefix}_hc \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+# reset keep flag if any individuals survived
+if [ -s "${tmpprefix}_hc.fam" ] ; then
+  keepfile=${tmpprefix}_hc.fam
+  keepflag="--keep ${keepfile}"
+fi
 
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
   # if a phenotype file was specified write a control list

@@ -5,7 +5,7 @@ extract_sample_ids() {
   if [ -z "${idfile}" ] ; then
     cat
   else
-    awk -F $'\t' '{
+    awk '{
       if ( NR == FNR ) idarr[$1,$2] = 1
       else if ( ($1,$2) in idarr ) print
     }' "${idfile}" /dev/stdin
