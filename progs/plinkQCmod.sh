@@ -201,7 +201,7 @@ bash ${BASEDIR}/progs/qc-align.sh
 # cleanup
 unset opt_inprefix
 unset opt_outprefix
-exit 0
+
 #---------------------------------------------------------------------------------------------------
 
 export opt_inprefix=${opt_outprefixbase}_b_align
