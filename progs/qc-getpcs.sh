@@ -9,7 +9,7 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 declare -r cfg_uid=$( cfgvar_get uid )
 
 if [ -f "${opt_hqprefix}.eigenvec" -a -f "${opt_hqprefix}.eigenvec.var" ] ; then
-  printf "skipping PCA..\n"
+  printf "skipping pca..\n"
   exit 0
 fi
 
@@ -22,7 +22,6 @@ ${plinkexec} --bfile ${opt_hqprefix} \
              --out ${opt_hqprefix} \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
-
 ${plinkexec} --bfile ${opt_hqprefix} \
              --cluster \
              --read-genome ${opt_hqprefix}.genome.gz \
@@ -30,7 +29,6 @@ ${plinkexec} --bfile ${opt_hqprefix} \
              --out ${opt_hqprefix} \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
-
 ${plinkexec} --bfile ${opt_inprefix} \
              --missing \
              --out ${opt_outprefix} \
@@ -39,11 +37,11 @@ ${plinkexec} --bfile ${opt_inprefix} \
 
 # update biography file with genetic PCs
 {
-  paste_sample_ids ${opt_hqprefix}.eigenvec \
-    | join -t $'\t' ${opt_biofile} - \
+  synthesize_sample_ids ${opt_hqprefix}.eigenvec \
+    | join -t $'\t'     ${opt_biofile} - \
     | tee ${tmpprefix}.0.bio
-  TNF=$( wc -l ${tmpprefix}.0.bio | tabulate | cut -f 1 )
-  paste_sample_ids ${opt_hqprefix}.eigenvec \
+  TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
+  synthesize_sample_ids ${opt_hqprefix}.eigenvec \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"
@@ -51,16 +49,16 @@ ${plinkexec} --bfile ${opt_inprefix} \
       for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
       printf("\n")
     }'
-} | sort -u -k 1,1 > ${tmpprefix}.1.bio
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.1.bio
 cp ${tmpprefix}.1.bio ${opt_biofile}
 
 # update biography file with missingness statistics
 {
-  paste_sample_ids ${opt_outprefix}.imiss \
+  synthesize_sample_ids ${opt_outprefix}.imiss \
     | join -t $'\t' ${opt_biofile} - \
     | tee ${tmpprefix}.2.bio
-  TNF=$( wc -l ${tmpprefix}.2.bio | tabulate | cut -f 1 )
-  paste_sample_ids ${opt_outprefix}.imiss \
+  TNF=$( head -n 1 ${tmpprefix}.2.bio | wc -w )
+  synthesize_sample_ids ${opt_outprefix}.imiss \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"
@@ -68,25 +66,8 @@ cp ${tmpprefix}.1.bio ${opt_biofile}
       for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
       printf("\n")
     }'
-} | sort -u -k 1,1 > ${tmpprefix}.3.bio
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.3.bio
 cp ${tmpprefix}.3.bio ${opt_biofile}
-
-# purge fam file ids of any unwanted characters
-cp ${opt_inprefix}.fam ${opt_outprefix}.fam.org
-awk '{
-  OFS="\t"
-  for ( k = 1; k < 5; k++ )
-    gsub( "[][)(}{/\\,.;:|!?@#$%^&*~=_><+-]+", "_", $k )
-  print
-}' ${opt_outprefix}.fam.org > ${tmpprefix}_out.fam
-Nold=$( sort -u -k 1,2 ${opt_outprefix}.fam.org | wc -l )
-Nnew=$( sort -u -k 1,2 ${tmpprefix}_out.fam | wc -l )
-if [ $Nold -eq $Nnew ] ; then
-  mv ${tmpprefix}_out.fam ${opt_outprefix}.fam
-else
-  echo '====> warning: could not purge IDs due to conflicts.'
-  mv ${opt_outprefix}.fam.org ${opt_outprefix}.fam
-fi
 
 rm ${tmpprefix}*
 

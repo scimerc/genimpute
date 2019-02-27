@@ -7,7 +7,6 @@ declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
 declare -r cfg_hvm=$( cfgvar_get hvm )
-declare -r cfg_pihat=$( cfgvar_get pihat )
 declare -r cfg_pihatrel=$( cfgvar_get pihatrel )
 declare -r cfg_uid=$( cfgvar_get uid )
 
@@ -28,13 +27,13 @@ fi
 # update biography file with sex information
 {
   # merge information for existing individuals
-  paste_sample_ids ${opt_hqprefix}.sexcheck \
-    | join -t $'\t' ${opt_biofile} - \
+  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
+    | join -t $'\t'     ${opt_biofile} - \
     | tee ${tmpprefix}.0.bio
   # count number of fields in the merged file
   TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
   # add non-existing individuals and pad the extra fields with NAs
-  paste_sample_ids ${opt_hqprefix}.sexcheck \
+  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"
@@ -42,7 +41,7 @@ fi
       for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
       printf("\n")
     }'
-} | sort -u -k 1,1 > ${tmpprefix}.1.bio
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.1.bio
 cp ${tmpprefix}.1.bio ${opt_biofile}
 
 declare plinkflag=''
@@ -71,16 +70,14 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   }
   # update biography file with potential mixup information
   {
-    cut -f 3 ${tmpprefix}_out.clean.id \
-      | sort -u \
+    synthesize_sample_ids ${tmpprefix}_out.clean.id \
       | join -t $'\t' -v1 ${opt_biofile} - \
       | awk -F $'\t' '{
         OFS="\t"
         if ( NR == 1 ) print( $0, "MISMIX" )
         else print( $0, "PROBLEM" )
       }'
-    cut -f 3 ${tmpprefix}_out.clean.id \
-      | sort -u \
+    synthesize_sample_ids ${tmpprefix}_out.clean.id \
       | join -t $'\t'     ${opt_biofile} - \
       | awk -F $'\t' '{
         OFS="\t"
@@ -88,12 +85,10 @@ if [ ${cfg_hvm} -eq 1 ] ; then
       }'
   } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.2.bio
   cp ${tmpprefix}.2.bio ${opt_biofile}
-  # include non-mixup info later
+  # write plink flag for non-mixup info later
   plinkflag="--keep ${tmpprefix}_out.clean.id"
 fi
-# identify identical individuals
-#TODO: suppress identification of identical individuals
-echo "identifying identical individuals.."
+# identify related individuals
 ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              --set-hh-missing \
              --genome gz \
@@ -101,17 +96,6 @@ ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
              >> ${debuglogfn}
-${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
-             --set-hh-missing \
-             --cluster \
-             --read-genome ${tmpprefix}_sq.genome.gz \
-             --rel-cutoff ${cfg_pihat} \
-             --out ${tmpprefix}_sq \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
-# give rel.id file a less confusing name
-mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq.id
-# identify related individuals
 ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              --set-hh-missing \
              --cluster \
@@ -126,78 +110,54 @@ mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq_unrel.id
 extract_related_lists_from_grm_file() {
   local -r infile="$1"
   zcat -f "${infile}" | tabulate \
-    | awk -F $'\t' -v uid=${cfg_uid} -v pihat=${cfg_pihatrel} '{
-      OFS="\t"
-      maxcnt=11111
-      uid0=$1"_"$2
-      uid1=$3"_"$4
-      if ( NR>1 && $10>=pihat ) {
-        if ( uid0 in relarr && cntarr[uid0] < maxcnt ) {
-          relarr[uid0] = relarr[uid0]","uid1"("$10")"
-          cntarr[uid0]++
+    | awk -F $'\t' -v uid=${cfg_uid} -v pihat=${cfg_pihatrel} \
+      -f ${BASEDIR}/lib/awk/idclean.awk --source '{
+        maxcnt=11111
+        uid0=idclean( $1"_"$2 )
+        uid1=idclean( $3"_"$4 )
+        if ( NR>1 && $10>=pihat ) {
+          if ( uid0 in relarr && cntarr[uid0] < maxcnt ) {
+            relarr[uid0] = relarr[uid0]","uid1"("$10")"
+            cntarr[uid0]++
+          }
+          else {
+            relarr[uid0] = uid1"("$10")"
+            cntarr[uid0] = 1
+          }
+          if ( uid1 in relarr && cntarr[uid1] < maxcnt ) {
+            relarr[uid1] = relarr[uid1]","uid0"("$10")"
+            cntarr[uid1]++
+          }
+          else {
+            relarr[uid1] = uid0"("$10")"
+            cntarr[uid1] = 1
+          }
         }
-        else {
-          relarr[uid0] = uid1"("$10")"
-          cntarr[uid0] = 1
-        }
-        if ( uid1 in relarr && cntarr[uid1] < maxcnt ) {
-          relarr[uid1] = relarr[uid1]","uid0"("$10")"
-          cntarr[uid1]++
-        }
-        else {
-          relarr[uid1] = uid0"("$10")"
-          cntarr[uid1] = 1
-        }
-      }
-    } END{
-      printf( "%s\tRELSHIP\n", uid )
-      for ( uid in relarr ) print( uid, relarr[uid] )
-    }' \
-  | sort -t $'\t' -u -k 1,1
+      } END{
+        OFS="\t"
+        printf( "%s\tRELSHIP\n", uid )
+        for ( uid in relarr ) print( uid, relarr[uid] )
+      }' \
+    | sort -t $'\t' -u -k 1,1
 }
 
 # update biography file with sample relationship
 {
   extract_related_lists_from_grm_file ${tmpprefix}_sq.genome.gz \
-    | join -t $'\t' ${opt_biofile} -
+    | join -t $'\t'     ${opt_biofile} -
   extract_related_lists_from_grm_file ${tmpprefix}_sq.genome.gz \
     | join -t $'\t' -v1 ${opt_biofile} - \
-    | awk '{
-      OFS="\t"
-      print( $0, "__NA__" )
-    }'
-} | sort -u -k 1,1 > ${tmpprefix}.3.bio
+    | awk -F $'\t' '{ OFS="\t"; print( $0, "__NA__" ) }'
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.3.bio
 cp ${tmpprefix}.3.bio ${opt_biofile}
-
-# update biography file with identities
-{
-  awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_sq.id \
-    | sort -u \
-    | join -t $'\t' -v1 ${opt_biofile} - \
-    | awk -F $'\t' '{
-        OFS="\t"
-        if ( NR == 1 ) print( $0, "ORGIDN" )
-        else {
-          if ( $(NF-1) == "PROBLEM" ) print( $0, 0 )
-          else print( $0, "IDN" )
-        }
-      }'
-  awk -F $'\t' '{ print( $1"_"$2 ); }' ${tmpprefix}_sq.id \
-    | sort -u \
-    | join -t $'\t' ${opt_biofile} - \
-    | awk -F $'\t' '{
-        OFS="\t"
-        print( $0, "ORG" )
-      }'
-} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.4.bio
-cp ${tmpprefix}.4.bio ${opt_biofile}
 
 # rename list of unrelated individuals for later use
 mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
 
-# remove mixups and update sex in input set
+# remove mixups and update sex and parents in input set
 echo "removing potential mixup individuals and updating sex.."
 ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
+             --update-parents ${opt_hqprefix}.fam \
              --update-sex ${opt_hqprefix}.fam 3 \
              --make-bed \
              --out ${tmpprefix}_out \

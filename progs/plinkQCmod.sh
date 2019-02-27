@@ -19,6 +19,7 @@ cfgvar_init_from_file ${BASEDIR}/progs/cfgqc.default
 
 # define default options and parse command line
 
+declare opt_dryimpute=0
 declare opt_minivarset=0
 declare opt_outprefixdefault='plinkqc'
 declare opt_outprefixbase=${opt_outprefixdefault}
@@ -34,6 +35,7 @@ USAGE: $( basename $0 ) [OPTIONS] <bed|bcf|vcf file(s)>
 
 OPTIONS:
   -c <config file>      optional configuration file
+  -d                    dry imputation: write scripts but do not run them
   -m                    reduce variant set to the minimal one common to all
   -w <sample file>      optional white list of individuals to restrict qc to
   -o <output prefix>    optional output prefix [default: '${opt_outprefixdefault}']
@@ -63,10 +65,13 @@ debugout() {
 }
 export -f debugout
 
-while getopts "c:mo:w:h" opt; do
+while getopts "c:dmo:w:h" opt; do
 case "${opt}" in
   c)
     opt_cfgfile="${OPTARG}"
+    ;;
+  d)
+    opt_dryimpute=1
     ;;
   m)
     opt_minivarset=1
@@ -113,7 +118,7 @@ export opt_outprefixbase
 
 if [ ! -z "${opt_cfgfile+x}" ] ; then
   if [ ! -s "${opt_cfgfile}" ] ; then
-    printf "configuration file '%s' is unusable. aborting..\n" "${opt_cfgfile}"
+    echo "configuration file '${opt_cfgfile}' is unusable. aborting..\n"
     exit 1
   else
     cfgvar_update_from_file "${opt_cfgfile}"
@@ -168,6 +173,7 @@ source ${BASEDIR}/progs/qc-tools.sh
 # pre-processing
 
 # export vars
+export opt_dryimpute
 export opt_minivarset
 export opt_samplewhitelist
 export opt_varwhitelist=${opt_outprefixbase}_vwlist.mrk
@@ -225,25 +231,54 @@ if [ ! -f ${opt_outprefixbase}.bio ] ; then
   # initialize sample biography file
   declare cfg_uid
   cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
-  export opt_outprefix=${opt_outprefixbase}_c_proc
-  cut -f 1,2 ${opt_outprefix}.fam | awk -v uid=${cfg_uid} '
-  BEGIN{ OFS="\t"; print( uid, "FID", "IID" ) } { print( $1"_"$2, $0 ) }
-  ' | sort -u -k 1,1 > ${opt_outprefixbase}.bio
+  declare opt_outprefix=${opt_outprefixbase}_c_proc
+  declare opt_biofile=${opt_outprefixbase}.bio
+  cut -f 1-4 ${opt_outprefix}.fam \
+    | awk -F $'\t' -v uid=${cfg_uid} -f ${BASEDIR}/lib/awk/idclean.awk \
+      --source '
+        BEGIN{
+          OFS="\t";
+          print( uid, "FID", "IID", "P1ID", "P2ID" )
+        } { print( idclean( $1"_"$2 ), $0 ) } \
+      ' \
+    | sort -u -k 1,1 > ${opt_biofile}
+  Norg=$( cat ${opt_outprefix}.fam | wc -l )
+  Nuid=$( cat ${opt_biofile} | wc -l )
+  if [ ${Norg} -ne ${Nuid} ] ; then
+    echo '========> conflicts generated in universal IDs.'
+    echo 'please recode IDs so they do not lead to conflicts.'
+    exit 1
+  fi
   unset opt_outprefix
+  unset opt_biofile
 fi
 
 #---------------------------------------------------------------------------------------------------
 
-# get high quality set and identify duplicate, mixup and related individuals
+# get high quality set
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_c_proc
 export opt_hqprefix=${opt_outprefixbase}_d_hqset
-export opt_outprefix=${opt_outprefixbase}_e_clean
+
+# call hqset
+bash ${BASEDIR}/progs/qc-hqset.sh
+
+# cleanup
+unset opt_hqprefix
+unset opt_inprefix
+
+#---------------------------------------------------------------------------------------------------
+
+# identify duplicate, mixup and related individuals
+
+# export vars
+export opt_inprefix=${opt_outprefixbase}_c_proc
+export opt_hqprefix=${opt_outprefixbase}_d_hqset
+export opt_outprefix=${opt_outprefixbase}_e_indqc
 export opt_biofile=${opt_outprefixbase}.bio
 
 # call hqset and mixrel
-bash ${BASEDIR}/progs/qc-hqset.sh
 bash ${BASEDIR}/progs/qc-mixrel.sh
 
 # cleanup
@@ -258,7 +293,7 @@ unset opt_biofile
 
 # export vars
 export opt_hqprefix=${opt_outprefixbase}_d_hqset
-export opt_inprefix=${opt_outprefixbase}_e_clean
+export opt_inprefix=${opt_outprefixbase}_e_indqc
 export opt_outprefix=${opt_outprefixbase}_f_varqc
 
 # call qcvar
@@ -326,6 +361,24 @@ unset opt_biofile
 
 unset opt_refprefix
 
-echo -e "\nall done. check your output files out."
-echo -e "\n================================================================================\n"
+echo -e "\nquality control ultimated. you may check your output files out.\n"
+
+#---------------------------------------------------------------------------------------------------
+
+# impute
+
+# export vars
+export opt_inprefix=${opt_outprefixbase}_g_finqc
+export opt_outprefix=${opt_outprefixbase}_i_imp
+
+# call impute
+bash ${BASEDIR}/progs/impute.sh
+
+echo -e "\nrunning imputation..\n"
+
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
+
+#---------------------------------------------------------------------------------------------------
 

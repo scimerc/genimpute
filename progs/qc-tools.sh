@@ -122,23 +122,40 @@ export -f standardize_bim_file
 
 #-------------------------------------------------------------------------------
 
+# in: headed file with leading <fid iid> fields (e.g. plink fam file);
+# stdout: tab-separated headed file with leading <uid=fid_iid> field;
 paste_sample_ids() {
   local -r infile="$1"
   if [ -s "${infile}" ] ; then
     tabulate "${infile}" \
-      | awk -F $'\t' -v uid=${cfg_uid} '{
-          OFS="\t"
-          if ( NR>1 ) uid=$1"_"$2
-          printf( "%s", uid )
-          for ( k=3; k<=NF; k++ )
-            printf( "\t%s", $k )
-          printf( "\n" )
-        }' \
-      | sort -t $'\t' -u -k 1,1
+      -F $'\t' -v uid=${cfg_uid} '{
+        OFS="\t"
+        if ( NR>1 ) uid=$1"_"$2
+        printf( "%s", uid )
+        for ( k=3; k<=NF; k++ )
+          printf( "\t%s", $k )
+        printf( "\n" )
+      }'
   fi
 }
 
 export -f paste_sample_ids
+
+#-------------------------------------------------------------------------------
+
+# in: headed file with leading <fid iid> fields (e.g. plink fam file);
+# stdout: tab-separated headed file with leading <uid=fid_iid> field, sorted on the latter;
+synthesize_sample_ids() {
+  local -r infile="$1"
+  if [ -s "${infile}" ] ; then
+    paste_sample_ids "${infile}" \
+      | awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk \
+        --source '{ OFS="\t"; $1 = idclean($1); print; }' \
+      | sort -t $'\t' -u -k 1,1
+  fi
+}
+
+export -f synthesize_sample_ids
 
 #-------------------------------------------------------------------------------
 

@@ -4,6 +4,11 @@
 # fdr for batch effect calls
 bfdr=0.5
 
+# imputation execution mode. currently available modes:
+#   'local' - to run in the current shell
+#   'slurm' - to run in slurm clusters
+execmode='local'
+
 # minimum minor allele frequency for high quality sets
 freqhq=0.2
 
@@ -16,6 +21,9 @@ genomebuild='b37'
 # genomic blacklist (complex LD structure)
 genomeblacklist='highLD_b37.bed'
 
+# genomic map for eagle phasing
+genomemap='genetic_map_b37_withX.txt.gz'
+
 # perform heterozygosity VS missingness test?
 hvm=1
 
@@ -27,6 +35,11 @@ hweneglogp=12
 
 # Hardy-Weinberg equilibrium p-value (control individuals only)
 hweneglogp_ctrl=4
+
+# size of sample groups for imputation
+# a rule of thumb for the computation, given a total of N individuals is:
+# n = 1 + N*24[=num_of_chr] / (400[=max_jobs] - 3[=num_of_chr-wise_jobs]*24[=num_of_chr])
+igroupsize=1000
 
 # maximum fraction of mendel errors for trios
 metrios=0.05
@@ -51,6 +64,9 @@ pihat=0.9
 
 # plink LD-pruning flags
 pruneflags='--indep-pairphase 500 5 0.2'
+
+# queuing system command
+queuecmd='sbatch'
 
 # reference files prefix; different suffixes are expected for different uses:
 # qc -> '.all.haplotypes.[bcf.gz|gpa]

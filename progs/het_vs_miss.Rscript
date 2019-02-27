@@ -147,7 +147,6 @@ if ( parameters$missfile != '' && parameters$hetfile != '' ) {
             missrate >= missratethresh & missrate^2 + ( (hetrate - meanhetrate)/2 )^2 <= missratethreshmax^2
         inliers = mydata[ myset, 1:2 ]
         cat( 'retaining', sum( myset ), 'individuals..\n', file=logfile )
-        inliers$UID = paste( inliers[,1], inliers[,2], sep="_" )
         write.table( inliers, file=paste0( parameters$outprefix, '.clean.id' ),
             sep="\t", quote=F, col.names=F, row.names=F )
         dev.off()

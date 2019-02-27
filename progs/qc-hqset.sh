@@ -15,6 +15,8 @@ declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_pruneflags=$( cfgvar_get pruneflags )
 declare -r cfg_uid=$( cfgvar_get uid )
 
+#-------------------------------------------------------------------------------
+
 if [ -f "${opt_hqprefix}.bed" -a -f "${opt_hqprefix}.bim" -a -f "${opt_hqprefix}.fam" ] ; then
   printf "skipping hq step..\n"
   exit 0
@@ -24,6 +26,8 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
   printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1 
 fi
+
+#-------------------------------------------------------------------------------
 
 # input: merged plink set
 # output: hq plink set (with imputed sex, if possible)
@@ -47,13 +51,15 @@ if [ -f "${opt_outprefixbase}.mrk" ] ; then
   extractflag="--extract ${opt_outprefixbase}.mrk"
 fi
 
-declare -r regionblacklist=${BASEDIR}/lib/data/${cfg_genomeblacklist}
+declare -r genblacklist=${BASEDIR}/lib/data/${cfg_genomeblacklist}
 # check if exclude file exists and is not empty
-[ -s "${regionblacklist}" ] || {
-  printf "error: file '%s' empty or not found.\n" ${regionblacklist} >&2;
+[ -s "${genblacklist}" ] || {
+  printf "error: file '%s' empty or not found.\n" ${genblacklist} >&2;
   exit 1;
 }
-declare -r regexcludeflag="--exclude range ${regionblacklist}"
+declare -r regexcludeflag="--exclude range ${genblacklist}"
+
+printf 'extracting high quality set..\n'
 
 cp ${opt_inprefix}.bed ${tmpprefix}_draft.bed
 cp ${opt_inprefix}.bim ${tmpprefix}_draft.bim
@@ -172,11 +178,41 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; t
 else
   
   # if sex could not be imputed use LD-pruned set
-  rename hq_LDpruned out ${tmpprefix}_hq_LDpruned.*
+  rename _hq_LDpruned _out ${tmpprefix}_hq_LDpruned.*
 
 fi
 
-rename ${tmpprefix}_out ${opt_hqprefix} ${tmpprefix}_out.*
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+
+# erase eventual disfunctional family information
+cut -f 1 ${tmpprefix}_out.fam | sort | uniq -c | tabulate \
+  | awk -F $'\t' '{ OFS="\t"; if ( $1 > 2 ) print( $2 ); }' \
+  | join -t $'\t' - <( sort -k 1,1 ${tmpprefix}_out.fam ) \
+  | awk '{
+      OFS="\t"
+      dad[$1,$2] = $1 SUBSEP $3
+      mom[$1,$2] = $1 SUBSEP $4
+      sex[$1,$2] = $5
+    } END{
+      for ( sid in dad ) {
+        disfamvec = sex[dad[sid]] == 0 || sex[mom[sid]] == 0
+        disfamvec = disfamvec || sex[dad[sid]] == sex[mom[sid]]
+        if ( disfamvec ) {
+          split( sid, vid, SUBSEP )
+          print( vid[1], vid[2], 0, 0 )
+        }
+      }
+    }' \
+  > ${tmpprefix}_disfam.tri
+${plinkexec} --bfile ${tmpprefix}_out \
+             --update-parents ${tmpprefix}_disfam.tri \
+             --make-bed \
+             --out ${tmpprefix}_outx \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+
+rename ${tmpprefix}_outx ${opt_hqprefix} ${tmpprefix}_outx.*
 
 rm -f ${tmpprefix}*
 

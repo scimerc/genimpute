@@ -43,6 +43,12 @@ bimtogprs() {
 
 #-------------------------------------------------------------------------------
 
+# input: merged plink set
+# output: hq plink set (with imputed sex, if possible)
+
+
+printf 'extracting common list of variants..\n'
+
 for i in ${!batchfiles[@]} ; do
   declare plinkflag=""
   [ -f "${batchfiles[$i]}" ] || { printf "file '%s' not found." "${batchfiles[$i]}"; exit 1; }
