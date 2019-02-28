@@ -121,13 +121,11 @@ for i in ${!batchfiles[@]} ; do
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
-  # save fam files for later batch effect dectection
-  mv ${tmpprefix}_out.bed ${b_outprefix}.bed
-  mv ${tmpprefix}_out.bim ${b_outprefix}.bim
-  mv ${tmpprefix}_out.fam ${b_outprefix}.fam
-  mv ${tmpprefix}_out.tped ${b_outprefix}.tped
-  mv ${tmpprefix}_out.tfam ${b_outprefix}.tfam
+
+  rename ${tmpprefix}_out ${b_outprefix} ${tmpprefix}_out.*
+
   rm ${tmpprefix}*
+
   unset flagkeep
   unset flagformat
   unset plinkinputfn

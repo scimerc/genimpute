@@ -29,6 +29,7 @@ fi
 #         - more stringent control Hardy-Weinberg equilibrium
 #         - no control batch effects
 
+
 echo 'performing final qc..'
 
 declare keepfile=''
@@ -58,7 +59,6 @@ if [ -s "${tmpprefix}_hc.fam" ] ; then
   keepfile=${tmpprefix}_hc.fam
   keepflag="--keep ${keepfile}"
 fi
-
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
   # if a phenotype file was specified write a control list
   echo "extracting control list from '${cfg_phenotypes}'.."
@@ -148,7 +148,6 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   cp ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
   cp ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
 fi
-
 echo "${#batchfamfiles[*]} batches found."
 if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   > ${tmpprefix}.exclude
@@ -188,7 +187,6 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   cp ${tmpprefix}_nbe.bim ${tmpprefix}_out.bim
   cp ${tmpprefix}_nbe.fam ${tmpprefix}_out.fam
 fi
-
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 

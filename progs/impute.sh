@@ -22,7 +22,6 @@ declare -r cfg_igroupsize=$( cfgvar_get igroupsize )
 declare -r cfg_genomemap=$( cfgvar_get genomemap )
 declare -r cfg_queuecmd=$( cfgvar_get queuecmd )
 declare -r cfg_refprefix=$( cfgvar_get refprefix )
-
 declare -r chromosomes="$( seq 1 22 ) 23 25"
 declare -r genmap=${BASEDIR}/lib/data/${cfg_genomemap}
 
@@ -118,10 +117,9 @@ cat > ${scriptprefix}1_phase_chr${chr}.sh << EOI
 #SBATCH --mem-per-cpu=1G
 #SBATCH --time=${runtimehrs}:00:00
 
-# Eagle's parallelization is very efficient. colossus machines seem to 
-# have 20 cpus but 40 hyperthreading cores. Therefore we use 
-# num_cpus*2 threads.
-# Running time: 10c-2G-20t From 18min to 3h for batch3 (9.9k samples)
+# Eagle's parallelization is very efficient. colossus machines seem to have
+# 20 cpus but 40 hyperthreading cores. Therefore we use num_cpus*2 threads.
+# Running time: 10c-2G-20t From 18min to 3h for batch3 (~9k individuals)
 
 set -Eeou pipefail
 source /cluster/bin/jobsetup
@@ -287,7 +285,7 @@ jobscripts=$(ls ${scriptprefix}* | sort -V ) # sort -V places chr1 before chr10
 case ${cfg_execmode} in
   "local")
     for script in ${jobscripts}; do
-      echo "running" ${script} "..."
+      echo "running '${script}'.."
       ${script} > ${scriptlogprefix}.out
     done
     ;;

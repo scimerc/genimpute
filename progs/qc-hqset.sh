@@ -73,7 +73,6 @@ if [ ! -z "${1+x}" ] ; then
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
 fi
-
 declare tmpindex=0
 declare -a tmp_varmiss=( 0.01 0.05 0.1 )
 declare Ntot
@@ -112,7 +111,6 @@ done
   printf "error: not enough variants left in high quality set." >&2;
   exit 1;
 }
-
 # extract all hq variants from input file and make hq plink set
 cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}_hq.mrk
 ${plinkexec} --bfile ${tmpprefix}_draft \
@@ -121,14 +119,12 @@ ${plinkexec} --bfile ${tmpprefix}_draft \
              --out ${tmpprefix}_hq \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
-
 # LD-prune hq variants
 ${plinkexec} --bfile ${tmpprefix}_hq ${keepflag} \
              ${cfg_pruneflags} \
              --out ${tmpprefix}_hq_LD \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
-
 # extract LD-pruned hq variants from hq plink set
 ${plinkexec} --bfile ${tmpprefix}_hq \
              --extract ${tmpprefix}_hq_LD.prune.in \
@@ -136,7 +132,6 @@ ${plinkexec} --bfile ${tmpprefix}_hq \
              --out ${tmpprefix}_hq_LDpruned \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
-
 # if there are enough X chromosome variants impute sex based on them
 if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; then
   # impute sex once with all standard high quality variants
@@ -146,9 +141,7 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; t
                --out ${tmpprefix}_hq_LDpruned_isex \
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
-
   rename hq_LDpruned_isex out ${tmpprefix}_hq_LDpruned_isex.*
-
   declare -r xindcount=$( awk '$5 == 1 || $5 == 2' ${tmpprefix}_out.fam | wc -l )
   # if sex could be imputed for enough individuals impute it once again after HWE tests
   if [ ${xindcount} -gt ${cfg_minindcount} ] ; then
@@ -158,7 +151,6 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; t
                  --out ${tmpprefix}_sexhwe \
                  2>&1 >> ${debuglogfn} \
                  | tee -a ${debuglogfn}
-
     # if there are enough X chromosome variants after HWE re-impute sex based on them
     if [ $( get_xvar_count ${tmpprefix}_sexhwe.bim ) -ge ${cfg_minvarcount} ] ; then
       ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned \
@@ -168,23 +160,17 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; t
                    --out ${tmpprefix}_hq_LDpruned_isex_new \
                    2>&1 >> ${debuglogfn} \
                    | tee -a ${debuglogfn}
-
       # replace the original sex imputation files
       rename hq_LDpruned_isex_new out ${tmpprefix}_hq_LDpruned_isex_new.*
 
     fi
   fi
-
 else
-  
   # if sex could not be imputed use LD-pruned set
   rename _hq_LDpruned _out ${tmpprefix}_hq_LDpruned.*
-
 fi
-
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
-
 # erase eventual disfunctional family information
 cut -f 1 ${tmpprefix}_out.fam | sort | uniq -c | tabulate \
   | awk -F $'\t' '{ OFS="\t"; if ( $1 > 2 ) print( $2 ); }' \
