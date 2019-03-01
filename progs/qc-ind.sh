@@ -23,7 +23,6 @@ fi
 # input: merged plink set and hq plink set
 # output: clean plink set (with imputed sex from hq set and no mixups)
 
-
 # update biography file with sex information
 {
   # merge information for existing individuals
@@ -47,7 +46,7 @@ cp ${tmpprefix}.1.bio ${opt_biofile}
 declare plinkflag=''
 # run 'het_VS_miss.Rscript' to find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
-  echo "computing individual heterozygosity and missing rates.."
+  printf "computing individual heterozygosity and missing rates..\n"
   ${plinkexec} --bfile ${opt_hqprefix} \
                --set-hh-missing \
                --het \
@@ -155,7 +154,7 @@ cp ${tmpprefix}.3.bio ${opt_biofile}
 mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
 
 # remove mixups and update sex and parents in input set
-echo "removing potential mixup individuals and updating sex.."
+printf "Remove potential individual mixups\n"
 ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --update-parents ${opt_hqprefix}.fam \
              --update-sex ${opt_hqprefix}.fam 3 \

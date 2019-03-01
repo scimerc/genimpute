@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 extract_sample_ids() {
-  local -r idfile=$1
+  local idfile
+  idfile=$1
+  readonly idfile
   if [ -z "${idfile}" ] ; then
     cat
   else
@@ -128,8 +130,7 @@ paste_sample_ids() {
   local -r infile="$1"
   if [ -s "${infile}" ] ; then
     tabulate "${infile}" \
-      -F $'\t' -v uid=${cfg_uid} '{
-        OFS="\t"
+      | awk -F $'\t' -v uid=${cfg_uid} '{
         if ( NR>1 ) uid=$1"_"$2
         printf( "%s", uid )
         for ( k=3; k<=NF; k++ )

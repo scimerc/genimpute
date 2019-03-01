@@ -31,14 +31,17 @@ fi
 
 # input: merged plink set
 # output: hq plink set (with imputed sex, if possible)
-# 1) get sex hq-variants from input file
-# 2) get non-sex hq-variants from input file
-# 3) extract all hq-variants from input file and make hq plink set
-# 4) LD-prune hq variants from 3)
-# 5) impute sex once with all standard hq-variants from 4
-# 6) if sex could be imputed for enough individuals, then
-#    impute it once again after HWE tests
 
+printf "\
+  - Compile list of sex hq-variants
+  - Compile list of non-sex hq-variants from input file
+  - Extract all hq-variants from input file and make hq plink set
+  - LD-prune hq variants from
+  - Impute sex once with all standard hq-variants
+  - If sex could be imputed for enough individuals, then impute it once again
+    after sex-chromosome HWE tests
+  - Erase parent information for any disfunctional families
+" | printlog 0
 
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists

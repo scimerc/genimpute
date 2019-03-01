@@ -21,18 +21,18 @@ fi
 
 #-------------------------------------------------------------------------------
 
-# init global blacklist
-# while true
-  # for every batch
-    # purge batchfile of global blacklist
-  # attempt to merge resulting batchfiles
-  # stop on success
-  # if blacklist is not empty, tell francesco
-  #   (if we run more than 2 times something might be weird)
-  # append to global blacklist (derived from errors)
+printf "\
+  - Inititialize global blacklist
+  - While true
+    - For every batch
+      - Purge batchfile of global blacklist (if any)
+    - Attempt merging resulting batchfiles
+    - Stop on success
+    - Abort if blacklist is not empty
+      (if we run more than 2 times something might be weird)
+    - Append mismatching variants to global blacklist (derived from errors)
+" | printlog 0
 
-
-echo "merging batches.."
 declare -r varblacklist=${tmpprefix}.exclude
 declare -r mismatchlist=${tmpprefix}.mismatch
 declare -r batchlist=${tmpprefix}.batchlist
@@ -52,7 +52,7 @@ while true ; do
           --out ${b_outprefix} \
           2>&1 >> ${debuglogfn} \
           | tee -a ${debuglogfn}
-    echo "${b_outprefix}" >> ${batchlist}
+    printf "${b_outprefix}\n" >> ${batchlist}
     unset batchcode
     unset inprefix
     unset outprefix
@@ -80,7 +80,7 @@ while true ; do
   fi
   # no! prepare to repeat loop
   sort -u ${tmpprefix}.missnp > ${varblacklist}
-  echo "repeating merging attempt.."
+  printf "repeating merging attempt..\n"
   rm ${tmpprefix}.missnp
 done
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim

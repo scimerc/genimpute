@@ -21,7 +21,7 @@ cfgvar_init_from_file ${BASEDIR}/progs/cfgqc.default
 
 declare opt_dryimpute=0
 declare opt_minivarset=0
-declare opt_outprefixdefault='plinkqc'
+declare opt_outprefixdefault='genimpute'
 declare opt_outprefixbase=${opt_outprefixdefault}
 declare opt_samplewhitelist=""
 
@@ -49,21 +49,27 @@ CONFIGURATION:
 EOF
 }
 
-debugout() {
-  local -r lvl
+printlog() {
+  local lvl
   lvl=$1
-  local -r lvl_max
-  lvl_max ="$( cfgvar_get debug_lvl )"
+  readonly lvl
+  local lvl_max
+  lvl_max="$( cfgvar_get log_lvl )"
+  readonly lvl_max
+  local logfn
+  logfn="$( cfgvar_get logfn )"
+  readonly logfn
   # print struff to log
   while read line; do
-    # check log-level
+    echo $(date) $lvl $line >> ${logfn}
+    # check log-level and print if lower or equal
     if [ "$lvl" -le "$lvl_max" ]; then
-      echo $(date) "$line"
+      echo "$line"
     fi
   done
   return 0
 }
-export -f debugout
+export -f printlog
 
 while getopts "c:dmo:w:h" opt; do
 case "${opt}" in
@@ -125,20 +131,25 @@ if [ ! -z "${opt_cfgfile+x}" ] ; then
   fi
 fi
 
-echo
-echo -e "================================================================================"
-echo -e "$( basename $0 ) -- $(date)"
-echo -e "================================================================================"
-echo -e "\ngenotype files:\n$( ls -1 ${opt_inputfiles} )\n"
-echo -e "================================================================================"
-echo
+# initialize log file
+> $( cfgvar_get logfn )
+
+{ 
+  echo
+  echo -e "================================================================================"
+  echo -e "$( basename $0 ) -- $(date)"
+  echo -e "================================================================================"
+  echo -e "\ngenotype files:\n$( ls -1 ${opt_inputfiles} )\n"
+  echo -e "================================================================================"
+  echo
+} | printlog 0
 
 # lock variables and print them
 cfgvar_setall_readonly
-cfgvar_show_config
-echo
+cfgvar_show_config | printlog 1
 
-echo -e "================================================================================\n"
+echo -e "\n================================================================================\n" \
+  | printlog 1
 
 #---------------------------------------------------------------------------------------------------
 
@@ -151,16 +162,17 @@ export plinkexec
 
 # check dependencies
 
-locale
-echo
-
-awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 1; }
-echo
-join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 1; }
-echo
-R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 1; }
-
-echo -e "================================================================================\n"
+{
+  locale
+  echo
+  awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 1; }
+  echo
+  join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 1; }
+  echo
+  R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 1; }
+  echo -e "================================================================================"
+  echo
+} | printlog 1
 
 #---------------------------------------------------------------------------------------------------
 
@@ -169,22 +181,25 @@ echo -e "=======================================================================
 source ${BASEDIR}/progs/qc-tools.sh
 
 #---------------------------------------------------------------------------------------------------
-
 # pre-processing
+#---------------------------------------------------------------------------------------------------
 
 # export vars
 export opt_dryimpute
 export opt_minivarset
 export opt_samplewhitelist
 export opt_varwhitelist=${opt_outprefixbase}_vwlist.mrk
-export opt_outprefix=${opt_outprefixbase}_vwlist
 export opt_refprefix=${opt_outprefixbase}_refset
 
+#---------------------------------------------------------------------------------------------------
+
+export opt_outprefix=${opt_outprefixbase}_vwlist
+
 # call wlist?
-if [ $opt_minivarset -eq 1 ] ; then
-  # intersect batch variant sets to generate the minimal variant whitelist
-  bash ${BASEDIR}/progs/qc-wlist.sh
-fi
+bash ${BASEDIR}/progs/qc-wlist.sh
+
+# cleanup
+unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
@@ -227,6 +242,8 @@ declare qciter=0
 
 # biography
 
+printf "Initialize sample biography file\n" | printlog 0
+
 if [ ! -f ${opt_outprefixbase}.bio ] ; then
   # initialize sample biography file
   declare cfg_uid
@@ -244,7 +261,7 @@ if [ ! -f ${opt_outprefixbase}.bio ] ; then
     | sort -u -k 1,1 > ${opt_biofile}
   Norg=$( cat ${opt_outprefix}.fam | wc -l )
   Nuid=$( cat ${opt_biofile} | wc -l )
-  if [ ${Norg} -ne ${Nuid} ] ; then
+  if [ ${Norg} -ge ${Nuid} ] ; then
     echo '========> conflicts generated in universal IDs.'
     echo 'please recode IDs so they do not lead to conflicts.'
     exit 1
@@ -278,8 +295,8 @@ export opt_hqprefix=${opt_outprefixbase}_d_hqset
 export opt_outprefix=${opt_outprefixbase}_e_indqc
 export opt_biofile=${opt_outprefixbase}.bio
 
-# call hqset and mixrel
-bash ${BASEDIR}/progs/qc-mixrel.sh
+# call indqc
+bash ${BASEDIR}/progs/qc-ind.sh
 
 # cleanup
 unset opt_hqprefix
@@ -356,12 +373,7 @@ unset opt_hqprefix
 unset opt_inprefix
 unset opt_outprefix
 unset opt_biofile
-
-#---------------------------------------------------------------------------------------------------
-
 unset opt_refprefix
-
-echo -e "\nquality control ultimated. you may check your output files out.\n"
 
 #---------------------------------------------------------------------------------------------------
 
@@ -373,8 +385,6 @@ export opt_outprefix=${opt_outprefixbase}_i_imp
 
 # call impute
 bash ${BASEDIR}/progs/impute.sh
-
-echo -e "\nrunning imputation..\n"
 
 # cleanup
 unset opt_inprefix

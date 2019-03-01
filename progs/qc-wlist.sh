@@ -19,6 +19,10 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 
 #-------------------------------------------------------------------------------
 
+if [ ${opt_minivarset} -eq 1 ] ; then
+  exit 0
+fi
+
 if [ -f "${opt_varwhitelist}" ] ; then
   printf "variant white list found. skipping compilation..\n"
   exit 0
@@ -47,7 +51,7 @@ bimtogprs() {
 # output: hq plink set (with imputed sex, if possible)
 
 
-printf 'extracting common list of variants..\n'
+printf "Compile list of common variants\n" | printlog 0
 
 for i in ${!batchfiles[@]} ; do
   declare plinkflag=""
@@ -69,6 +73,7 @@ for i in ${!batchfiles[@]} ; do
       ;;
   esac
   # whatever format the input file is - make a bim file
+  printf "Recode variants set into bim format" | printlog 0
   ${plinkexec} ${plinkflag} ${batchfiles[$i]/%.bed/.bim} \
         --make-just-bim \
         --out ${tmpprefix}_ex \

@@ -4,6 +4,9 @@
 # fdr for batch effect calls
 bfdr=0.5
 
+# log level [0=operational, 1=detailed, 2=debug]
+log_lvl=0
+
 # imputation execution mode. currently available modes:
 #   'local' - to run in the current shell
 #   'slurm' - to run in slurm clusters
@@ -40,6 +43,9 @@ hweneglogp_ctrl=4
 # a rule of thumb for the computation, given a total of N individuals is:
 # n = 1 + N*24[=num_of_chr] / (400[=max_jobs] - 3[=num_of_chr-wise_jobs]*24[=num_of_chr])
 igroupsize=1000
+
+# logfile name
+logfn='genimpute.log'
 
 # maximum fraction of mendel errors for trios
 metrios=0.05

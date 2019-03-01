@@ -301,7 +301,7 @@ case ${cfg_execmode} in
         echo "${cfg_queuecmd} ${jobdep}
               --job-name=${jobname}
               --output=${tmpprefix}_slurm_%x_%j.out
-              --parsable ${script}"
+              --parsable ${script}" | printlog 2
         jobid=$( \
           ${cfg_queuecmd} ${jobdep} \
             --job-name=${jobname} \

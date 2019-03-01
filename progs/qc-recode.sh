@@ -16,12 +16,13 @@ readonly batchfiles
 
 #-------------------------------------------------------------------------------
 
-# for every batch
-  # extract var accoding to var whitelist (if enabled)
-  # extract samples according to sample whitelist (if enabled)
-  # convert colocalized variant set to human readable format (tped) (for later qc)
-  # convert to binary plink (for easy use downstream)
-
+printf "\
+  For every batch:
+  - Extract variants from variant whitelist (if enabled)
+  - Extract samples according to sample whitelist (if enabled)
+  - Convert colocalized variant set to human readable format (tped) (for later QC)
+  - Convert to binary plink (for easy use downstream)
+" | printlog 0
 
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
@@ -38,7 +39,7 @@ for i in ${!batchfiles[@]} ; do
     printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
-  echo "converting batch ${batchfiles[$i]}.."
+  printf "Convert batch ${batchfiles[$i]}\n" | printlog 1
   # define input specific plink settings
   declare flagkeep=''
   declare flagformat='--bfile'
@@ -89,9 +90,7 @@ for i in ${!batchfiles[@]} ; do
       | tee -a ${debuglogfn}
     mv ${tmpprefix}_out.log ${b_outprefix}.1.log
   else
-    mv ${tmpprefix}_mx.bed ${tmpprefix}_out.bed
-    mv ${tmpprefix}_mx.bim ${tmpprefix}_out.bim
-    mv ${tmpprefix}_mx.fam ${tmpprefix}_out.fam
+    rename ${tmpprefix}_mx ${tmpprefix}_out ${tmpprefix}_mx.*
   fi
   # extract colocalized variant positions from gp file and make a tped file set from them
   awk '{ print( $2, $1, 0, $4 ); }' ${tmpprefix}_out.bim | sort -k 1,1 > ${tmpprefix}.gp
@@ -114,8 +113,8 @@ for i in ${!batchfiles[@]} ; do
       | tee -a ${debuglogfn}
       mv ${tmpprefix}_out.log ${b_outprefix}.2.log
   else
-    echo "no colocalized variants found."
-    echo "skipping batch '${batchfiles[$i]}' tped recoding.."
+    printf "no colocalized variants found.\n"
+    printf "skipping batch '${batchfiles[$i]}' tped recoding..\n"
     touch ${tmpprefix}_out.tped ${tmpprefix}_out.tfam
   fi
   # tab-separate all human-readable plink files

@@ -83,14 +83,14 @@ get_plink_varinfo_blacklist() {
 
 #-------------------------------------------------------------------------------
 
-# for every batch
-  # create a batch-chr-specific blacklist with non-coherent variants
-  # append non compatible ref variants to blacklist
-  # create temp fliplist
-  # purge batchfile of blacklist
-  # align fliplist in batchfile
-# keep blacklists and fliplists just in case
-
+printf "\
+  For every batch:
+  - Create a blacklist with non-coherent variants
+  - Append non reference-compatible variants to blacklist
+  - Create a fliplist to align strand-flipped variants to reference
+  - Purge batch file of blacklist
+  - Align fliplist in batch file
+" | printlog 0
 
 if [ -z "${cfg_refprefix}" ] ; then
   declare tmpprefix=${opt_outprefix}_tmp
@@ -127,7 +127,7 @@ for i in ${!batchfiles[@]} ; do
     printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
-  echo "purging and aligning batch ${batchfiles[$i]}.."
+  printf "Purge and Align batch ${batchfiles[$i]}\n" | printlog 1
   # define input specific plink settings
   declare tmpvarctrl=${tmpprefix}_varctrl
   declare batchallelemap=${tmpprefix}.allelemap
@@ -136,9 +136,11 @@ for i in ${!batchfiles[@]} ; do
   declare batchidmap=${tmpprefix}.idmap
   sort -k 1,1 -k 4,4 ${b_inprefix}.tped \
     | get_plink_varinfo_blacklist \
-    | sort -u > ${batchblacklist} 
-  echo -n "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
-  echo "colocalized variants marked for deletion."
+    | sort -u > ${batchblacklist}
+  {
+    printf "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
+    printf "colocalized variants marked for deletion.\n"
+  } | printlog 1
   declare plinkflag=""
   if [ -s "${batchblacklist}" ] ; then
     plinkflag="--exclude ${batchblacklist}"
@@ -155,7 +157,7 @@ for i in ${!batchfiles[@]} ; do
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.fam
   # check usability of reference
-  echo "matching variants to reference.."
+  printf "matching variants to reference..\n"
   [ -s "${varreffile}" ] || {
     printf "error: file '%s' is unusable.\n" "${varreffile}" >&2;
     exit 1;
@@ -258,18 +260,19 @@ for i in ${!batchfiles[@]} ; do
           close( batchblacklist )
           close( batchfliplist )
           close( batchidmap )
-        }'
+        }' \
+    | printlog 1
   # update idmap
   sort -t $'\t' -k 1,1 ${batchidmap} > $tmpvarctrl
   mv $tmpvarctrl ${batchidmap}
   # list unique
   sort -t $'\t' -u ${batchfliplist} > $tmpvarctrl
   mv $tmpvarctrl ${batchfliplist}
-  echo "$( wc -l ${batchfliplist} ) variants to be flipped."
+  printf "$( wc -l ${batchfliplist} ) variants to be flipped.\n" | printlog 1
   # list unique
   sort -t $'\t' -u ${batchblacklist} | join -v1 -t $'\t' - ${batchidmap} > $tmpvarctrl
   mv $tmpvarctrl ${batchblacklist}
-  echo "$( wc -l ${batchblacklist} ) variants to be excluded."
+  printf "$( wc -l ${batchblacklist} ) variants to be excluded.\n" | printlog 1
 
   declare plinkflag=""
   if [ -s "${batchblacklist}" ] ; then
@@ -315,9 +318,9 @@ for i in ${!batchfiles[@]} ; do
         --out ${tmpprefix}_una \
         2>&1 >> ${debuglogfn} \
         | tee -a ${debuglogfn}
-  # pre-process sex chromosomes variants
   declare plinkflag=''
   parcount=$( awk '$1 == 25' ${tmpprefix}_una.bim | wc -l )
+  # split X chromosome variants
   if [ $parcount -eq 0 ] ; then
     plinkflag="--split-x ${cfg_genomebuild} no-fail" 
   fi
@@ -330,15 +333,17 @@ for i in ${!batchfiles[@]} ; do
   unset plinkflag
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
-  mv ${tmpprefix}_out.bed ${b_outprefix}.bed
-  mv ${tmpprefix}_out.bim ${b_outprefix}.bim
-  mv ${tmpprefix}_out.fam ${b_outprefix}.fam
+
+  rename ${tmpprefix}_out ${b_outprefix} ${tmpprefix}_out.*
+
   if [ "${batchcode}" == "${opt_refcode}" ] ; then
     cp ${b_outprefix}.bed ${opt_refprefix}.bed
     cp ${b_outprefix}.bim ${opt_refprefix}.bim
     cp ${b_outprefix}.fam ${opt_refprefix}.fam
   fi
+
   rm ${tmpprefix}*
+
   unset batchcode
   unset b_inprefix
   unset b_outprefix
