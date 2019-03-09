@@ -218,9 +218,9 @@ if [ -e "${opt_outprefix}_chr${chr}_imputed.dose.vcf.gz" ]; then
 fi
 Ns=\$( ls ${tmpprefix}_chr${chr}_*_imputed.dose.bcf | wc -l ) 
 if [ \${Ns} -eq 1 ] ; then
-  cp ${tmpprefix}_chr${chr}_*_imputed.dose.bcf ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz
+  cp ${tmpprefix}_chr${chr}_*_imputed.dose.bcf ${tmpprefix}_chr${chr}_imputed.dose.bcf
 elif [ \${Ns} -gt 1 ] ; then 
-  ${bcftoolsexec} merge ${tmpprefix}_chr${chr}_*_imputed.dose.bcf --threads 3 -Oz \\
+  ${bcftoolsexec} merge ${tmpprefix}_chr${chr}_*_imputed.dose.bcf --threads 3 -Ob \\
     > ${tmpprefix}_chr${chr}_imputed.dose.bcf
 fi
 mv \\
