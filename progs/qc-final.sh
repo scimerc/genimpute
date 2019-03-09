@@ -14,8 +14,19 @@ declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
 declare -r cfg_samplemiss=$( cfgvar_get samplemiss )
 
+#-------------------------------------------------------------------------------
+
+# input: variant qc'd plink set
+# output: plink genotype set for variant passing final QC criteria:
+
+printf "\
+  * Extract variants with:
+    * more stringent control Hardy-Weinberg equilibrium
+    * eventual batch effects (if more than a single batch present)
+" | printlog 0
+
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "skipping final QC step..\n"
+  printf "'%s' found. skipping final QC..\n", "${opt_outprefix}.bed"
   exit 0
 fi
 
@@ -23,14 +34,6 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
   printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
-
-# input: individual qc'd plink set
-# output: plink genotype set for variant passing final QC criteria:
-#         - more stringent control Hardy-Weinberg equilibrium
-#         - no control batch effects
-
-
-echo 'performing final qc..'
 
 declare keepfile=''
 declare keepflag=''
@@ -47,7 +50,7 @@ cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l ${opt_inprefix}.bim | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
-echo "extracting high coverage individuals.."
+printf "extracting high coverage individuals..\n"
 ${plinkexec} --bfile ${opt_inprefix} ${keepflag} \
              --mind ${tmp_samplemiss} \
              --make-just-fam \
@@ -61,7 +64,7 @@ if [ -s "${tmpprefix}_hc.fam" ] ; then
 fi
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
   # if a phenotype file was specified write a control list
-  echo "extracting control list from '${cfg_phenotypes}'.."
+  printf "extracting control list from '${cfg_phenotypes}'..\n"
   awk -F $'\t' '$3 == 1' ${cfg_phenotypes} \
     | sort -u \
     | extract_sample_ids ${keepfile} \
@@ -76,7 +79,7 @@ if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
                | tee -a ${debuglogfn}
 elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
   # else, if there are enough annotated controls in the original file use those
-  echo "extracting control list from '${opt_inprefix}.fam'.."
+  printf "extracting control list from '${opt_inprefix}.fam'..\n"
   awk -F $'\t' '$6 == 1' ${opt_inprefix}.fam \
     | cut -f 1,2,6 \
     | sort -u \
@@ -87,19 +90,19 @@ elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
   rename _out _pheno ${tmpprefix}_out.*
 else
   # else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
-  echo "no controls available. using everyone.."
+  printf "no controls available. using everyone..\n"
   cut -f 1,2,6 ${opt_inprefix}.fam \
     | extract_sample_ids ${keepfile} \
     | sort -u \
     > ${tmpprefix}_ctrl.txt 
   declare -r Nctrl=0
 fi
-echo "$Nctrl actual controls found."
+printf "$Nctrl actual controls found.\n"
 # if Nctrl is not zero a plink *_pheno set should exist
 if [ $Nctrl -ge $cfg_minindcount ] ; then
   declare plinkflag=''
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
-  echo "testing non-sex chromosomes control Hardy-Weinberg equilibrium.."
+  printf "testing non-sex chromosomes control Hardy-Weinberg equilibrium..\n"
   ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} \
                --not-chr 23,24 \
                --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
@@ -120,7 +123,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   fi
   if [ $( get_xvar_count ${tmpprefix}_pheno.bim ) -ge ${cfg_minvarcount} ] ; then
     # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
-    echo "testing sex chromosomes control Hardy-Weinberg equilibrium.."
+    printf "testing sex chromosomes control Hardy-Weinberg equilibrium..\n"
     ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
                  --chr 23,24 \
                  --hwe 1.E-${sex_hweneglogp_ctrl} midp \
@@ -148,11 +151,11 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   cp ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
   cp ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
 fi
-echo "${#batchfamfiles[*]} batches found."
+printf "${#batchfamfiles[*]} batches found.\n"
 if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   > ${tmpprefix}.exclude
   for i in ${!batchfamfiles[@]} ; do
-    echo "assessing batch effects for '${batchfamfiles[$i]}'.."
+    printf "assessing batch effects for '${batchfamfiles[$i]}'..\n"
     ${plinkexec} --bfile ${tmpprefix}_out \
                  --allow-no-sex \
                  --keep ${tmpprefix}_ctrl.txt \
@@ -164,7 +167,7 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
     if [ -s "${tmpprefix}_plink.model" ] ; then
       sed -i -r 's/^[ \t]+//g; s/[ \t]+/\t/g;' ${tmpprefix}_plink.model
       for atest in $( cut -f 5 ${tmpprefix}_plink.model | tail -n +2 | sort -u ) ; do
-        echo "summarizing ${atest} tests.."
+        printf "summarizing ${atest} tests..\n"
         awk -F $'\t' -v atest=${atest} 'NR > 1 && $5 == atest' ${tmpprefix}_plink.model \
           | cut -f 2,10 \
           | ${BASEDIR}/progs/fdr.Rscript \

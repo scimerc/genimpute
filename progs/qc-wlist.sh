@@ -19,6 +19,11 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 
 #-------------------------------------------------------------------------------
 
+# input: merged plink set
+# output: hq plink set (with imputed sex, if possible)
+
+printf "  * Compile whitelist of variants common to all batches (if enabled)\n" | printlog 0
+
 if [ ${opt_minivarset} -eq 1 ] ; then
   exit 0
 fi
@@ -35,8 +40,8 @@ fi
 
 #-------------------------------------------------------------------------------
 
-# in: tab-separated plink bim; stdout: chr:bp, rs
 bimtogprs() {
+# in: tab-separated plink bim; stdout: chr:bp, rs
   local -r inputfile="$1"
   awk -F $'\t' '{
     OFS="\t"
@@ -46,12 +51,6 @@ bimtogprs() {
 }
 
 #-------------------------------------------------------------------------------
-
-# input: merged plink set
-# output: hq plink set (with imputed sex, if possible)
-
-
-printf "Compile list of common variants\n" | printlog 0
 
 for i in ${!batchfiles[@]} ; do
   declare plinkflag=""
@@ -73,7 +72,7 @@ for i in ${!batchfiles[@]} ; do
       ;;
   esac
   # whatever format the input file is - make a bim file
-  printf "Recode variants set into bim format" | printlog 0
+  printf "* Recode variants set into bim format" | printlog 0
   ${plinkexec} ${plinkflag} ${batchfiles[$i]/%.bed/.bim} \
         --make-just-bim \
         --out ${tmpprefix}_ex \

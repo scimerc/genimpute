@@ -16,12 +16,15 @@ readonly batchfiles
 
 #-------------------------------------------------------------------------------
 
+# input: original genotype file(s)
+# output: plink bed and eventual tped file sets
+
 printf "\
-  For every batch:
-  - Extract variants from variant whitelist (if enabled)
-  - Extract samples according to sample whitelist (if enabled)
-  - Convert colocalized variant set to human readable format (tped) (for later QC)
-  - Convert to binary plink (for easy use downstream)
+  * For every batch:
+    * Extract variants from variant whitelist (if enabled)
+    * Extract samples according to sample whitelist (if enabled)
+    * Convert colocalized variant set to human readable format (tped) (for later QC)
+    * Convert to binary plink (for easy use downstream)
 " | printlog 0
 
 for i in ${!batchfiles[@]} ; do
@@ -31,7 +34,7 @@ for i in ${!batchfiles[@]} ; do
   declare debuglogfn=${tmpprefix}_debug.log
   # check for hash collisions
   if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
-    printf "'%s' already exists - skipping recode step..\n" "${b_outprefix}.bed"
+    printf "'%s' already exists. skipping recode step..\n" "${b_outprefix}.bed"
     printf "try increasing 'numchars' in the hash function if you think this should not happen.\n"
     continue
   fi

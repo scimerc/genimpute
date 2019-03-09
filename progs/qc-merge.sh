@@ -9,8 +9,23 @@ declare -ra batchfiles=( ${opt_inputfiles} )
 
 #-------------------------------------------------------------------------------
 
+# input: aligned plink file sets
+# output: merged plink file set, eventually purged of conflicts
+
+printf "\
+  * Initialize global blacklist
+  * While true
+    * For every batch
+      * Purge batchfile of global blacklist (if any)
+    * Attempt merging resulting batchfiles
+    * Stop on success
+    * Abort procedure if blacklist is not empty \
+      (if we run more than 2 times something might be weird)
+    * Append mismatching variants to global blacklist (derived from errors)
+" | printlog 0
+
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "skipping merge..\n"
+  printf "'%s' already exists. skipping merge..\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
@@ -20,18 +35,6 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
 fi
 
 #-------------------------------------------------------------------------------
-
-printf "\
-  - Inititialize global blacklist
-  - While true
-    - For every batch
-      - Purge batchfile of global blacklist (if any)
-    - Attempt merging resulting batchfiles
-    - Stop on success
-    - Abort if blacklist is not empty
-      (if we run more than 2 times something might be weird)
-    - Append mismatching variants to global blacklist (derived from errors)
-" | printlog 0
 
 declare -r varblacklist=${tmpprefix}.exclude
 declare -r mismatchlist=${tmpprefix}.mismatch

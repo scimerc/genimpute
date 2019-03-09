@@ -8,14 +8,20 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 
 declare -r cfg_uid=$( cfgvar_get uid )
 
-if [ -f "${opt_hqprefix}.eigenvec" -a -f "${opt_hqprefix}.eigenvec.var" ] ; then
-  printf "skipping pca..\n"
-  exit 0
-fi
+#-------------------------------------------------------------------------------
 
 # input: high quality plink set
 # output: gzipped GRM and a matrix of eigenvector weights
 
+printf "\
+  * Compute genetic principal components
+  * Compute final individual coverage statistics
+" | printlog 0
+
+if [ -f "${opt_hqprefix}.eigenvec" -a -f "${opt_hqprefix}.eigenvec.var" ] ; then
+  printf "'%s' found. skipping PCA..\n", "${opt_outprefix}.bed"
+  exit 0
+fi
 
 ${plinkexec} --bfile ${opt_hqprefix} \
              --genome gz \
@@ -50,7 +56,7 @@ ${plinkexec} --bfile ${opt_inprefix} \
       printf("\n")
     }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.1.bio
-cp ${tmpprefix}.1.bio ${opt_biofile}
+mv ${tmpprefix}.1.bio ${opt_biofile}
 
 # update biography file with missingness statistics
 {
@@ -67,7 +73,7 @@ cp ${tmpprefix}.1.bio ${opt_biofile}
       printf("\n")
     }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.3.bio
-cp ${tmpprefix}.3.bio ${opt_biofile}
+mv ${tmpprefix}.3.bio ${opt_biofile}
 
 rm ${tmpprefix}*
 

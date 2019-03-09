@@ -60,13 +60,15 @@ printlog() {
   logfn="$( cfgvar_get logfn )"
   readonly logfn
   # print struff to log
+  IFS=$'\n'
   while read line; do
-    echo $(date) $lvl $line >> ${logfn}
+    echo $(date) $lvl "${line}" >> ${logfn}
     # check log-level and print if lower or equal
     if [ "$lvl" -le "$lvl_max" ]; then
-      echo "$line"
+      echo "${line}"
     fi
   done
+  unset IFS
   return 0
 }
 export -f printlog
@@ -114,10 +116,6 @@ else
   ls ${opt_inputfiles} > /dev/null
 fi
 
-# export input and output names
-export opt_inputfiles
-export opt_outprefixbase
-
 #---------------------------------------------------------------------------------------------------
 
 # set user configuration, if any, and print all information
@@ -130,6 +128,15 @@ if [ ! -z "${opt_cfgfile+x}" ] ; then
     cfgvar_update_from_file "${opt_cfgfile}"
   fi
 fi
+# lock variables
+cfgvar_setall_readonly
+
+# append configuration tag to output prefix
+opt_outprefixbase=${opt_outprefixbase}_$( cfgvar_show_config | md5sum | head -c 6 )
+
+# export input and output names
+export opt_inputfiles
+export opt_outprefixbase
 
 # initialize log file
 > $( cfgvar_get logfn )
@@ -142,10 +149,9 @@ fi
   echo -e "\ngenotype files:\n$( ls -1 ${opt_inputfiles} )\n"
   echo -e "================================================================================"
   echo
-} | printlog 0
+} | printlog 1
 
-# lock variables and print them
-cfgvar_setall_readonly
+# print variables
 cfgvar_show_config | printlog 1
 
 echo -e "\n================================================================================\n" \
@@ -193,15 +199,19 @@ export opt_refprefix=${opt_outprefixbase}_refset
 
 #---------------------------------------------------------------------------------------------------
 
+echo "==== Whitelist ====" | printlog 0
+
 export opt_outprefix=${opt_outprefixbase}_vwlist
 
-# call wlist?
+# call wlist
 bash ${BASEDIR}/progs/qc-wlist.sh
 
 # cleanup
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
+
+echo "==== Recoding ====" | printlog 0
 
 export opt_outprefix=${opt_outprefixbase}_a_recode
 
@@ -212,6 +222,8 @@ bash ${BASEDIR}/progs/qc-recode.sh
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
+
+echo "==== Alignment ====" | printlog 0
 
 export opt_inprefix=${opt_outprefixbase}_a_recode
 export opt_outprefix=${opt_outprefixbase}_b_align
@@ -224,6 +236,10 @@ unset opt_inprefix
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
+
+# merge batches (if more than a single one)
+
+echo "==== Merge ====" | printlog 0
 
 export opt_inprefix=${opt_outprefixbase}_b_align
 export opt_outprefix=${opt_outprefixbase}_c_proc
@@ -242,9 +258,8 @@ declare qciter=0
 
 # biography
 
-printf "Initialize sample biography file\n" | printlog 0
-
 if [ ! -f ${opt_outprefixbase}.bio ] ; then
+  echo "initializing sample biography file.."
   # initialize sample biography file
   declare cfg_uid
   cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
@@ -274,6 +289,8 @@ fi
 
 # get high quality set
 
+echo "==== Variant HQC ====" | printlog 0
+
 # export vars
 export opt_inprefix=${opt_outprefixbase}_c_proc
 export opt_hqprefix=${opt_outprefixbase}_d_hqset
@@ -288,6 +305,8 @@ unset opt_inprefix
 #---------------------------------------------------------------------------------------------------
 
 # identify duplicate, mixup and related individuals
+
+echo "==== Individual QC ====" | printlog 0
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_c_proc
@@ -307,6 +326,8 @@ unset opt_biofile
 #---------------------------------------------------------------------------------------------------
 
 # perform standard variant-level QC
+
+echo "==== Variant QC ====" | printlog 0
 
 # export vars
 export opt_hqprefix=${opt_outprefixbase}_d_hqset
@@ -359,6 +380,8 @@ unset opt_inprefix
 
 # compute genetic PCs
 
+echo "==== PCA etc. ====" | printlog 0
+
 # export vars
 export opt_hqprefix=${opt_outprefixbase}_h_hqset
 export opt_inprefix=${opt_outprefixbase}_g_finqc
@@ -373,14 +396,30 @@ unset opt_hqprefix
 unset opt_inprefix
 unset opt_outprefix
 unset opt_biofile
-unset opt_refprefix
+
+#---------------------------------------------------------------------------------------------------
+
+# convert
+
+echo "==== Recoding ====" | printlog 0
+
+# export vars
+export opt_inprefix=${opt_outprefixbase}_g_finqc
+export opt_outprefix=${opt_outprefixbase}_i_pre
+
+# call convert
+bash ${BASEDIR}/progs/convert.sh
+
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # impute
 
 # export vars
-export opt_inprefix=${opt_outprefixbase}_g_finqc
+export opt_inprefix=${opt_outprefixbase}_i_pre
 export opt_outprefix=${opt_outprefixbase}_i_imp
 
 # call impute
@@ -389,6 +428,4 @@ bash ${BASEDIR}/progs/impute.sh
 # cleanup
 unset opt_inprefix
 unset opt_outprefix
-
-#---------------------------------------------------------------------------------------------------
 

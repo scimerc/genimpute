@@ -17,8 +17,21 @@ declare -r cfg_uid=$( cfgvar_get uid )
 
 #-------------------------------------------------------------------------------
 
+# input: merged plink set
+# output: hq plink set (with imputed sex, if possible)
+
+printf "\
+  * Compile list of sex hq-variants
+  * Compile list of non-sex hq-variants from input file
+  * Extract all hq-variants from input file and make hq plink set
+  * LD-prune hq-variants genotype data
+  * Impute sex once with all standard hq-variants
+  * If sex could be imputed for enough individuals, impute it once again after \
+    sex-chromosome HWE tests
+" | printlog 0
+
 if [ -f "${opt_hqprefix}.bed" -a -f "${opt_hqprefix}.bim" -a -f "${opt_hqprefix}.fam" ] ; then
-  printf "skipping hq step..\n"
+  printf "'%s' already exists. skipping hq..\n" "${opt_hqprefix}.bed"
   exit 0
 fi
 
@@ -28,20 +41,6 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
 fi
 
 #-------------------------------------------------------------------------------
-
-# input: merged plink set
-# output: hq plink set (with imputed sex, if possible)
-
-printf "\
-  - Compile list of sex hq-variants
-  - Compile list of non-sex hq-variants from input file
-  - Extract all hq-variants from input file and make hq plink set
-  - LD-prune hq variants from
-  - Impute sex once with all standard hq-variants
-  - If sex could be imputed for enough individuals, then impute it once again
-    after sex-chromosome HWE tests
-  - Erase parent information for any disfunctional families
-" | printlog 0
 
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
@@ -144,10 +143,10 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; t
                --out ${tmpprefix}_hq_LDpruned_isex \
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
-  rename hq_LDpruned_isex out ${tmpprefix}_hq_LDpruned_isex.*
+  rename _hq_LDpruned_isex _out ${tmpprefix}_hq_LDpruned_isex.*
   declare -r xindcount=$( awk '$5 == 1 || $5 == 2' ${tmpprefix}_out.fam | wc -l )
   # if sex could be imputed for enough individuals impute it once again after HWE tests
-  if [ ${xindcount} -gt ${cfg_minindcount} ] ; then
+  if [ ${xindcount} -ge ${cfg_minindcount} ] ; then
     ${plinkexec} --bfile ${tmpprefix}_out \
                  --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
                  --make-just-bim \
@@ -160,48 +159,27 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; t
                    --extract <( cut -f 2 ${tmpprefix}_sexhwe.bim ) \
                    --impute-sex \
                    --make-bed \
-                   --out ${tmpprefix}_hq_LDpruned_isex_new \
+                   --out ${tmpprefix}_hq_LDpruned_isexhwe \
                    2>&1 >> ${debuglogfn} \
                    | tee -a ${debuglogfn}
       # replace the original sex imputation files
-      rename hq_LDpruned_isex_new out ${tmpprefix}_hq_LDpruned_isex_new.*
-
+      rename _hq_LDpruned_isexhwe _out ${tmpprefix}_hq_LDpruned_isexhwe.*
     fi
   fi
 else
   # if sex could not be imputed use LD-pruned set
   rename _hq_LDpruned _out ${tmpprefix}_hq_LDpruned.*
+  # write a dummy sexcheck file for later use
+  awk 'BEGIN{
+    OFS="\t"
+    print( "FID", "IID", "SEXCHECK" )
+  } { print( $1, $2, "__NA__" ) }' \
+  ${tmpprefix}_hq > ${tmpprefix}_out.sexcheck
 fi
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
-# erase eventual disfunctional family information
-cut -f 1 ${tmpprefix}_out.fam | sort | uniq -c | tabulate \
-  | awk -F $'\t' '{ OFS="\t"; if ( $1 > 2 ) print( $2 ); }' \
-  | join -t $'\t' - <( sort -k 1,1 ${tmpprefix}_out.fam ) \
-  | awk '{
-      OFS="\t"
-      dad[$1,$2] = $1 SUBSEP $3
-      mom[$1,$2] = $1 SUBSEP $4
-      sex[$1,$2] = $5
-    } END{
-      for ( sid in dad ) {
-        disfamvec = sex[dad[sid]] == 0 || sex[mom[sid]] == 0
-        disfamvec = disfamvec || sex[dad[sid]] == sex[mom[sid]]
-        if ( disfamvec ) {
-          split( sid, vid, SUBSEP )
-          print( vid[1], vid[2], 0, 0 )
-        }
-      }
-    }' \
-  > ${tmpprefix}_disfam.tri
-${plinkexec} --bfile ${tmpprefix}_out \
-             --update-parents ${tmpprefix}_disfam.tri \
-             --make-bed \
-             --out ${tmpprefix}_outx \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
 
-rename ${tmpprefix}_outx ${opt_hqprefix} ${tmpprefix}_outx.*
+rename ${tmpprefix}_out ${opt_hqprefix} ${tmpprefix}_out.*
 
 rm -f ${tmpprefix}*
 

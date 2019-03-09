@@ -6,8 +6,15 @@ set -Eeou pipefail
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 export BASEDIR
 
-declare -r tmpprefix=${opt_outprefix}_tmp
+bcftoolsexec=${BASEDIR}/lib/3rd/bcftools
+eaglexec=${BASEDIR}/lib/3rd/eagle
+minimac_version=3
+plink_mem=30000
 
+timeformat="ResStats\tRealSec:\t%e\tMaxMemKB:\t%M\tUserSec:\t%U\tSysSec:\t%S"
+timexec="/usr/bin/time -o /dev/stdout -f ${timeformat}"
+
+declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 declare -r sampleprefix=${tmpprefix}_samples/sample
 declare -r scriptprefix=${tmpprefix}_scripts/script
@@ -17,81 +24,21 @@ mkdir -p $( dirname ${sampleprefix} )
 mkdir -p $( dirname ${scriptprefix} )
 mkdir -p $( dirname ${scriptlogprefix} )
 
+declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 declare -r cfg_execmode=$( cfgvar_get execmode )
 declare -r cfg_igroupsize=$( cfgvar_get igroupsize )
 declare -r cfg_genomemap=$( cfgvar_get genomemap )
 declare -r cfg_queuecmd=$( cfgvar_get queuecmd )
 declare -r cfg_refprefix=$( cfgvar_get refprefix )
-declare -r chromosomes="$( seq 1 22 ) 23 25"
+
 declare -r genmap=${BASEDIR}/lib/data/${cfg_genomemap}
-
-bcftoolsexec=${BASEDIR}/lib/3rd/bcftools
-eaglexec=${BASEDIR}/lib/3rd/eagle
-minimac_version=3
-plink_mem=30000
-
-timexec='/usr/bin/time -o /dev/stdout -f "ResStats\tRealSec:\t%e\tMaxMemKB:\t%M\tUserSec:\t%U\tSysSec:\t%S"'
-
-#-------------------------------------------------------------------------------
-
-# purge fam file ids of any unwanted characters
-
-if [ -s ${tmpprefix}_idfix.fam -a -s ${tmpprefix}_idfix.bim -a -s ${tmpprefix}_idfix.bed ] ; then
-  echo 'found idfix files. skipping ID purge..'
-else
-  awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk --source '{
-    OFS="\t"
-    fid=idclean($1)
-    iid=idclean($2)
-    gsub( "_+$", "", fid )
-    gsub( "^_+", "", iid )
-    print( $1, $2, fid, iid )
-  }' ${opt_inprefix}.fam > ${tmpprefix}.idmap
-  Nold=$( sort -u -k 1,2 ${tmpprefix}.idmap | wc -l )
-  Nnew=$( sort -u -k 3,4 ${tmpprefix}.idmap | wc -l )
-  if [ $Nold -eq $Nnew ] ; then
-    ${plinkexec} --bfile ${opt_inprefix} \
-                 --update-ids ${tmpprefix}.idmap \
-                 --make-bed --out ${tmpprefix}_idfix
-  else
-    echo '====> warning: could not purge IDs due to conflicts.'
-    cp ${opt_inprefix}.bed ${tmpprefix}_idfix.bed
-    cp ${opt_inprefix}.bim ${tmpprefix}_idfix.bim
-    cp ${opt_inprefix}.fam ${tmpprefix}_idfix.fam
-  fi
-fi
-
-#-------------------------------------------------------------------------------
-
-# convert input files to vcf formats
-
-for chr in ${chromosomes} ; do
-  if [ -e ${tmpprefix}_chr${chr}.bcf ] ; then
-    printf "input file '%s' ready for phasing. skipping conversion..\\n", ${tmpprefix}_chr${chr}.bcf
-    continue
-  fi
-  ${timexec} ${plinkexec} \
-    --bfile ${tmpprefix}_idfix \
-    --chr ${chr} \
-    --recode vcf bgz \
-    --out ${tmpprefix}_chr${chr}
-  ${bcftoolsexec} convert -Ob --threads 3 \
-                  ${tmpprefix}_chr${chr}.vcf.gz \
-                  > ${tmpprefix}_chr${chr}_out.bcf
-  ${bcftoolsexec} annotate --rename-chrs <( echo -e '23 X\n25 X' ) -Ob --threads 3 \
-                  ${tmpprefix}_chr${chr}_out.bcf \
-                  > ${tmpprefix}_chr${chr}_outx.bcf
-  ${bcftoolsexec} index ${tmpprefix}_chr${chr}_outx.bcf
-  mv ${tmpprefix}_chr${chr}_outx.bcf     ${tmpprefix}_chr${chr}.bcf
-  mv ${tmpprefix}_chr${chr}_outx.bcf.csi ${tmpprefix}_chr${chr}.bcf.csi
-done
 
 #-------------------------------------------------------------------------------
 
 # split individuals in samples
-
-for chr in ${chromosomes} ; do
-  ${bcftoolsexec} query -l ${tmpprefix}_chr${chr}.vcf.gz
+printf "splitting individuals into groups..\n"
+for bfile in ${opt_inprefix}_chr*.bcf ; do
+  ${bcftoolsexec} query -l ${bfile}
 done | sort -u | split -d -l ${cfg_igroupsize} /dev/stdin ${sampleprefix}
 groupsamplesize=${cfg_igroupsize}
 tmpsamplelist=$( ls "${sampleprefix}"* )
@@ -102,13 +49,15 @@ fi
 
 #-------------------------------------------------------------------------------
 
-# write phase scripts
+echo "==== Eagle phasing ====" | printlog 0
 
-for chr in ${chromosomes} ; do
-chrtag=${chr}
-if [ ${chr} -eq 23 -o ${chr} -eq 25 ] ; then
-  chrtag=X
-fi
+# write phase scripts
+printf "writing phasing scripts..\n"
+for chr in ${cfg_chromosomes} ; do
+  chrtag=${chr}
+  if [ ${chr} -eq 23 -o ${chr} -eq 25 ] ; then
+    chrtag=X
+  fi
 #TODO: implement different running time for reference-less phasing (stage ii)
 runtimehrs=$(( 6 * ( totalsamplesize / 10000 + 1 ) ))
 cat > ${scriptprefix}1_phase_chr${chr}.sh << EOI
@@ -127,13 +76,17 @@ if [ -e "${tmpprefix}_chr${chr}_phased.vcf.gz" ]; then
   printf "phased haplotypes present. nothing to do..\\n"
   exit 0
 fi
+if [ ! -e "${cfg_refprefix}.chr${chr}.haplotypes.bcf" ] ; then
+  printf "reference for chromosome ${chr} not found. skipping..\\n"
+  exit 0
+fi
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
 ${timexec} ${eaglexec} \\
   --chrom ${chrtag} \\
   --geneticMapFile ${genmap} \\
   --vcfRef ${cfg_refprefix}.chr${chr}.haplotypes.bcf \\
-  --vcfTarget ${tmpprefix}_chr${chr}.bcf \\
+  --vcfTarget ${opt_inprefix}_chr${chr}.bcf \\
   --outPrefix ${tmpprefix}_chr${chr}_phasing \\
   --numThreads \$(( num_cpus * 2))
 mv ${tmpprefix}_chr${chr}_phasing.vcf.gz ${tmpprefix}_chr${chr}_phased.vcf.gz
@@ -142,8 +95,10 @@ done
 
 #-------------------------------------------------------------------------------
 
-# write impute scripts
+echo "==== MaCH ${minimac_version} imputation ====" | printlog 0
 
+# write impute scripts
+printf "writing imputation scripts..\n"
 SBATCH_CONF_MM3="
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=14G
@@ -168,7 +123,7 @@ SBATCH_CONF_MM4="
 #   4) sbatch: cpus-per-task=2 mem-per-cpu=8G  mm4: cpus=4  -> 3.0h; 126jobs; chr6 max.mem=6/16G
 "
 
-for chr in ${chromosomes} ; do
+for chr in ${cfg_chromosomes} ; do
   for samplefile in ${tmpsamplelist} ; do
     sampletag=${samplefile##*\/}
     sampletag=${sampletag//*sample/s}
@@ -196,6 +151,10 @@ set -Eeou pipefail
 source /cluster/bin/jobsetup
 if [ -e "${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.vcf.gz" ]; then
   printf "final vcf files present. nothing to do..\\n"
+  exit 0
+fi
+if [ ! -e "${cfg_refprefix}.chr${chr}.m3vcf.gz" ] ; then
+  printf "m3vcf reference for chromosome ${chr} not found. skipping..\\n"
   exit 0
 fi
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
@@ -243,8 +202,8 @@ done
 #-------------------------------------------------------------------------------
 
 # write merge scripts
-
-for chr in ${chromosomes} ; do
+printf "writing merge scripts..\n"
+for chr in ${cfg_chromosomes} ; do
   cat > ${scriptprefix}3_merge_chr${chr}.sh << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=2
@@ -260,13 +219,13 @@ fi
 Ns=\$( ls ${tmpprefix}_chr${chr}_*_imputed.dose.bcf | wc -l ) 
 if [ \${Ns} -eq 1 ] ; then
   cp ${tmpprefix}_chr${chr}_*_imputed.dose.bcf ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz
-else 
+elif [ \${Ns} -gt 1 ] ; then 
   ${bcftoolsexec} merge ${tmpprefix}_chr${chr}_*_imputed.dose.bcf --threads 3 -Oz \\
-    > ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz
+    > ${tmpprefix}_chr${chr}_imputed.dose.bcf
 fi
 mv \\
-  ${tmpprefix}_chr${chr}_imputed.dose.vcf.gz \\
-  ${opt_outprefix}_chr${chr}_imputed.dose.vcf.gz
+  ${tmpprefix}_chr${chr}_imputed.dose.bcf \\
+  ${opt_outprefix}_chr${chr}_imputed.dose.bcf
 EOI
 done
 
@@ -279,7 +238,6 @@ if [ ${opt_dryimpute} -eq 1 ] ; then
 fi
 
 echo 'submitting scripts..'
-
 jobscripts=$(ls ${scriptprefix}* | sort -V ) # sort -V places chr1 before chr10
 
 case ${cfg_execmode} in

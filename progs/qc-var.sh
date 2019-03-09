@@ -6,7 +6,6 @@ set -Eeou pipefail
 declare -r tmpprefix=${opt_outprefix}_tmp
 declare -r debuglogfn=${tmpprefix}_debug.log
 
-declare -r cfg_freqstd=$( cfgvar_get freqstd )
 declare -r cfg_hweflag=$( cfgvar_get hweflag )
 declare    cfg_hweneglogp=$( cfgvar_get hweneglogp )
 declare    cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
@@ -17,8 +16,23 @@ declare -r cfg_mevars=$( cfgvar_get mevars )
 declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
 declare -r cfg_varmiss=$( cfgvar_get varmiss )
 
+#-------------------------------------------------------------------------------
+
+# input: clean plink set
+# output: plink genotype set for variants passing QC criteria:
+#         - good coverage
+#         - HW equilibrium (possibly different for sex and non-sex chromosomes)
+#         - low rate of Mendel errors in trios
+
+printf "\
+  * Exclude variants with:
+    * low coverage
+    * Hardy-Weinberg disequilibrium (separating sex and non-sex chromosomes)
+    * high rate of Mendel errors in eventual trios
+" | printlog 0
+
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "skipping variant QC step..\n"
+  printf "'%s' found. skipping variant QC..\n", "${opt_outprefix}.bed"
   exit 0
 fi
 
@@ -27,14 +41,7 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
   exit 1
 fi
 
-# input: clean plink set
-# output: plink genotype set for variants passing QC criteria:
-#         - good coverage
-#         - HW equilibrium (possibly different for sex and non-sex chromosomes)
-#         - low rate of Mendel errors in trios
-
-
-echo "removing mendel errors.."
+printf "removing mendel errors..\n"
 ${plinkexec} --bfile ${opt_inprefix} \
              --me ${cfg_metrios} ${cfg_mevars} \
              --set-me-missing \
@@ -55,7 +62,7 @@ fi
 tmp_varmiss=${cfg_varmiss}
 n=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
-echo "qc'ing non-sex chromosomes variants.."
+printf "qc'ing non-sex chromosomes variants..\n"
 ${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} \
              --not-chr 23,24 \
              --set-hh-missing \
@@ -76,7 +83,7 @@ if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
 if [ $( get_xvar_count ${opt_inprefix}.bim ) -ge ${cfg_minvarcount} ] ; then
-  echo "qc'ing sex chromosomes variants.."
+  printf "qc'ing sex chromosomes variants..\n"
   ${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} ${nosexflag} \
                --chr 23,24 \
                --set-hh-missing \
@@ -95,6 +102,7 @@ unset nosexflag
 cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}.mrk
 ${plinkexec} --bfile ${opt_inprefix} \
              --extract ${tmpprefix}.mrk \
+             --set-hh-missing \
              --make-bed \
              --out ${tmpprefix}_out \
              2>&1 >> ${debuglogfn} \

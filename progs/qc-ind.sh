@@ -10,8 +10,19 @@ declare -r cfg_hvm=$( cfgvar_get hvm )
 declare -r cfg_pihatrel=$( cfgvar_get pihatrel )
 declare -r cfg_uid=$( cfgvar_get uid )
 
+#-------------------------------------------------------------------------------
+
+# input: merged plink set and hq plink set
+# output: clean plink set (with imputed sex from hq set and no mixups)
+
+printf "\
+  * Exclude potentially contaminated and low-coverage individuals
+  * Erase parent information for any dysfunctional families
+  * Annotate relatedness information
+" | printlog 0
+
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "skipping mix&rel step..\n"
+  printf "'%s' found. skipping individual QC..\n", "${opt_outprefix}.bed"
   exit 0
 fi
 
@@ -20,28 +31,7 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
   exit 1
 fi
 
-# input: merged plink set and hq plink set
-# output: clean plink set (with imputed sex from hq set and no mixups)
-
-# update biography file with sex information
-{
-  # merge information for existing individuals
-  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
-    | join -t $'\t'     ${opt_biofile} - \
-    | tee ${tmpprefix}.0.bio
-  # count number of fields in the merged file
-  TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
-  # add non-existing individuals and pad the extra fields with NAs
-  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
-    | join -t $'\t' -v1 ${opt_biofile} - \
-    | awk -F $'\t' -v TNF=${TNF} '{
-      OFS="\t"
-      printf($0)
-      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
-      printf("\n")
-    }'
-} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.1.bio
-cp ${tmpprefix}.1.bio ${opt_biofile}
+#-------------------------------------------------------------------------------
 
 declare plinkflag=''
 # run 'het_VS_miss.Rscript' to find potential mixups?
@@ -67,27 +57,13 @@ if [ ${cfg_hvm} -eq 1 ] ; then
     printf "error: file '%s' empty or not found.\n" ${tmpprefix}_out.clean.id >&2;
     exit 1;
   }
-  # update biography file with potential mixup information
-  {
-    synthesize_sample_ids ${tmpprefix}_out.clean.id \
-      | join -t $'\t' -v1 ${opt_biofile} - \
-      | awk -F $'\t' '{
-        OFS="\t"
-        if ( NR == 1 ) print( $0, "MISMIX" )
-        else print( $0, "PROBLEM" )
-      }'
-    synthesize_sample_ids ${tmpprefix}_out.clean.id \
-      | join -t $'\t'     ${opt_biofile} - \
-      | awk -F $'\t' '{
-        OFS="\t"
-        print( $0, "OK" )
-      }'
-  } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.2.bio
-  cp ${tmpprefix}.2.bio ${opt_biofile}
   # write plink flag for non-mixup info later
   plinkflag="--keep ${tmpprefix}_out.clean.id"
+else
+  cut -f 1,2 ${opt_hqprefix} > ${tmpprefix}_out.clean.id
 fi
 # identify related individuals
+printf "identifying related individuals..\n"
 ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              --set-hh-missing \
              --genome gz \
@@ -103,8 +79,48 @@ ${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
              --out ${tmpprefix}_sq \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
-# give rel.id file a less confusing name
-mv ${tmpprefix}_sq.rel.id ${tmpprefix}_sq_unrel.id
+# rename list of unrelated individuals for later use
+mv ${tmpprefix}_sq.rel.id ${opt_outprefixbase}.ids
+# erase eventual dysfunctional family information
+cut -f 1 ${opt_hqprefix}.fam | sort | uniq -c | tabulate \
+  | awk -F $'\t' '{ OFS="\t"; if ( $1 > 2 ) print( $2 ); }' \
+  | join -t $'\t' - <( sort -k 1,1 ${opt_hqprefix}.fam ) \
+  | awk '{
+      OFS="\t"
+      dad[$1,$2] = $1 SUBSEP $3
+      mom[$1,$2] = $1 SUBSEP $4
+      sex[$1,$2] = $5
+    } END{
+      for ( sid in dad ) {
+        disfamvec = sex[dad[sid]] == 0 || sex[mom[sid]] == 0
+        disfamvec = disfamvec || sex[dad[sid]] == sex[mom[sid]]
+        if ( disfamvec ) {
+          split( sid, vid, SUBSEP )
+          print( vid[1], vid[2], 0, 0 )
+        }
+      }
+    }' \
+  > ${tmpprefix}_dysfam.tri
+${plinkexec} --bfile ${opt_hqprefix} \
+             --update-parents ${tmpprefix}_dysfam.tri \
+             --make-bed \
+             --out ${tmpprefix}_nodysfam \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+# remove mixups and update sex and parents in input set
+printf "removing mixups and low-coverage individuals..\n"
+${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
+             --update-parents ${tmpprefix}_nodysfam.fam \
+             --update-sex ${tmpprefix}_nodysfam.fam 3 \
+             --make-bed \
+             --out ${tmpprefix}_out \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
+sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+unset plinkflag
+
+rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
 
 extract_related_lists_from_grm_file() {
   local -r infile="$1"
@@ -140,6 +156,48 @@ extract_related_lists_from_grm_file() {
     | sort -t $'\t' -u -k 1,1
 }
 
+# update biography file with sex information
+{
+  # merge information for existing individuals
+  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
+    | join -t $'\t'     ${opt_biofile} - \
+    | tee ${tmpprefix}.0.bio
+  # count number of fields in the merged file
+  TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
+  # add non-existing individuals and pad the extra fields with NAs
+  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
+    | join -t $'\t' -v1 ${opt_biofile} - \
+    | awk -F $'\t' -v TNF=${TNF} '{
+      OFS="\t"
+      printf($0)
+      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
+      printf("\n")
+    }'
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.1.bio
+mv ${tmpprefix}.1.bio ${opt_biofile}
+
+# update biography file with potential mixup information
+{
+  synthesize_sample_ids ${tmpprefix}_out.clean.id \
+    | join -t $'\t' -v1 ${opt_biofile} - \
+    | awk -F $'\t' -v hvm=${cfg_hvm} '{
+      OFS="\t"
+      hvmtag="PROBLEM"
+      if ( hvm == 1 ) hvmtag="__NA__"
+      if ( NR == 1 ) print( $0, "MISMIX" )
+      else print( $0, hvmtag )
+    }'
+  synthesize_sample_ids ${tmpprefix}_out.clean.id \
+    | join -t $'\t'     ${opt_biofile} - \
+    | awk -F $'\t' -v hvm=${cfg_hvm} '{
+      OFS="\t"
+      hvmtag="OK"
+      if ( hvm == 1 ) hvmtag="__NA__"
+      print( $0, hvmtag )
+    }'
+} | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.2.bio
+mv ${tmpprefix}.2.bio ${opt_biofile}
+
 # update biography file with sample relationship
 {
   extract_related_lists_from_grm_file ${tmpprefix}_sq.genome.gz \
@@ -148,25 +206,7 @@ extract_related_lists_from_grm_file() {
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' '{ OFS="\t"; print( $0, "__NA__" ) }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.3.bio
-cp ${tmpprefix}.3.bio ${opt_biofile}
-
-# rename list of unrelated individuals for later use
-mv ${tmpprefix}_sq_unrel.id ${opt_outprefixbase}.ids
-
-# remove mixups and update sex and parents in input set
-printf "Remove potential individual mixups\n"
-${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
-             --update-parents ${opt_hqprefix}.fam \
-             --update-sex ${opt_hqprefix}.fam 3 \
-             --make-bed \
-             --out ${tmpprefix}_out \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
-unset plinkflag
-
-rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
+mv ${tmpprefix}.3.bio ${opt_biofile}
 
 rm ${tmpprefix}*
 

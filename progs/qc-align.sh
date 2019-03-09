@@ -26,9 +26,9 @@ readonly opt_refcode
 
 #-------------------------------------------------------------------------------
 
+get_plink_varinfo_blacklist() {
 # stdin: plink universal variant info file sorted on chromosome and genomic position; stdout: rs
 # spare only one variant from sets of coherent colocalized variants, blacklist all else
-get_plink_varinfo_blacklist() {
   awk '{
     blackflag = 0
     vargp = $1"_"$4
@@ -83,13 +83,16 @@ get_plink_varinfo_blacklist() {
 
 #-------------------------------------------------------------------------------
 
+# input: plink bed and eventual tped file sets
+# output: purged and [reference] strand-aligned plink file sets
+
 printf "\
-  For every batch:
-  - Create a blacklist with non-coherent variants
-  - Append non reference-compatible variants to blacklist
-  - Create a fliplist to align strand-flipped variants to reference
-  - Purge batch file of blacklist
-  - Align fliplist in batch file
+  * For every batch:
+    * Create a blacklist with non-coherent variants (tped)
+    * Append non reference-compatible variants to blacklist
+    * Create a fliplist to align strand-flipped variants to reference
+    * Purge batch file of blacklist
+    * Align fliplist in batch file
 " | printlog 0
 
 if [ -z "${cfg_refprefix}" ] ; then
@@ -119,7 +122,7 @@ for i in ${!batchfiles[@]} ; do
   declare debuglogfn=${tmpprefix}_debug.log
   # check for hash collisions
   if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
-    printf "'%s' already exists - skipping alignment step..\n" "${b_outprefix}.bed"
+    printf "'%s' already exists. skipping alignment step..\n" "${b_outprefix}.bed"
     printf "try increasing 'numchars' in the hash function if you think this should not happen.\n"
     continue
   fi
