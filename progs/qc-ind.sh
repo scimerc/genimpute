@@ -8,6 +8,10 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 
 declare -r cfg_hvm=$( cfgvar_get hvm )
 declare -r cfg_pihatrel=$( cfgvar_get pihatrel )
+declare -r cfg_minindcount=$( cfgvar_get minindcount )
+declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
+declare -r cfg_samplemiss=$( cfgvar_get samplemiss )
+declare -r cfg_varmiss=$( cfgvar_get varmiss )
 declare -r cfg_uid=$( cfgvar_get uid )
 
 #-------------------------------------------------------------------------------
@@ -62,16 +66,42 @@ if [ ${cfg_hvm} -eq 1 ] ; then
 else
   cut -f 1,2 ${opt_hqprefix} > ${tmpprefix}_out.clean.id
 fi
+# extract high coverage variants
+tmp_varmiss=${cfg_varmiss}
+M=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
+if [ $M -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
+printf "extracting high coverage variants..\n"
+${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
+             --geno ${tmp_varmiss} \
+             --make-just-bim \
+             --out ${tmpprefix}_hcv \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
+cut -d ' ' -f 2 ${tmpprefix}_hcv.bim > ${tmpprefix}_hcv.mrk
+# extract high coverage individuals
+tmp_samplemiss=${cfg_samplemiss}
+N=$( wc -l ${opt_inprefix}.bim | cut -d ' ' -f 1 )
+if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
+printf "extracting high coverage individuals..\n"
+${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
+             --extract ${tmpprefix}_hcv.mrk \
+             --mind ${tmp_samplemiss} \
+             --make-just-fam \
+             --out ${tmpprefix}_hci \
+             2>&1 >> ${debuglogfn} \
+             | tee -a ${debuglogfn}
 # identify related individuals
 printf "identifying related individuals..\n"
-${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
+${plinkexec} --bfile ${opt_hqprefix} \
+             --keep ${tmpprefix}_hci.fam \
              --set-hh-missing \
              --genome gz \
              --out ${tmpprefix}_sq \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
              >> ${debuglogfn}
-${plinkexec} --bfile ${opt_hqprefix} ${plinkflag} \
+${plinkexec} --bfile ${opt_hqprefix} \
+             --keep ${tmpprefix}_hci.fam \
              --set-hh-missing \
              --cluster \
              --read-genome ${tmpprefix}_sq.genome.gz \
