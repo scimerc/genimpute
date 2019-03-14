@@ -105,7 +105,7 @@ standardize_bim_file() {
     a[2] = toupper($6)
     if ( a[1] <= 0 ) a[1] = 0
     if ( a[2] <= 0 ) a[2] = 0
-    asort(a)
+    #asort(a) # turns out sorting is not a good idea
     if ( $1 ~ "^X" )  $1 == 23
     if ( $1 ~ "^XY" ) $1 == 25
     if ( $1 ~ "^Y" )  $1 == 24

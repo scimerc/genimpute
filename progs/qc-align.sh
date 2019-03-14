@@ -18,6 +18,7 @@ else
 fi
 readonly batchfiles
 
+# default variant reference file
 declare  varreffile=${cfg_refprefix}.all.haplotypes.gpa
 
 declare  opt_refcode
@@ -165,7 +166,7 @@ for i in ${!batchfiles[@]} ; do
     printf "error: file '%s' is unusable.\n" "${varreffile}" >&2;
     exit 1;
   }
-  # get chr:bp strings from bim file and join with the corresponding field of refprefix
+  # get chr:bp strings from bim file and join with the corresponding field of varreffile
   awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${tmpprefix}_nb.bim \
     | sort -t $'\t' -k 7,7 \
     | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' <( \
