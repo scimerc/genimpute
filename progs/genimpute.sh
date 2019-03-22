@@ -32,6 +32,9 @@ USAGE: $( basename $0 ) [OPTIONS] <bed|bcf|vcf file(s)>
 
   where <bed|bcf|vcf file(s)> are the genotype files to be merged and qc'd.
 
+NOTE:
+  <bed> stands for plink binary set identifiers. $( basename $0 ) expects to find
+  <bim> and <fam> files on the same path.
 
 OPTIONS:
   -c <config file>      optional configuration file

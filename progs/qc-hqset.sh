@@ -174,7 +174,7 @@ else
     OFS="\t"
     print( "FID", "IID", "SEXCHECK" )
   } { print( $1, $2, "__NA__" ) }' \
-  ${tmpprefix}_hq > ${tmpprefix}_out.sexcheck
+  ${tmpprefix}_out.fam > ${tmpprefix}_out.sexcheck
 fi
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
