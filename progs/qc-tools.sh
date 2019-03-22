@@ -130,9 +130,8 @@ paste_sample_ids() {
   local -r infile="$1"
   if [ -s "${infile}" ] ; then
     tabulate "${infile}" \
-      | awk -F $'\t' -v uid=${cfg_uid} '{
-        if ( NR>1 ) uid=$1"_"$2
-        printf( "%s", uid )
+      | awk -F $'\t' '{
+        printf( "%s", $1"_"$2 )
         for ( k=3; k<=NF; k++ )
           printf( "\t%s", $k )
         printf( "\n" )
