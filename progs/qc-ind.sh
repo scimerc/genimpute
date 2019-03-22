@@ -213,7 +213,7 @@ mv ${tmpprefix}.1.bio ${opt_biofile}
     | awk -F $'\t' -v hvm=${cfg_hvm} '{
       OFS="\t"
       hvmtag="PROBLEM"
-      if ( hvm == 1 ) hvmtag="__NA__"
+      if ( hvm != 1 ) hvmtag="__NA__"
       if ( NR == 1 ) print( $0, "MISMIX" )
       else print( $0, hvmtag )
     }'
@@ -222,7 +222,7 @@ mv ${tmpprefix}.1.bio ${opt_biofile}
     | awk -F $'\t' -v hvm=${cfg_hvm} '{
       OFS="\t"
       hvmtag="OK"
-      if ( hvm == 1 ) hvmtag="__NA__"
+      if ( hvm != 1 ) hvmtag="__NA__"
       print( $0, hvmtag )
     }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.2.bio
