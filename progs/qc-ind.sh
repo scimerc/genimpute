@@ -53,6 +53,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
                --out ${tmpprefix}_sq \
                2>&1 >> ${debuglogfn} \
                | tee -a ${debuglogfn}
+  printf "removing mixups and low-coverage individuals..\n"
   ${BASEDIR}/progs/het_vs_miss.Rscript -m ${tmpprefix}_sq.imiss -h ${tmpprefix}_sq.het \
     -o ${tmpprefix}_out >> ${debuglogfn}
   mv ${tmpprefix}_out_hetVSmiss.pdf ${opt_outprefix}_hetVSmiss.pdf
@@ -131,14 +132,13 @@ cut -f 1 ${opt_hqprefix}.fam | sort | uniq -c | tabulate \
       }
     }' \
   > ${tmpprefix}_dysfam.tri
-${plinkexec} --bfile ${opt_hqprefix} \
+${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --update-parents ${tmpprefix}_dysfam.tri \
-             --make-bed \
+             --make-just-fam \
              --out ${tmpprefix}_nodysfam \
              2>&1 >> ${debuglogfn} \
              | tee -a ${debuglogfn}
 # remove mixups and update sex and parents in input set
-printf "removing mixups and low-coverage individuals..\n"
 ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --update-parents ${tmpprefix}_nodysfam.fam \
              --update-sex ${tmpprefix}_nodysfam.fam 3 \
