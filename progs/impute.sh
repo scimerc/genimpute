@@ -9,7 +9,6 @@ export BASEDIR
 bcftoolsexec=${BASEDIR}/lib/3rd/bcftools
 eaglexec=${BASEDIR}/lib/3rd/eagle
 minimac_version=3
-plink_mem=30000
 
 timeformat="ResStats\tRealSec:\t%e\tMaxMemKB:\t%M\tUserSec:\t%U\tSysSec:\t%S"
 timexec="/usr/bin/time -o /dev/stdout -f ${timeformat}"
@@ -32,6 +31,8 @@ declare -r cfg_queuecmd=$( cfgvar_get queuecmd )
 declare -r cfg_refprefix=$( cfgvar_get refprefix )
 
 declare -r genmap=${BASEDIR}/lib/data/${cfg_genomemap}
+
+declare -a jobscripts
 
 #-------------------------------------------------------------------------------
 
@@ -59,8 +60,9 @@ for chr in ${cfg_chromosomes} ; do
     chrtag=X
   fi
 #TODO: implement different running time for reference-less phasing (stage ii)
-runtimehrs=$(( 6 * ( totalsamplesize / 10000 + 1 ) ))
-cat > ${scriptprefix}1_phase_chr${chr}.sh << EOI
+  runtimehrs=$(( 6 * ( totalsamplesize / 10000 + 1 ) ))
+  phasescriptfn=${scriptprefix}1_phase_chr${chr}.sh
+  cat > ${phasescriptfn} << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=1G
@@ -71,7 +73,7 @@ cat > ${scriptprefix}1_phase_chr${chr}.sh << EOI
 # Running time: 10c-2G-20t From 18min to 3h for batch3 (~9k individuals)
 
 set -Eeou pipefail
-source /cluster/bin/jobsetup
+[ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
 if [ -e "${tmpprefix}_chr${chr}_phased.vcf.gz" ]; then
   printf "phased haplotypes present. nothing to do..\\n"
   exit 0
@@ -91,6 +93,7 @@ ${timexec} ${eaglexec} \\
   --numThreads \$(( num_cpus * 2))
 mv ${tmpprefix}_chr${chr}_phasing.vcf.gz ${tmpprefix}_chr${chr}_phased.vcf.gz
 EOI
+  jobscripts+=( "${phasescriptfn}" )
 done
 
 #-------------------------------------------------------------------------------
@@ -148,7 +151,7 @@ for chr in ${cfg_chromosomes} ; do
 ${sbatch_conf}
 
 set -Eeou pipefail
-source /cluster/bin/jobsetup
+[ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
 if [ -e "${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.vcf.gz" ]; then
   printf "final vcf files present. nothing to do..\\n"
   exit 0
@@ -188,14 +191,18 @@ ${bcftoolsexec} view -h ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf \\
 ${bcftoolsexec} reheader -h ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch \\
   ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf \\
   > ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf
-${bcftoolsexec} index -f ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf
-mv \\
+${bcftoolsexec} annotate --set-id %CHROM:%POS:%REF:%ALT -Ob \\
   ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf \\
+  > ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf
+${bcftoolsexec} index -f ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf
+mv \\
+  ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf \\
   ${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.bcf
 mv \\
-  ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf.csi \\
+  ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf.csi \\
   ${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.bcf.csi
 EOI
+    jobscripts+=( "${imputescriptfn}" )
   done
 done
 
@@ -204,15 +211,16 @@ done
 # write merge scripts
 printf "writing merge scripts..\n"
 for chr in ${cfg_chromosomes} ; do
-  cat > ${scriptprefix}3_merge_chr${chr}.sh << EOI
+  scriptfn=${scriptprefix}3_merge_chr${chr}.sh
+  cat > ${scriptfn} << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=06:00:00
 
 set -Eeou pipefail
-source /cluster/bin/jobsetup
-if [ -e "${opt_outprefix}_chr${chr}_imputed.dose.vcf.gz" ]; then
+[ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
+if [ -e "${opt_outprefix}_chr${chr}_imputed.dose.bcf" ]; then
   printf "merged vcf files present. nothing to do..\\n"
   exit 0
 fi
@@ -227,6 +235,36 @@ mv \\
   ${tmpprefix}_chr${chr}_imputed.dose.bcf \\
   ${opt_outprefix}_chr${chr}_imputed.dose.bcf
 EOI
+  jobscripts+=( "${scriptfn}" )
+done
+
+#-------------------------------------------------------------------------------
+
+# write recode scripts
+printf "writing recode scripts..\n"
+for chr in ${cfg_chromosomes} ; do
+  scriptfn=${scriptprefix}4_recode_chr${chr}.sh
+  cat > ${scriptfn} << EOI
+#!/usr/bin/env bash
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=06:00:00
+
+set -Eeou pipefail
+[ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
+if [ -s "${opt_outprefix}_chr${chr}.bed" ]; then
+  printf "plink-recoded files present. nothing to do..\\n"
+  exit 0
+fi
+${plinkexec} \\
+  --bcf ${opt_outprefix}_chr${chr}_imputed.dose.bcf \\
+  --double-id \\
+  --make-bed \\
+  --out ${tmpprefix}_chr${chr}_plink
+rename ${tmpprefix}_chr${chr}_plink ${opt_outprefix}_chr${chr}_imputed \\
+  ${tmpprefix}_chr${chr}_plink.* \\
+EOI
+  jobscripts+=( "${scriptfn}" )
 done
 
 #-------------------------------------------------------------------------------
@@ -238,7 +276,6 @@ if [ ${opt_dryimpute} -eq 1 ] ; then
 fi
 
 echo 'submitting scripts..'
-jobscripts=$(ls ${scriptprefix}* | sort -V ) # sort -V places chr1 before chr10
 
 case ${cfg_execmode} in
   "local")

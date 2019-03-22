@@ -189,13 +189,13 @@ extract_related_lists_from_grm_file() {
 # update biography file with sex information
 {
   # merge information for existing individuals
-  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
+  attach_uids ${opt_hqprefix}.sexcheck \
     | join -t $'\t'     ${opt_biofile} - \
     | tee ${tmpprefix}.0.bio
   # count number of fields in the merged file
   TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
   # add non-existing individuals and pad the extra fields with NAs
-  synthesize_sample_ids ${opt_hqprefix}.sexcheck \
+  attach_uids ${opt_hqprefix}.sexcheck \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"
@@ -208,7 +208,7 @@ mv ${tmpprefix}.1.bio ${opt_biofile}
 
 # update biography file with potential mixup information
 {
-  synthesize_sample_ids ${tmpprefix}_out.clean.id \
+  attach_uids ${tmpprefix}_out.clean.id \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v hvm=${cfg_hvm} '{
       OFS="\t"
@@ -217,7 +217,7 @@ mv ${tmpprefix}.1.bio ${opt_biofile}
       if ( NR == 1 ) print( $0, "MISMIX" )
       else print( $0, hvmtag )
     }'
-  synthesize_sample_ids ${tmpprefix}_out.clean.id \
+  attach_uids ${tmpprefix}_out.clean.id \
     | join -t $'\t'     ${opt_biofile} - \
     | awk -F $'\t' -v hvm=${cfg_hvm} '{
       OFS="\t"

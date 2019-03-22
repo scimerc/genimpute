@@ -43,11 +43,11 @@ ${plinkexec} --bfile ${opt_inprefix} \
 
 # update biography file with genetic PCs
 {
-  synthesize_sample_ids ${opt_hqprefix}.eigenvec \
+  attach_uids ${opt_hqprefix}.eigenvec \
     | join -t $'\t'     ${opt_biofile} - \
     | tee ${tmpprefix}.0.bio
   TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
-  synthesize_sample_ids ${opt_hqprefix}.eigenvec \
+  attach_uids ${opt_hqprefix}.eigenvec \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"
@@ -60,11 +60,11 @@ mv ${tmpprefix}.1.bio ${opt_biofile}
 
 # update biography file with missingness statistics
 {
-  synthesize_sample_ids ${opt_outprefix}.imiss \
+  attach_uids ${opt_outprefix}.imiss \
     | join -t $'\t' ${opt_biofile} - \
     | tee ${tmpprefix}.2.bio
   TNF=$( head -n 1 ${tmpprefix}.2.bio | wc -w )
-  synthesize_sample_ids ${opt_outprefix}.imiss \
+  attach_uids ${opt_outprefix}.imiss \
     | join -t $'\t' -v1 ${opt_biofile} - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"

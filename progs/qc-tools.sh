@@ -146,7 +146,7 @@ export -f paste_sample_ids
 
 # in: headed file with leading <fid iid> fields (e.g. plink fam file);
 # stdout: tab-separated headed file with leading <uid=fid_iid> field, sorted on the latter;
-synthesize_sample_ids() {
+attach_uids() {
   local -r infile="$1"
   if [ -s "${infile}" ] ; then
     paste_sample_ids "${infile}" \
@@ -156,7 +156,7 @@ synthesize_sample_ids() {
   fi
 }
 
-export -f synthesize_sample_ids
+export -f attach_uids
 
 #-------------------------------------------------------------------------------
 

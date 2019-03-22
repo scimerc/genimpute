@@ -79,5 +79,6 @@ for chr in ${tmp_chromosomes} ; do
   mv ${tmpprefix}_chr${chr}_outx.bcf     ${opt_outprefix}_chr${chr}.bcf
   mv ${tmpprefix}_chr${chr}_outx.bcf.csi ${opt_outprefix}_chr${chr}.bcf.csi
 done
+
 rm -r ${tmpprefix}*
 
