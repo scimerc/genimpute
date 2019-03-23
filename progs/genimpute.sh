@@ -13,7 +13,7 @@ export BASEDIR
 
 source ${BASEDIR}/progs/cfgmgr.sh
 
-cfgvar_init_from_file ${BASEDIR}/progs/cfgqc.default
+cfgvar_init_from_file ${BASEDIR}/lib/data/genimpute_default.cfg
 
 #---------------------------------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ OPTIONS:
 
 CONFIGURATION:
   the <config file> may contain custom definitions for a number of variables.
-  [see default configuration file 'cfgqc.default' for more information]
+  [see default configuration file 'genimpute_default.cfg' for more information]
 
 EOF
 }
