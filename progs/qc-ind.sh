@@ -150,8 +150,6 @@ sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 unset plinkflag
 
-rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
-
 extract_related_lists_from_grm_file() {
   local -r infile="$1"
   zcat -f "${infile}" | tabulate \
@@ -237,6 +235,8 @@ mv ${tmpprefix}.2.bio ${opt_biofile}
     | awk -F $'\t' '{ OFS="\t"; print( $0, "__NA__" ) }'
 } | sort -t $'\t' -u -k 1,1 > ${tmpprefix}.3.bio
 mv ${tmpprefix}.3.bio ${opt_biofile}
+
+rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
 
 rm ${tmpprefix}*
 
