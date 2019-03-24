@@ -93,6 +93,7 @@ ${timexec} ${eaglexec} \\
   --numThreads \$(( num_cpus * 2))
 mv ${tmpprefix}_chr${chr}_phasing.vcf.gz ${tmpprefix}_chr${chr}_phased.vcf.gz
 EOI
+  chmod u+x ${phasescriptfn}
   jobscripts+=( "${phasescriptfn}" )
 done
 
@@ -202,6 +203,7 @@ mv \\
   ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf.csi \\
   ${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.bcf.csi
 EOI
+    chmod u+x ${imputescriptfn}
     jobscripts+=( "${imputescriptfn}" )
   done
 done
@@ -235,6 +237,7 @@ mv \\
   ${tmpprefix}_chr${chr}_imputed.dose.bcf \\
   ${opt_outprefix}_chr${chr}_imputed.dose.bcf
 EOI
+  chmod u+x ${scriptfn}
   jobscripts+=( "${scriptfn}" )
 done
 
@@ -264,6 +267,7 @@ ${plinkexec} \\
 rename ${tmpprefix}_chr${chr}_plink ${opt_outprefix}_chr${chr}_imputed \\
   ${tmpprefix}_chr${chr}_plink.* \\
 EOI
+  chmod u+x ${scriptfn}
   jobscripts+=( "${scriptfn}" )
 done
 
