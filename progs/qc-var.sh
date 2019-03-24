@@ -29,10 +29,10 @@ printf "\
     * low coverage
     * Hardy-Weinberg disequilibrium (separating sex and non-sex chromosomes)
     * high rate of Mendel errors in eventual trios
-" | printlog 0
+" | printlog 1
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "'%s' found. skipping variant QC..\n", "${opt_outprefix}.bed"
+  printf "'%s' found. skipping variant QC..\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
@@ -47,8 +47,7 @@ ${plinkexec} --bfile ${opt_inprefix} \
              --set-me-missing \
              --make-bed \
              --out ${tmpprefix}_nome \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
@@ -70,8 +69,7 @@ ${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} \
              --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
              --make-just-bim \
              --out ${tmpprefix}_nonsex \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 declare nosexflag=''
 awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
   > ${opt_hqprefix}.nosex
@@ -91,8 +89,7 @@ if [ $( get_xvar_count ${opt_inprefix}.bim ) -ge ${cfg_minvarcount} ] ; then
                --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
                --make-just-bim \
                --out ${tmpprefix}_sex \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
 fi
 unset nosexflag
 [ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
@@ -105,8 +102,7 @@ ${plinkexec} --bfile ${opt_inprefix} \
              --set-hh-missing \
              --make-bed \
              --out ${tmpprefix}_out \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 

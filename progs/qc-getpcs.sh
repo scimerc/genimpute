@@ -16,30 +16,27 @@ declare -r cfg_uid=$( cfgvar_get uid )
 printf "\
   * Compute genetic principal components
   * Compute final individual coverage statistics
-" | printlog 0
+" | printlog 1
 
 if [ -f "${opt_hqprefix}.eigenvec" -a -f "${opt_hqprefix}.eigenvec.var" ] ; then
-  printf "'%s' found. skipping PCA..\n", "${opt_outprefix}.bed"
+  printf "'%s' found. skipping PCA..\n" "${opt_hqprefix}.eigenvec"
   exit 0
 fi
 
 ${plinkexec} --bfile ${opt_hqprefix} \
              --genome gz \
              --out ${opt_hqprefix} \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 ${plinkexec} --bfile ${opt_hqprefix} \
              --cluster \
              --read-genome ${opt_hqprefix}.genome.gz \
              --pca header tabs var-wts \
              --out ${opt_hqprefix} \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 ${plinkexec} --bfile ${opt_inprefix} \
              --missing \
              --out ${opt_outprefix} \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 
 # update biography file with genetic PCs
 {

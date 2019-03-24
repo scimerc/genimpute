@@ -22,7 +22,7 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 # input: merged plink set
 # output: hq plink set (with imputed sex, if possible)
 
-printf "  * Compile whitelist of variants common to all batches (if enabled)\n" | printlog 0
+printf "  * Compile whitelist of variants common to all batches (if enabled)\n" | printlog 1
 
 if [ ${opt_minivarset} -eq 1 ] ; then
   exit 0
@@ -72,12 +72,11 @@ for i in ${!batchfiles[@]} ; do
       ;;
   esac
   # whatever format the input file is - make a bim file
-  printf "* Recode variants set into bim format" | printlog 0
+  printf "* Recode variants set into bim format" | printlog 1
   ${plinkexec} ${plinkflag} ${batchfiles[$i]/%.bed/.bim} \
         --make-just-bim \
         --out ${tmpprefix}_ex \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2
   sed -i -r 's/[ \t]+/\t/g; s/^chr//g;' ${tmpprefix}_ex.bim
   sed -i -r 's/^XY/X/g; s/^X/23/g; s/^Y/24/g; s/^25/23/g;' ${tmpprefix}_ex.bim
   if [ -s "${tmpprefix}_ex.bim" ] ; then

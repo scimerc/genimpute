@@ -21,7 +21,7 @@ declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 printf "\
   * Purge individual and family IDs
   * Convert plink file set into VCF format
-" | printlog 0
+" | printlog 1
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
   printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
@@ -42,8 +42,7 @@ if [ $Nold -eq $Nnew ] ; then
   ${plinkexec} --bfile ${opt_inprefix} \
                --update-ids ${tmpprefix}.idmap \
                --make-bed --out ${tmpprefix}_idfix \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
 else
   printf "====> warning: could not purge IDs due to ensuing conflicts.\n"
   cp ${opt_inprefix}.bed ${tmpprefix}_idfix.bed
@@ -60,15 +59,14 @@ tmp_chromosomes=$( join \
 # convert input files to vcf formats
 for chr in ${tmp_chromosomes} ; do
   if [ -e ${opt_outprefix}_chr${chr}.bcf ] ; then
-    printf "input file '%s' found. skipping conversion..\\n", ${opt_outprefix}_chr${chr}.bcf
+    printf "bcf file '%s' found. skipping conversion..\\n" ${opt_outprefix}_chr${chr}.bcf
     continue
   fi
   ${plinkexec} --bfile ${tmpprefix}_idfix \
                --chr ${chr} \
                --recode vcf bgz \
                --out ${tmpprefix}_chr${chr} \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   ${bcftoolsexec} convert -Ob --threads 3 \
                   ${tmpprefix}_chr${chr}.vcf.gz \
                   > ${tmpprefix}_chr${chr}_out.bcf

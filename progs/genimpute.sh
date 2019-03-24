@@ -21,6 +21,7 @@ cfgvar_init_from_file ${BASEDIR}/lib/data/genimpute_default.cfg
 
 declare opt_dryimpute=0
 declare opt_minivarset=0
+declare opt_qconly=0
 declare opt_outprefixdefault='genimpute'
 declare opt_outprefixbase=${opt_outprefixdefault}
 declare opt_samplewhitelist=""
@@ -40,6 +41,7 @@ OPTIONS:
   -c <config file>      optional configuration file
   -d                    dry imputation: write scripts but do not run them
   -m                    reduce variant set to the minimal one common to all
+  -q                    perform quality control only, do not phase or impute
   -w <sample file>      optional white list of individuals to restrict qc to
   -o <output prefix>    optional output prefix [default: '${opt_outprefixdefault}']
   -h                    show help message
@@ -76,7 +78,7 @@ printlog() {
 }
 export -f printlog
 
-while getopts "c:dmo:w:h" opt; do
+while getopts "c:dmqw:o:h" opt; do
 case "${opt}" in
   c)
     opt_cfgfile="${OPTARG}"
@@ -87,11 +89,14 @@ case "${opt}" in
   m)
     opt_minivarset=1
     ;;
-  o)
-    opt_outprefixbase="${OPTARG}"
+  q)
+    opt_qconly=1
     ;;
   w)
     opt_samplewhitelist="${OPTARG}"
+    ;;
+  o)
+    opt_outprefixbase="${OPTARG}"
     ;;
   h)
     usage
@@ -202,7 +207,7 @@ export opt_refprefix=${opt_outprefixbase}_refset
 
 #---------------------------------------------------------------------------------------------------
 
-echo "==== Whitelist ====" | printlog 0
+echo "==== Whitelist ====" | printlog 1
 
 export opt_outprefix=${opt_outprefixbase}_vwlist
 
@@ -214,7 +219,7 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-echo "==== Recoding ====" | printlog 0
+echo "==== Recoding ====" | printlog 1
 
 export opt_outprefix=${opt_outprefixbase}_a_recode
 
@@ -226,7 +231,7 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-echo "==== Alignment ====" | printlog 0
+echo "==== Alignment ====" | printlog 1
 
 export opt_inprefix=${opt_outprefixbase}_a_recode
 export opt_outprefix=${opt_outprefixbase}_b_align
@@ -242,7 +247,7 @@ unset opt_outprefix
 
 # merge batches (if more than a single one)
 
-echo "==== Merge ====" | printlog 0
+echo "==== Merge ====" | printlog 1
 
 export opt_inprefix=${opt_outprefixbase}_b_align
 export opt_outprefix=${opt_outprefixbase}_c_proc
@@ -292,7 +297,7 @@ fi
 
 # get high quality set
 
-echo "==== Variant HQC ====" | printlog 0
+echo "==== Variant HQC ====" | printlog 1
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_c_proc
@@ -309,7 +314,7 @@ unset opt_inprefix
 
 # identify duplicate, mixup and related individuals
 
-echo "==== Individual QC ====" | printlog 0
+echo "==== Individual QC ====" | printlog 1
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_c_proc
@@ -330,7 +335,7 @@ unset opt_biofile
 
 # perform standard variant-level QC
 
-echo "==== Variant QC ====" | printlog 0
+echo "==== Variant QC ====" | printlog 1
 
 # export vars
 export opt_hqprefix=${opt_outprefixbase}_d_hqset
@@ -383,7 +388,7 @@ unset opt_inprefix
 
 # compute genetic PCs
 
-echo "==== PCA etc. ====" | printlog 0
+echo "==== PCA etc. ====" | printlog 1
 
 # export vars
 export opt_hqprefix=${opt_outprefixbase}_h_hqset
@@ -402,9 +407,13 @@ unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
+if [ ${opt_qconly} -eq 1 ] ; then
+  exit 0
+fi
+
 # convert
 
-echo "==== Recoding ====" | printlog 0
+echo "==== Recoding ====" | printlog 1
 
 # export vars
 export opt_inprefix=${opt_outprefixbase}_g_finqc

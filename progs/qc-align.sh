@@ -94,7 +94,7 @@ printf "\
     * Create a fliplist to align strand-flipped variants to reference
     * Purge batch file of blacklist
     * Align fliplist in batch file
-" | printlog 0
+" | printlog 1
 
 if [ -z "${cfg_refprefix}" ] ; then
   declare tmpprefix=${opt_outprefix}_tmp
@@ -131,7 +131,6 @@ for i in ${!batchfiles[@]} ; do
     printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
-  printf "Purge and Align batch ${batchfiles[$i]}\n" | printlog 1
   # define input specific plink settings
   declare tmpvarctrl=${tmpprefix}_varctrl
   declare batchallelemap=${tmpprefix}.allelemap
@@ -142,7 +141,7 @@ for i in ${!batchfiles[@]} ; do
     | get_plink_varinfo_blacklist \
     | sort -u > ${batchblacklist}
   {
-    printf "$( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
+    printf "     $( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
     printf "colocalized variants marked for deletion.\n"
   } | printlog 1
   declare plinkflag=""
@@ -154,14 +153,13 @@ for i in ${!batchfiles[@]} ; do
         --bfile ${b_inprefix} ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_nb \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2
   unset plinkflag
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.fam
   # check usability of reference
-  printf "matching variants to reference..\n"
+  printf "matching batch '%s' variants to reference..\n" $( basename ${batchfiles[$i]} )
   [ -s "${varreffile}" ] || {
     printf "error: file '%s' is unusable.\n" "${varreffile}" >&2;
     exit 1;
@@ -272,11 +270,11 @@ for i in ${!batchfiles[@]} ; do
   # list unique
   sort -t $'\t' -u ${batchfliplist} > $tmpvarctrl
   mv $tmpvarctrl ${batchfliplist}
-  printf "$( wc -l ${batchfliplist} ) variants to be flipped.\n" | printlog 1
+  printf "     $( wc -l ${batchfliplist} ) variants to be flipped.\n" | printlog 1
   # list unique
   sort -t $'\t' -u ${batchblacklist} | join -v1 -t $'\t' - ${batchidmap} > $tmpvarctrl
   mv $tmpvarctrl ${batchblacklist}
-  printf "$( wc -l ${batchblacklist} ) variants to be excluded.\n" | printlog 1
+  printf "     $( wc -l ${batchblacklist} ) variants to be excluded.\n" | printlog 1
 
   declare plinkflag=""
   if [ -s "${batchblacklist}" ] ; then
@@ -287,8 +285,7 @@ for i in ${!batchfiles[@]} ; do
         --bfile ${tmpprefix}_nb ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_nbb \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2
   unset plinkflag
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbb.bim
@@ -302,8 +299,7 @@ for i in ${!batchfiles[@]} ; do
         --bfile ${tmpprefix}_nbb ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_nbf \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2
   unset plinkflag
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbf.bim
@@ -313,15 +309,13 @@ for i in ${!batchfiles[@]} ; do
         --update-name ${batchidmap} \
         --make-bed \
         --out ${tmpprefix}_un \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2
   ${plinkexec} \
         --bfile ${tmpprefix}_un \
         --update-alleles ${batchallelemap} \
         --make-bed \
         --out ${tmpprefix}_una \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2
   declare plinkflag=''
   parcount=$( awk '$1 == 25' ${tmpprefix}_una.bim | wc -l )
   # split X chromosome variants
@@ -332,8 +326,12 @@ for i in ${!batchfiles[@]} ; do
         --bfile ${tmpprefix}_una ${plinkflag} \
         --make-bed \
         --out ${tmpprefix}_out \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2 
+  ${plinkexec} \
+        --bfile ${tmpprefix}_out \
+        --freq \
+        --out ${tmpprefix}_out \
+        2>&1 | printlog 2
   unset plinkflag
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
   sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
@@ -344,6 +342,7 @@ for i in ${!batchfiles[@]} ; do
     cp ${b_outprefix}.bed ${opt_refprefix}.bed
     cp ${b_outprefix}.bim ${opt_refprefix}.bim
     cp ${b_outprefix}.fam ${opt_refprefix}.fam
+    cp ${b_outprefix}.frq ${opt_refprefix}.frq
   fi
 
   rm ${tmpprefix}*

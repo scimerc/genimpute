@@ -25,7 +25,7 @@ printf "\
     * Extract samples according to sample whitelist (if enabled)
     * Convert colocalized variant set to human readable format (tped) (for later QC)
     * Convert to binary plink (for easy use downstream)
-" | printlog 0
+" | printlog 1
 
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
@@ -42,7 +42,7 @@ for i in ${!batchfiles[@]} ; do
     printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
-  printf "Convert batch ${batchfiles[$i]}\n" | printlog 1
+  printf "converting batch '$( basename ${batchfiles[$i]} )'..\n"
   # define input specific plink settings
   declare flagkeep=''
   declare flagformat='--bfile'
@@ -80,8 +80,7 @@ for i in ${!batchfiles[@]} ; do
     --merge-x no-fail \
     --make-bed \
     --out ${tmpprefix}_mx \
-    2>&1 >> ${debuglogfn} \
-    | tee -a ${debuglogfn}
+    2>&1 | printlog 2
   # re-write variant info in universal format
   standardize_bim_file ${tmpprefix}_mx.bim
   if [ ! -z "${bedflag}" ] ; then
@@ -89,8 +88,7 @@ for i in ${!batchfiles[@]} ; do
       --bfile ${tmpprefix}_mx ${bedflag} \
       --make-bed \
       --out ${tmpprefix}_out \
-      2>&1 >> ${debuglogfn} \
-      | tee -a ${debuglogfn}
+      2>&1 | printlog 2
     mv ${tmpprefix}_out.log ${b_outprefix}.1.log
   else
     rename ${tmpprefix}_mx ${tmpprefix}_out ${tmpprefix}_mx.*
@@ -112,12 +110,11 @@ for i in ${!batchfiles[@]} ; do
       --bfile ${tmpprefix}_out ${pedflag} \
       --recode transpose \
       --out ${tmpprefix}_out \
-      2>&1 >> ${debuglogfn} \
-      | tee -a ${debuglogfn}
+      2>&1 | printlog 2
       mv ${tmpprefix}_out.log ${b_outprefix}.2.log
   else
     printf "no colocalized variants found.\n"
-    printf "skipping batch '${batchfiles[$i]}' tped recoding..\n"
+    printf "skipping batch '$( basename ${batchfiles[$i]} )' tped recoding..\n"
     touch ${tmpprefix}_out.tped ${tmpprefix}_out.tfam
   fi
   # tab-separate all human-readable plink files

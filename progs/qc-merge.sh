@@ -22,7 +22,7 @@ printf "\
     * Abort procedure if blacklist is not empty \
       (if we run more than 2 times something might be weird)
     * Append mismatching variants to global blacklist (derived from errors)
-" | printlog 0
+" | printlog 1
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "'%s' already exists. skipping merge..\n" "${opt_outprefix}.bed"
@@ -35,6 +35,8 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
 fi
 
 #-------------------------------------------------------------------------------
+
+printf "merging batches..\n"
 
 declare -r varblacklist=${tmpprefix}.exclude
 declare -r mismatchlist=${tmpprefix}.mismatch
@@ -53,8 +55,7 @@ while true ; do
           --bfile ${b_inprefix} ${plinkflag} \
           --make-bed \
           --out ${b_outprefix} \
-          2>&1 >> ${debuglogfn} \
-          | tee -a ${debuglogfn}
+          2>&1 | printlog 2
     printf "${b_outprefix}\n" >> ${batchlist}
     unset batchcode
     unset inprefix
@@ -65,8 +66,7 @@ while true ; do
   ${plinkexec} \
         --merge-list ${batchlist} \
         --out ${tmpprefix}_out \
-        2>&1 >> ${debuglogfn} \
-        | tee -a ${debuglogfn}
+        2>&1 | printlog 2
   # extract plink's warnings about chromosome and position clashes from plink's log and add the
   # corresponding variant names to plink's own missnp file.
   grep '^Warning: Multiple' ${tmpprefix}_out.log \

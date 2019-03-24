@@ -23,10 +23,10 @@ printf "\
   * Exclude potentially contaminated and low-coverage individuals
   * Erase parent information for any dysfunctional families
   * Annotate relatedness information
-" | printlog 0
+" | printlog 1
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "'%s' found. skipping individual QC..\n", "${opt_outprefix}.bed"
+  printf "'%s' found. skipping individual QC..\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
@@ -45,14 +45,12 @@ if [ ${cfg_hvm} -eq 1 ] ; then
                --set-hh-missing \
                --het \
                --out ${tmpprefix}_sq \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   ${plinkexec} --bfile ${opt_hqprefix} \
                --set-hh-missing \
                --missing \
                --out ${tmpprefix}_sq \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   printf "removing mixups and low-coverage individuals..\n"
   ${BASEDIR}/progs/het_vs_miss.Rscript -m ${tmpprefix}_sq.imiss -h ${tmpprefix}_sq.het \
     -o ${tmpprefix}_out >> ${debuglogfn}
@@ -76,8 +74,7 @@ ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --geno ${tmp_varmiss} \
              --make-just-bim \
              --out ${tmpprefix}_hcv \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 cut -d ' ' -f 2 ${tmpprefix}_hcv.bim > ${tmpprefix}_hcv.mrk
 # extract high coverage individuals
 tmp_samplemiss=${cfg_samplemiss}
@@ -89,8 +86,7 @@ ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --mind ${tmp_samplemiss} \
              --make-just-fam \
              --out ${tmpprefix}_hci \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 # identify related individuals
 printf "identifying related individuals..\n"
 ${plinkexec} --bfile ${opt_hqprefix} \
@@ -98,8 +94,7 @@ ${plinkexec} --bfile ${opt_hqprefix} \
              --set-hh-missing \
              --genome gz \
              --out ${tmpprefix}_sq \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
              >> ${debuglogfn}
 ${plinkexec} --bfile ${opt_hqprefix} \
              --keep ${tmpprefix}_hci.fam \
@@ -108,8 +103,7 @@ ${plinkexec} --bfile ${opt_hqprefix} \
              --read-genome ${tmpprefix}_sq.genome.gz \
              --rel-cutoff ${cfg_pihatrel} \
              --out ${tmpprefix}_sq \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 # rename list of unrelated individuals for later use
 mv ${tmpprefix}_sq.rel.id ${opt_outprefixbase}.ids
 # erase eventual dysfunctional family information
@@ -136,16 +130,14 @@ ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --update-parents ${tmpprefix}_dysfam.tri \
              --make-just-fam \
              --out ${tmpprefix}_nodysfam \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 # remove mixups and update sex and parents in input set
 ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
              --update-parents ${tmpprefix}_nodysfam.fam \
              --update-sex ${tmpprefix}_nodysfam.fam 3 \
              --make-bed \
              --out ${tmpprefix}_out \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
 unset plinkflag

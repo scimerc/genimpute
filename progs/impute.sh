@@ -50,7 +50,7 @@ fi
 
 #-------------------------------------------------------------------------------
 
-echo "==== Eagle phasing ====" | printlog 0
+echo "==== Eagle phasing ====" | printlog 1
 
 # write phase scripts
 printf "writing phasing scripts..\n"
@@ -98,7 +98,7 @@ done
 
 #-------------------------------------------------------------------------------
 
-echo "==== MaCH ${minimac_version} imputation ====" | printlog 0
+echo "==== MaCH ${minimac_version} imputation ====" | printlog 1
 
 # write impute scripts
 printf "writing imputation scripts..\n"

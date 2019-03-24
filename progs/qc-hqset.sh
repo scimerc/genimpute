@@ -28,7 +28,7 @@ printf "\
   * Impute sex once with all standard hq-variants
   * If sex could be imputed for enough individuals, impute it once again after \
     sex-chromosome HWE tests
-" | printlog 0
+" | printlog 1
 
 if [ -f "${opt_hqprefix}.bed" -a -f "${opt_hqprefix}.bim" -a -f "${opt_hqprefix}.fam" ] ; then
   printf "'%s' already exists. skipping hq..\n" "${opt_hqprefix}.bed"
@@ -72,8 +72,7 @@ if [ ! -z "${1+x}" ] ; then
   ${plinkexec} --bfile ${opt_inprefix} \
                --bmerge ${opt_refprefix} \
                --out ${tmpprefix}_draft \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
 fi
 declare tmpindex=0
 declare -a tmp_varmiss=( 0.01 0.05 0.1 )
@@ -92,8 +91,7 @@ while [ $Nhq -lt $Nmin -a $tmpindex -lt 3 ] ; do
                --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
                --make-just-bim \
                --out ${tmpprefix}_nonsex \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   if [ $( get_xvar_count ${tmpprefix}_draft.bim ) -ge ${cfg_minvarcount} ] ; then
     # get sex hq-variants from input file
     ${plinkexec} --bfile ${tmpprefix}_draft ${keepflag} \
@@ -102,8 +100,7 @@ while [ $Nhq -lt $Nmin -a $tmpindex -lt 3 ] ; do
                  --maf ${cfg_freq} \
                  --make-just-bim \
                  --out ${tmpprefix}_sex \
-                 2>&1 >> ${debuglogfn} \
-                 | tee -a ${debuglogfn}
+                 2>&1 | printlog 2
   fi
   Nhq=$( sort -u -k 2,2 ${tmpprefix}_*sex.bim | wc -l )
   tmpindex=$(( tmpindex + 1 ))
@@ -119,30 +116,32 @@ ${plinkexec} --bfile ${tmpprefix}_draft \
              --extract ${tmpprefix}_hq.mrk \
              --make-bed \
              --out ${tmpprefix}_hq \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 # LD-prune hq variants
 ${plinkexec} --bfile ${tmpprefix}_hq ${keepflag} \
              ${cfg_pruneflags} \
              --out ${tmpprefix}_hq_LD \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 # extract LD-pruned hq variants from hq plink set
 ${plinkexec} --bfile ${tmpprefix}_hq \
              --extract ${tmpprefix}_hq_LD.prune.in \
              --make-bed \
              --out ${tmpprefix}_hq_LDpruned \
-             2>&1 >> ${debuglogfn} \
-             | tee -a ${debuglogfn}
+             2>&1 | printlog 2
 # if there are enough X chromosome variants impute sex based on them
 if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; then
+  freqflag=''
+  declare -r indcount=$( cat ${tmpprefix}_hq_LDpruned.fam | wc -l )
+  if [ ${indcount} -lt ${cfg_minindcount} ] ; then
+    printf "warning: insufficient number of individuals for accurate allele frequency estimates.\n"
+    [ -s "${opt_refprefix}.frq" ] && freqflag="--read-freq ${opt_refprefix}.frq"
+  fi
   # impute sex once with all standard high quality variants
-  ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned \
-               --impute-sex \
+  ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned ${freqflag} \
+               --impute-sex ycount \
                --make-bed \
                --out ${tmpprefix}_hq_LDpruned_isex \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   rename _hq_LDpruned_isex _out ${tmpprefix}_hq_LDpruned_isex.*
   declare -r xindcount=$( awk '$5 == 1 || $5 == 2' ${tmpprefix}_out.fam | wc -l )
   # if sex could be imputed for enough individuals impute it once again after HWE tests
@@ -151,17 +150,15 @@ if [ $( get_xvar_count ${tmpprefix}_hq_LDpruned.bim ) -ge $cfg_minvarcount ] ; t
                  --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
                  --make-just-bim \
                  --out ${tmpprefix}_sexhwe \
-                 2>&1 >> ${debuglogfn} \
-                 | tee -a ${debuglogfn}
+                 2>&1 | printlog 2
     # if there are enough X chromosome variants after HWE re-impute sex based on them
     if [ $( get_xvar_count ${tmpprefix}_sexhwe.bim ) -ge ${cfg_minvarcount} ] ; then
-      ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned \
+      ${plinkexec} --bfile ${tmpprefix}_hq_LDpruned ${freqflag} \
                    --extract <( cut -f 2 ${tmpprefix}_sexhwe.bim ) \
-                   --impute-sex \
+                   --impute-sex ycount \
                    --make-bed \
                    --out ${tmpprefix}_hq_LDpruned_isexhwe \
-                   2>&1 >> ${debuglogfn} \
-                   | tee -a ${debuglogfn}
+                   2>&1 | printlog 2
       # replace the original sex imputation files
       rename _hq_LDpruned_isexhwe _out ${tmpprefix}_hq_LDpruned_isexhwe.*
     fi

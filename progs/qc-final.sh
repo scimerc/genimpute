@@ -22,10 +22,10 @@ printf "\
   * Extract variants with:
     * more stringent control Hardy-Weinberg equilibrium
     * eventual batch effects (if more than a single batch present)
-" | printlog 0
+" | printlog 1
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "'%s' found. skipping final QC..\n", "${opt_outprefix}.bed"
+  printf "'%s' found. skipping final QC..\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
@@ -59,8 +59,7 @@ if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
                --make-pheno ${cfg_phenotypes} 2 \
                --make-bed \
                --out ${tmpprefix}_pheno \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
 elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
   # else, if there are enough annotated controls in the original file use those
   printf "extracting control list from '${opt_inprefix}.fam'..\n"
@@ -92,8 +91,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
                --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
                --make-just-bim \
                --out ${tmpprefix}_ctrlhwe_nonsex \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   declare nosexflag=''
   # get set of individuals missing sex information for exclusion from later check
   awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
@@ -113,8 +111,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
                  --hwe 1.E-${sex_hweneglogp_ctrl} midp \
                  --make-just-bim \
                  --out ${tmpprefix}_ctrlhwe_sex \
-                 2>&1 >> ${debuglogfn} \
-                 | tee -a ${debuglogfn}
+                 2>&1 | printlog 2
   fi
   unset nosexflag
   [ -s "${tmpprefix}_ctrlhwe_nonsex.bim" -o -s "${tmpprefix}_ctrlhwe_sex.bim" ] || {
@@ -128,8 +125,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
                --make-bed \
                --out ${tmpprefix}_ctrlhwe \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   # make a copy of the files with output suffix
   cp ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.bed
   cp ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
@@ -146,8 +142,7 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
                  --make-pheno ${batchfamfiles[$i]} '*' \
                  --model \
                  --out ${tmpprefix}_plink \
-                 2>&1 >> ${debuglogfn} \
-                 | tee -a ${debuglogfn}
+                 2>&1 | printlog 2
     if [ -s "${tmpprefix}_plink.model" ] ; then
       sed -i -r 's/^[ \t]+//g; s/[ \t]+/\t/g;' ${tmpprefix}_plink.model
       for atest in $( cut -f 5 ${tmpprefix}_plink.model | tail -n +2 | sort -u ) ; do
@@ -167,8 +162,7 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
                --exclude ${tmpprefix}.exclude \
                --make-bed \
                --out ${tmpprefix}_nbe \
-               2>&1 >> ${debuglogfn} \
-               | tee -a ${debuglogfn}
+               2>&1 | printlog 2
   # make a copy of the files with output suffix
   cp ${tmpprefix}_nbe.bed ${tmpprefix}_out.bed
   cp ${tmpprefix}_nbe.bim ${tmpprefix}_out.bim
