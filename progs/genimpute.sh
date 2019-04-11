@@ -54,30 +54,6 @@ CONFIGURATION:
 EOF
 }
 
-printlog() {
-  local lvl
-  lvl=$1
-  readonly lvl
-  local lvl_max
-  lvl_max="$( cfgvar_get log_lvl )"
-  readonly lvl_max
-  local logfn
-  logfn="$( cfgvar_get logfn )"
-  readonly logfn
-  # print struff to log
-  IFS=$'\n'
-  while read line; do
-    echo $(date) $lvl "${line}" >> ${logfn}
-    # check log-level and print if lower or equal
-    if [ "$lvl" -le "$lvl_max" ]; then
-      echo "${line}"
-    fi
-  done
-  unset IFS
-  return 0
-}
-export -f printlog
-
 while getopts "c:dmqw:o:h" opt; do
 case "${opt}" in
   c)
@@ -146,8 +122,32 @@ opt_outprefixbase=${opt_outprefixbase}_$( cfgvar_show_config | md5sum | head -c 
 export opt_inputfiles
 export opt_outprefixbase
 
+printlog() {
+  local lvl
+  lvl=$1
+  readonly lvl
+  local lvl_max
+  lvl_max="$( cfgvar_get log_lvl )"
+  readonly lvl_max
+  local logfn
+  logfn="${opt_outprefixbase}.log"
+  readonly logfn
+  # print struff to log
+  IFS=$'\n'
+  while read line; do
+    echo $(date) $lvl "${line}" >> ${logfn}
+    # check log-level and print if lower or equal
+    if [ "$lvl" -le "$lvl_max" ]; then
+      echo "${line}"
+    fi
+  done
+  unset IFS
+  return 0
+}
+export -f printlog
+
 # initialize log file
-> $( cfgvar_get logfn )
+> "${opt_outprefixbase}.log"
 
 { 
   echo
@@ -199,6 +199,10 @@ source ${BASEDIR}/progs/qc-tools.sh
 #---------------------------------------------------------------------------------------------------
 
 # export vars
+export cfg_uid
+cfg_uid="$( cfgvar_get uid )"
+readonly cfg_uid
+export cfg_uid
 export opt_dryimpute
 export opt_minivarset
 export opt_samplewhitelist
@@ -269,8 +273,6 @@ declare qciter=0
 if [ ! -f ${opt_outprefixbase}.bio ] ; then
   echo "initializing sample biography file.."
   # initialize sample biography file
-  declare cfg_uid
-  cfg_uid="$( cfgvar_get uid )"; readonly cfg_uid
   declare opt_outprefix=${opt_outprefixbase}_c_proc
   declare opt_biofile=${opt_outprefixbase}.bio
   cut -f 1-4 ${opt_outprefix}.fam \

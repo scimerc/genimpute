@@ -178,12 +178,16 @@ extract_related_lists_from_grm_file() {
 
 # update biography file with sex information
 {
+  {
+    printf '%s\t' ${cfg_uid}
+    head -n 1 ${opt_hqprefix}.sexcheck | tabulate | cut -f 3-
+  } | join -t $'\t'     ${opt_biofile} - \
+    | tee ${tmpprefix}.0.bio
+  # count number of fields in the merged file
+  TNF=$( cat ${tmpprefix}.0.bio | wc -w )
   # merge information for existing individuals
   attach_uids ${opt_hqprefix}.sexcheck \
     | join -t $'\t'     ${opt_biofile} - \
-    | tee ${tmpprefix}.0.bio
-  # count number of fields in the merged file
-  TNF=$( head -n 1 ${tmpprefix}.0.bio | wc -w )
   # add non-existing individuals and pad the extra fields with NAs
   attach_uids ${opt_hqprefix}.sexcheck \
     | join -t $'\t' -v1 ${opt_biofile} - \

@@ -125,32 +125,35 @@ export -f standardize_bim_file
 #-------------------------------------------------------------------------------
 
 # in: headed file with leading <fid iid> fields (e.g. plink fam file);
-# stdout: tab-separated headed file with leading <uid=fid_iid> field;
-paste_sample_ids() {
-  local -r infile="$1"
-  if [ -s "${infile}" ] ; then
-    tabulate "${infile}" \
-      | awk -F $'\t' '{
-        printf( "%s", $1"_"$2 )
-        for ( k=3; k<=NF; k++ )
-          printf( "\t%s", $k )
-        printf( "\n" )
-      }'
-  fi
-}
-
-export -f paste_sample_ids
-
-#-------------------------------------------------------------------------------
-
-# in: headed file with leading <fid iid> fields (e.g. plink fam file);
 # stdout: tab-separated headed file with leading <uid=fid_iid> field, sorted on the latter;
 attach_uids() {
-  local -r infile="$1"
+  local cmdarg=''
+  local header=0
+  local infile=''
+  local locuid='000UID'
+  cmdarg=$1
+  readonly cmdarg
+  if [ "${cmdarg}" == "-h" ] ; then
+    header=1
+    readonly header
+    shift
+  fi
+  infile="$1"
+  readonly infile
   if [ -s "${infile}" ] ; then
-    paste_sample_ids "${infile}" \
-      | awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk \
-        --source '{ OFS="\t"; $1 = idclean($1); print; }' \
+    tabulate "${infile}" \
+      | awk -F $'\t' \
+        -f ${BASEDIR}/lib/awk/idclean.awk \
+        -v head=${header} \
+        -v uid=${locuid} \
+        --source '{
+          if ( head == 0 || NR > 1 )
+            uid=idclean($1"_"$2)
+          printf( "%s", uid )
+          for ( k=3; k<=NF; k++ )
+            printf( "\t%s", $k )
+          printf( "\n" )
+        }' \
       | sort -t $'\t' -u -k 1,1
   fi
 }
