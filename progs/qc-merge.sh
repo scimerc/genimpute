@@ -3,8 +3,8 @@
 # exit on error
 set -Eeou pipefail
 
-declare -r  tmpprefix=${opt_outprefix}_tmp
-declare -r  debuglogfn=${tmpprefix}_debug.log
+declare -r  tmpprefix="${opt_outprefix}_tmp"
+declare -r  debuglogfn="${tmpprefix}_debug.log"
 declare -ra batchfiles=( ${opt_inputfiles} )
 
 #-------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
   exit 0
 fi
 
-if ls ${tmpprefix}* > /dev/null 2>&1; then
+if ls "${tmpprefix}"* > /dev/null 2>&1; then
   printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
@@ -38,25 +38,25 @@ fi
 
 printf "merging batches..\n"
 
-declare -r varblacklist=${tmpprefix}.exclude
-declare -r mismatchlist=${tmpprefix}.mismatch
-declare -r batchlist=${tmpprefix}.batchlist
+declare -r varblacklist="${tmpprefix}.exclude"
+declare -r mismatchlist="${tmpprefix}.mismatch"
+declare -r batchlist="${tmpprefix}.batchlist"
 while true ; do
-  > ${batchlist}
+  > "${batchlist}"
   for i in ${!batchfiles[@]} ; do
     declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
-    declare b_inprefix=${opt_inprefix}_batch_${batchcode}
-    declare b_outprefix=${opt_outprefix}_batch_${batchcode}
+    declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
+    declare b_outprefix="${opt_outprefix}_batch_${batchcode}"
     declare plinkflag=''
     if [ -s "${varblacklist}" ] ; then
       plinkflag="--exclude ${varblacklist}" 
     fi
-   ${plinkexec} \
-          --bfile ${b_inprefix} ${plinkflag} \
+    ${plinkexec} \
+          --bfile "${b_inprefix}" ${plinkflag} \
           --make-bed \
-          --out ${b_outprefix} \
+          --out "${b_outprefix}" \
           2>&1 | printlog 2
-    printf "${b_outprefix}\n" >> ${batchlist}
+    printf "${b_outprefix}\n" >> "${batchlist}"
     unset batchcode
     unset inprefix
     unset outprefix
@@ -64,32 +64,32 @@ while true ; do
   unset plinkflag
   # NOTE: if only one batch is present plink throws a warning
   ${plinkexec} \
-        --merge-list ${batchlist} \
-        --out ${tmpprefix}_out \
+        --merge-list "${batchlist}" \
+        --out "${tmpprefix}_out" \
         2>&1 | printlog 2
   # extract plink's warnings about chromosome and position clashes from plink's log and add the
   # corresponding variant names to plink's own missnp file.
-  grep '^Warning: Multiple' ${tmpprefix}_out.log \
+  grep '^Warning: Multiple' "${tmpprefix}_out.log" \
     | cut -d ' ' -f 7 \
     | tr -d "'." \
     | sort -u \
-    >> ${mismatchlist} || true
+    >> "${mismatchlist}" || true
   if [[ -s "${mismatchlist}" ]] ; then
-    sort -u ${mismatchlist} >> ${tmpprefix}_out.missnp
+    sort -u "${mismatchlist}" >> "${tmpprefix}_out.missnp"
   fi
   # are we done?
   if [ ! -f "${tmpprefix}.missnp" ] ; then
     break
   fi
   # no! prepare to repeat loop
-  sort -u ${tmpprefix}.missnp > ${varblacklist}
+  sort -u "${tmpprefix}.missnp" > "${varblacklist}"
   printf "repeating merging attempt..\n"
-  rm ${tmpprefix}.missnp
+  rm "${tmpprefix}.missnp"
 done
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
 
-rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
+rename "${tmpprefix}_out" "${opt_outprefix}" "${tmpprefix}_out".*
 
-rm ${tmpprefix}*
+rm "${tmpprefix}"*
 

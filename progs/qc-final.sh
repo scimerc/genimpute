@@ -3,9 +3,9 @@
 # exit on error
 set -Eeou pipefail
 
-declare -r  tmpprefix=${opt_outprefix}_tmp
-declare -r  debuglogfn=${tmpprefix}_debug.log
-declare -ra batchfamfiles=( $( ls ${opt_batchoutprefix}*.fam ) )
+declare -r  tmpprefix="${opt_outprefix}_tmp"
+declare -r  debuglogfn="${tmpprefix}_debug.log"
+declare -ra batchfamfiles=( $( ls "${opt_batchoutprefix}"*.fam ) )
 
 declare -r cfg_bfdr=$( cfgvar_get bfdr )
 declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
@@ -29,7 +29,7 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
   exit 0
 fi
 
-if ls ${tmpprefix}* > /dev/null 2>&1; then
+if ls "${tmpprefix}"* > /dev/null 2>&1; then
   printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
@@ -38,46 +38,46 @@ declare keepfile=''
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
 if [ -f "${opt_outprefixbase}.ids" ] ; then
-  keepfile=${opt_outprefixbase}.ids
+  keepfile="${opt_outprefixbase}.ids"
   keepflag="--keep ${keepfile}"
 fi
 
-cp ${opt_inprefix}.bed ${tmpprefix}_out.bed
-cp ${opt_inprefix}.bim ${tmpprefix}_out.bim
-cp ${opt_inprefix}.fam ${tmpprefix}_out.fam
+cp "${opt_inprefix}.bed" "${tmpprefix}_out.bed"
+cp "${opt_inprefix}.bim" "${tmpprefix}_out.bim"
+cp "${opt_inprefix}.fam" "${tmpprefix}_out.fam"
 
 if [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] ; then
   # if a phenotype file was specified write a control list
   printf "extracting control list from '${cfg_phenotypes}'..\n"
   awk -F $'\t' '$3 == 1' ${cfg_phenotypes} \
     | sort -u \
-    | extract_sample_ids ${keepfile} \
-    > ${tmpprefix}_ctrl.txt
-  declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
+    | extract_sample_ids "${keepfile}" \
+    > "${tmpprefix}_ctrl.txt"
+  declare -r Nctrl=$( cat "${tmpprefix}_ctrl.txt" | wc -l )
   # and redefine phenotypes in the input plink set
-  ${plinkexec} --bfile ${opt_inprefix} \
-               --make-pheno ${cfg_phenotypes} 2 \
+  ${plinkexec} --bfile "${opt_inprefix}" \
+               --make-pheno "${cfg_phenotypes}" 2 \
                --make-bed \
-               --out ${tmpprefix}_pheno \
+               --out "${tmpprefix}_pheno" \
                2>&1 | printlog 2
-elif [ $( grep -c '1$' ${opt_inprefix}.fam ) -ge $cfg_minindcount ] ; then
+elif [ $( grep -c '1$' "${opt_inprefix}.fam" ) -ge $cfg_minindcount ] ; then
   # else, if there are enough annotated controls in the original file use those
   printf "extracting control list from '${opt_inprefix}.fam'..\n"
-  awk -F $'\t' '$6 == 1' ${opt_inprefix}.fam \
+  awk -F $'\t' '$6 == 1' "${opt_inprefix}.fam" \
     | cut -f 1,2,6 \
     | sort -u \
-    | extract_sample_ids ${keepfile} \
-    > ${tmpprefix}_ctrl.txt
-  declare -r Nctrl=$( cat ${tmpprefix}_ctrl.txt | wc -l )
+    | extract_sample_ids "${keepfile}" \
+    > "${tmpprefix}_ctrl.txt"
+  declare -r Nctrl=$( cat "${tmpprefix}_ctrl.txt" | wc -l )
   # rename temporary plink set
-  rename _out _pheno ${tmpprefix}_out.*
+  rename _out _pheno "${tmpprefix}_out".*
 else
   # else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
   printf "no controls available. using everyone..\n"
-  cut -f 1,2,6 ${opt_inprefix}.fam \
-    | extract_sample_ids ${keepfile} \
+  cut -f 1,2,6 "${opt_inprefix}.fam" \
+    | extract_sample_ids "${keepfile}" \
     | sort -u \
-    > ${tmpprefix}_ctrl.txt 
+    > "${tmpprefix}_ctrl.txt" 
   declare -r Nctrl=0
 fi
 printf "$Nctrl actual controls found.\n"
@@ -86,16 +86,16 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   declare plinkflag=''
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
   printf "testing non-sex chromosomes control Hardy-Weinberg equilibrium..\n"
-  ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} \
+  ${plinkexec} --bfile "${tmpprefix}_pheno" ${keepflag} \
                --not-chr 23,24 \
                --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
                --make-just-bim \
-               --out ${tmpprefix}_ctrlhwe_nonsex \
+               --out "${tmpprefix}_ctrlhwe_nonsex" \
                2>&1 | printlog 2
   declare nosexflag=''
   # get set of individuals missing sex information for exclusion from later check
-  awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
-    > ${opt_hqprefix}.nosex
+  awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' "${opt_hqprefix}.fam" \
+    > "${opt_hqprefix}.nosex"
   if [ -s "${opt_hqprefix}.nosex" ] ; then
     nosexflag="--remove ${opt_hqprefix}.nosex"
   fi
@@ -103,14 +103,14 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   if [ "${sex_hweneglogp_ctrl}" -gt 12 ] ; then
     sex_hweneglogp_ctrl=12
   fi
-  if [ $( get_xvar_count ${tmpprefix}_pheno.bim ) -ge ${cfg_minvarcount} ] ; then
+  if [ $( get_xvar_count "${tmpprefix}_pheno.bim" ) -ge ${cfg_minvarcount} ] ; then
     # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
     printf "testing sex chromosomes control Hardy-Weinberg equilibrium..\n"
-    ${plinkexec} --bfile ${tmpprefix}_pheno ${keepflag} ${nosexflag} \
+    ${plinkexec} --bfile "${tmpprefix}_pheno" ${keepflag} ${nosexflag} \
                  --chr 23,24 \
                  --hwe 1.E-${sex_hweneglogp_ctrl} midp \
                  --make-just-bim \
-                 --out ${tmpprefix}_ctrlhwe_sex \
+                 --out "${tmpprefix}_ctrlhwe_sex" \
                  2>&1 | printlog 2
   fi
   unset nosexflag
@@ -119,59 +119,59 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
     exit 1;
   }
   # list the variants passing stricter Hardy-Weiberg equilibrium tests on controls
-  cut -f 2 ${tmpprefix}_ctrlhwe_*sex.bim | sort -u > ${tmpprefix}_ctrlhwe.mrk
+  cut -f 2 "${tmpprefix}_ctrlhwe_"*sex.bim | sort -u > "${tmpprefix}_ctrlhwe.mrk"
   plinkflag="--extract ${tmpprefix}_ctrlhwe.mrk"
   # make a new plink set with eventual filter
-  ${plinkexec} --bfile ${opt_inprefix} ${plinkflag} \
+  ${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
                --make-bed \
-               --out ${tmpprefix}_ctrlhwe \
+               --out "${tmpprefix}_ctrlhwe" \
                2>&1 | printlog 2
   # make a copy of the files with output suffix
-  cp ${tmpprefix}_ctrlhwe.bed ${tmpprefix}_out.bed
-  cp ${tmpprefix}_ctrlhwe.bim ${tmpprefix}_out.bim
-  cp ${tmpprefix}_ctrlhwe.fam ${tmpprefix}_out.fam
+  cp "${tmpprefix}_ctrlhwe.bed" "${tmpprefix}_out.bed"
+  cp "${tmpprefix}_ctrlhwe.bim" "${tmpprefix}_out.bim"
+  cp "${tmpprefix}_ctrlhwe.fam" "${tmpprefix}_out.fam"
 fi
 printf "${#batchfamfiles[*]} batches found.\n"
 if [ ${#batchfamfiles[*]} -gt 1 ] ; then
-  > ${tmpprefix}.exclude
+  > "${tmpprefix}.exclude"
   for i in ${!batchfamfiles[@]} ; do
     printf "assessing batch effects for '${batchfamfiles[$i]}'..\n"
-    ${plinkexec} --bfile ${tmpprefix}_out \
+    ${plinkexec} --bfile "${tmpprefix}_out" \
                  --allow-no-sex \
-                 --keep ${tmpprefix}_ctrl.txt \
+                 --keep "${tmpprefix}_ctrl.txt" \
                  --make-pheno ${batchfamfiles[$i]} '*' \
                  --model \
-                 --out ${tmpprefix}_plink \
+                 --out "${tmpprefix}_plink" \
                  2>&1 | printlog 2
     if [ -s "${tmpprefix}_plink.model" ] ; then
-      sed -i -r 's/^[ \t]+//g; s/[ \t]+/\t/g;' ${tmpprefix}_plink.model
-      for atest in $( cut -f 5 ${tmpprefix}_plink.model | tail -n +2 | sort -u ) ; do
+      sed -i -r 's/^[ \t]+//g; s/[ \t]+/\t/g;' "${tmpprefix}_plink.model"
+      for atest in $( cut -f 5 "${tmpprefix}_plink.model" | tail -n +2 | sort -u ) ; do
         printf "summarizing ${atest} tests..\n"
-        awk -F $'\t' -v atest=${atest} 'NR > 1 && $5 == atest' ${tmpprefix}_plink.model \
+        awk -F $'\t' -v atest=${atest} 'NR > 1 && $5 == atest' "${tmpprefix}_plink.model" \
           | cut -f 2,10 \
-          | ${BASEDIR}/progs/fdr.Rscript \
+          | "${BASEDIR}"/progs/fdr.Rscript \
           | awk -v bfdr=${cfg_bfdr} -F $'\t' '$2 < bfdr' \
           | cut -f 1 \
-          >> ${tmpprefix}.exclude
+          >> "${tmpprefix}.exclude"
       done
     fi
   done
-  sort -u ${tmpprefix}.exclude > ${tmpprefix}.exclude.sort
-  mv ${tmpprefix}.exclude.sort ${tmpprefix}.exclude
-  ${plinkexec} --bfile ${tmpprefix}_out \
-               --exclude ${tmpprefix}.exclude \
+  sort -u "${tmpprefix}.exclude" > "${tmpprefix}.exclude.sort"
+  mv "${tmpprefix}.exclude.sort" "${tmpprefix}.exclude"
+  ${plinkexec} --bfile "${tmpprefix}_out" \
+               --exclude "${tmpprefix}.exclude" \
                --make-bed \
-               --out ${tmpprefix}_nbe \
+               --out "${tmpprefix}_nbe" \
                2>&1 | printlog 2
   # make a copy of the files with output suffix
-  cp ${tmpprefix}_nbe.bed ${tmpprefix}_out.bed
-  cp ${tmpprefix}_nbe.bim ${tmpprefix}_out.bim
-  cp ${tmpprefix}_nbe.fam ${tmpprefix}_out.fam
+  cp "${tmpprefix}_nbe.bed" "${tmpprefix}_out.bed"
+  cp "${tmpprefix}_nbe.bim" "${tmpprefix}_out.bim"
+  cp "${tmpprefix}_nbe.fam" "${tmpprefix}_out.fam"
 fi
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
 
-rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
+rename "${tmpprefix}_out" "${opt_outprefix}" "${tmpprefix}_out".*
 
-rm ${tmpprefix}*
+rm "${tmpprefix}"*
 

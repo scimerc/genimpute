@@ -39,7 +39,7 @@ export -f cfgvar_init
 
 # initialize variable values from configuration file
 cfgvar_init_from_file() {
-  _cfgvar_read_file $1 cfgvar_init
+  _cfgvar_read_file "$1" cfgvar_init
 }
 export -f cfgvar_init_from_file
 
@@ -47,7 +47,7 @@ export -f cfgvar_init_from_file
 
 # check if variable is defined
 cfgvar_is_defined() {
-  local -r name=$1
+  local -r name="$1"
   if [ -z "${name}" ] ; then
     printf 'empty variable name\n' >&2
     return 1
@@ -60,16 +60,16 @@ export -f cfgvar_is_defined
 
 # set variable value
 cfgvar_set() {
-  local -r name=$1
+  local -r name="$1"
   local -r value="$2"
-  local -r varname=${_CFGVAR_PREFIX_NAME_}$name
-  if ! cfgvar_is_defined $varname; then
-    printf 'variable %s is not defined.\n' $name >&2
+  local -r varname="${_CFGVAR_PREFIX_NAME_}$name"
+  if ! cfgvar_is_defined "${varname}" ; then
+    printf 'variable %s is not defined.\n' "${name}" >&2
     return 1
   fi
-  local -r statusname=${_CFGVAR_PREFIX_STATUS_}${name}
+  local -r statusname="${_CFGVAR_PREFIX_STATUS_}${name}"
   if [ "${!statusname}" -eq $_CFGVAR_STATUS_READONLY_ ] ; then
-    printf 'variable %s is read-only.\n' $name >&2
+    printf 'variable %s is read-only.\n' "${name}" >&2
     return 1
   fi
   export ${varname}="${value}"
@@ -89,7 +89,7 @@ export -f cfgvar_set_readonly
 # set all variables to read-only
 cfgvar_setall_readonly() {
   for name in $( _cfgvar_list_names ) ; do
-    cfgvar_set_readonly ${name}
+    cfgvar_set_readonly "${name}"
     if [ $? -ne 0 ] ; then
       return 1
     fi
@@ -103,7 +103,7 @@ export -f cfgvar_setall_readonly
 cfgvar_show_config() {
   for name in $( _cfgvar_list_names ); do
     # use internal get() so we do not increaase read counter
-    printf "%s = %s\n" ${name} "$(_cfgvar_get ${name})"
+    printf "%s = %s\n" "${name}" "$(_cfgvar_get ${name})"
   done | sort
 }
 export -f cfgvar_show_config
@@ -112,7 +112,7 @@ export -f cfgvar_show_config
 
 # read variable values from configuration file
 cfgvar_update_from_file() {
-  _cfgvar_read_file $1 cfgvar_set
+  _cfgvar_read_file "$1" cfgvar_set
 }
 export -f cfgvar_update_from_file
 
@@ -129,12 +129,12 @@ cfgvar_cleanup() {
   #done
   # cleanup vars
   for name in $(_cfgvar_list_varnames_prefix "_CFGVAR_") ; do
-    unset ${name}
+    unset "${name}"
   done
   # get all function names with _cfgvar or cfgvar prefix
   local -r funcs="$(typeset -F | cut -d " " -f 3 | grep "^cfgvar_\|^_cfgvar_")"
-  for name in $funcs; do
-    unset ${name}
+  for name in ${funcs}; do
+    unset "${name}"
   done
 }
 export -f cfgvar_cleanup
@@ -142,10 +142,10 @@ export -f cfgvar_cleanup
 #-------------------------------------------------------------------------------
 
 _cfgvar_get() {
-  local -r usrname=$1
-  local -r varname=${_CFGVAR_PREFIX_NAME_}${usrname}
-  if ! cfgvar_is_defined $varname; then
-    printf 'variable %s is not defined.\n' $usrname >&2
+  local -r usrname="$1"
+  local -r varname="${_CFGVAR_PREFIX_NAME_}${usrname}"
+  if ! cfgvar_is_defined "${varname}"; then
+    printf 'variable %s is not defined.\n' "${usrname}" >&2
     return 1
   fi
   printf "%s" "${!varname}"
@@ -156,9 +156,9 @@ export -f _cfgvar_get
 
 _cfgvar_read_file() {
   local -r filename="$1"
-  local -r function=$2
-  if [ ! -f "$filename" ]; then
-    printf "error: file '%s' not found\n" ${filename} >&2
+  local -r function="$2"
+  if [ ! -f "${filename}" ]; then
+    printf "error: file '%s' not found\n" "${filename}" >&2
     return 1
   fi
   local linecounter=0
@@ -190,21 +190,21 @@ _cfgvar_read_file() {
     if [ $? -ne 0 ] ; then
       return 1
     fi
-  done < <( cat ${filename} )
+  done < <( cat "${filename}" )
 }
 export -f _cfgvar_read_file
 
 #-------------------------------------------------------------------------------
 
 _cfgvar_set_status() {
-  local -r name=$1
-  local -r status=$2
-  local -r varname=${_CFGVAR_PREFIX_NAME_}${name}
-  if ! cfgvar_is_defined $varname; then
-    printf 'variable %s is not defined.\n' $name >&2
+  local -r name="$1"
+  local -r status="$2"
+  local -r varname="${_CFGVAR_PREFIX_NAME_}${name}"
+  if ! cfgvar_is_defined "${varname}"; then
+    printf 'variable %s is not defined.\n' "${name}" >&2
     return 1
   fi
-  local -r statusname=${_CFGVAR_PREFIX_STATUS_}${name}
+  local -r statusname="${_CFGVAR_PREFIX_STATUS_}${name}"
   if [ -z "${statusname}" ] ; then
     printf 'undefined variable status.\n' >&2
     return 1

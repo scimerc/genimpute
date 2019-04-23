@@ -19,7 +19,7 @@ fi
 readonly batchfiles
 
 # default variant reference file
-declare  varreffile=${cfg_refprefix}.all.haplotypes.gpa
+declare  varreffile="${cfg_refprefix}.all.haplotypes.gpa"
 
 declare  opt_refcode
          opt_refcode=$( get_unique_filename_from_path "${cfg_refprefix}.all.haplotypes.bcf.gz" )
@@ -97,12 +97,12 @@ printf "\
 " | printlog 1
 
 if [ -z "${cfg_refprefix}" ] ; then
-  declare tmpprefix=${opt_outprefix}_tmp
-  varreffile=${tmpprefix}.gpa
+  declare tmpprefix="${opt_outprefix}_tmp"
+  varreffile="${tmpprefix}.gpa"
   for i in ${!batchfiles[@]} ; do
-    declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
-    declare b_inprefix=${opt_inprefix}_batch_${batchcode}
-    cut -f 2 ${b_inprefix}.bim \
+    declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
+    declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
+    cut -f 2 "${b_inprefix}.bim" \
       | awk -F ':' '{
         OFS="\t"
         split( $2, infovec, "_" )
@@ -110,38 +110,38 @@ if [ -z "${cfg_refprefix}" ] ; then
       }'
   done \
     | sort -u | sort -k 1,1n -k 4,4n \
-    > ${varreffile}
+    > "${varreffile}"
   unset batchcode
   unset b_inprefix
   unset tmpprefix
 fi
 for i in ${!batchfiles[@]} ; do
-  declare batchcode=$( get_unique_filename_from_path ${batchfiles[$i]} )
-  declare b_inprefix=${opt_inprefix}_batch_${batchcode}
-  declare b_outprefix=${opt_outprefix}_batch_${batchcode}
-  declare tmpprefix=${b_outprefix}_tmp
-  declare debuglogfn=${tmpprefix}_debug.log
+  declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
+  declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
+  declare b_outprefix="${opt_outprefix}_batch_${batchcode}"
+  declare tmpprefix="${b_outprefix}_tmp"
+  declare debuglogfn="${tmpprefix}_debug.log"
   # check for hash collisions
   if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
     printf "'%s' already exists. skipping alignment step..\n" "${b_outprefix}.bed"
     printf "try increasing 'numchars' in the hash function if you think this should not happen.\n"
     continue
   fi
-  if ls ${tmpprefix}* > /dev/null 2>&1; then
+  if ls "${tmpprefix}"* > /dev/null 2>&1; then
     printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
   # define input specific plink settings
-  declare tmpvarctrl=${tmpprefix}_varctrl
-  declare batchallelemap=${tmpprefix}.allelemap
-  declare batchblacklist=${tmpprefix}.blacklist
-  declare batchfliplist=${tmpprefix}.fliplist
-  declare batchidmap=${tmpprefix}.idmap
-  sort -k 1,1 -k 4,4 ${b_inprefix}.tped \
+  declare tmpvarctrl="${tmpprefix}_varctrl"
+  declare batchallelemap="${tmpprefix}.allelemap"
+  declare batchblacklist="${tmpprefix}.blacklist"
+  declare batchfliplist="${tmpprefix}.fliplist"
+  declare batchidmap="${tmpprefix}.idmap"
+  sort -k 1,1 -k 4,4 "${b_inprefix}.tped" \
     | get_plink_varinfo_blacklist \
-    | sort -u > ${batchblacklist}
+    | sort -u > "${batchblacklist}"
   {
-    printf "     $( wc -l ${batchblacklist} | cut -d ' ' -f 1 ) "
+    printf "$( wc -l "${batchblacklist}" | cut -d ' ' -f 1 ) "
     printf "colocalized variants marked for deletion.\n"
   } | printlog 1
   declare plinkflag=""
@@ -150,22 +150,22 @@ for i in ${!batchfiles[@]} ; do
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
   ${plinkexec} \
-        --bfile ${b_inprefix} ${plinkflag} \
+        --bfile "${b_inprefix}" ${plinkflag} \
         --make-bed \
-        --out ${tmpprefix}_nb \
+        --out "${tmpprefix}_nb" \
         2>&1 | printlog 2
   unset plinkflag
   # tab-separate all human-readable plink files
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.bim
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nb.fam
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nb.bim"
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nb.fam"
   # check usability of reference
-  printf "matching batch '%s' variants to reference..\n" $( basename ${batchfiles[$i]} )
+  printf "matching batch '%s' variants to reference..\n" "$( basename "${batchfiles[$i]}" )"
   [ -s "${varreffile}" ] || {
     printf "error: file '%s' is unusable.\n" "${varreffile}" >&2;
     exit 1;
   }
   # get chr:bp strings from bim file and join with the corresponding field of varreffile
-  awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' ${tmpprefix}_nb.bim \
+  awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' "${tmpprefix}_nb.bim" \
     | sort -t $'\t' -k 7,7 \
     | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' <( \
       awk '{
@@ -175,17 +175,17 @@ for i in ${!batchfiles[@]} ; do
         if ( chr == "X" || chr == "XY" ) chr = 23
         if ( chr == "Y" ) chr = 24
         print( chr":"$2, $3, $4 )
-      }' ${varreffile} \
+      }' "${varreffile}" \
       | sort -t $'\t' -k 1,1 \
     ) - | awk -F $'\t' \
-      -f ${BASEDIR}/lib/awk/nucleocode.awk \
-      -f ${BASEDIR}/lib/awk/genotype.awk \
-      -f ${BASEDIR}/lib/awk/gflip.awk \
-      -f ${BASEDIR}/lib/awk/gmatch.awk \
-      -v batchallelemap=${batchallelemap} \
-      -v batchblacklist=${batchblacklist} \
-      -v batchfliplist=${batchfliplist} \
-      -v batchidmap=${batchidmap} \
+      -f "${BASEDIR}/lib/awk/nucleocode.awk" \
+      -f "${BASEDIR}/lib/awk/genotype.awk" \
+      -f "${BASEDIR}/lib/awk/gflip.awk" \
+      -f "${BASEDIR}/lib/awk/gmatch.awk" \
+      -v batchallelemap="${batchallelemap}" \
+      -v batchblacklist="${batchblacklist}" \
+      -v batchfliplist="${batchfliplist}" \
+      -v batchidmap="${batchidmap}" \
       --source 'BEGIN{
           OFS="\t"
           total_miss = 0
@@ -265,16 +265,16 @@ for i in ${!batchfiles[@]} ; do
         }' \
     | printlog 1
   # update idmap
-  sort -t $'\t' -k 1,1 ${batchidmap} > $tmpvarctrl
-  mv $tmpvarctrl ${batchidmap}
+  sort -t $'\t' -k 1,1 "${batchidmap}" > "${tmpvarctrl}"
+  mv "${tmpvarctrl}" "${batchidmap}"
   # list unique
-  sort -t $'\t' -u ${batchfliplist} > $tmpvarctrl
-  mv $tmpvarctrl ${batchfliplist}
-  printf "     $( wc -l ${batchfliplist} ) variants to be flipped.\n" | printlog 1
+  sort -t $'\t' -u "${batchfliplist}" > "${tmpvarctrl}"
+  mv "${tmpvarctrl}" "${batchfliplist}"
+  printf "$( wc -l "${batchfliplist}" ) variants to be flipped.\n" | printlog 1
   # list unique
-  sort -t $'\t' -u ${batchblacklist} | join -v1 -t $'\t' - ${batchidmap} > $tmpvarctrl
-  mv $tmpvarctrl ${batchblacklist}
-  printf "     $( wc -l ${batchblacklist} ) variants to be excluded.\n" | printlog 1
+  sort -t $'\t' -u "${batchblacklist}" | join -v1 -t $'\t' - "${batchidmap}" > "${tmpvarctrl}"
+  mv "${tmpvarctrl}" "${batchblacklist}"
+  printf "$( wc -l "${batchblacklist}" ) variants to be excluded.\n" | printlog 1
 
   declare plinkflag=""
   if [ -s "${batchblacklist}" ] ; then
@@ -282,70 +282,70 @@ for i in ${!batchfiles[@]} ; do
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
   ${plinkexec} \
-        --bfile ${tmpprefix}_nb ${plinkflag} \
+        --bfile "${tmpprefix}_nb" ${plinkflag} \
         --make-bed \
-        --out ${tmpprefix}_nbb \
+        --out "${tmpprefix}_nbb" \
         2>&1 | printlog 2
   unset plinkflag
   # tab-separate all human-readable plink files
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbb.bim
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbb.fam
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbb.bim"
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbb.fam"
   declare plinkflag=""
   if [ -s "${batchfliplist}" ] ; then
     plinkflag="--flip ${batchfliplist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
   ${plinkexec} \
-        --bfile ${tmpprefix}_nbb ${plinkflag} \
+        --bfile "${tmpprefix}_nbb" ${plinkflag} \
         --make-bed \
-        --out ${tmpprefix}_nbf \
+        --out "${tmpprefix}_nbf" \
         2>&1 | printlog 2
   unset plinkflag
   # tab-separate all human-readable plink files
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbf.bim
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_nbf.fam
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbf.bim"
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbf.fam"
   ${plinkexec} \
-        --bfile ${tmpprefix}_nbf \
-        --update-name ${batchidmap} \
+        --bfile "${tmpprefix}_nbf" \
+        --update-name "${batchidmap}" \
         --make-bed \
-        --out ${tmpprefix}_un \
+        --out "${tmpprefix}_un" \
         2>&1 | printlog 2
   ${plinkexec} \
-        --bfile ${tmpprefix}_un \
-        --update-alleles ${batchallelemap} \
+        --bfile "${tmpprefix}_un" \
+        --update-alleles "${batchallelemap}" \
         --make-bed \
-        --out ${tmpprefix}_una \
+        --out "${tmpprefix}_una" \
         2>&1 | printlog 2
   declare plinkflag=''
-  parcount=$( awk '$1 == 25' ${tmpprefix}_una.bim | wc -l )
+  parcount=$( awk '$1 == 25' "${tmpprefix}_una.bim" | wc -l )
   # split X chromosome variants
   if [ $parcount -eq 0 ] ; then
     plinkflag="--split-x ${cfg_genomebuild} no-fail" 
   fi
   ${plinkexec} \
-        --bfile ${tmpprefix}_una ${plinkflag} \
+        --bfile "${tmpprefix}_una" ${plinkflag} \
         --make-bed \
-        --out ${tmpprefix}_out \
+        --out "${tmpprefix}_out" \
         2>&1 | printlog 2 
   ${plinkexec} \
-        --bfile ${tmpprefix}_out \
+        --bfile "${tmpprefix}_out" \
         --freq \
-        --out ${tmpprefix}_out \
+        --out "${tmpprefix}_out" \
         2>&1 | printlog 2
   unset plinkflag
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-  sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
 
-  rename ${tmpprefix}_out ${b_outprefix} ${tmpprefix}_out.*
+  rename "${tmpprefix}_out" "${b_outprefix}" "${tmpprefix}_out".*
 
   if [ "${batchcode}" == "${opt_refcode}" ] ; then
-    cp ${b_outprefix}.bed ${opt_refprefix}.bed
-    cp ${b_outprefix}.bim ${opt_refprefix}.bim
-    cp ${b_outprefix}.fam ${opt_refprefix}.fam
-    cp ${b_outprefix}.frq ${opt_refprefix}.frq
+    cp "${b_outprefix}.bed" "${opt_refprefix}.bed"
+    cp "${b_outprefix}.bim" "${opt_refprefix}.bim"
+    cp "${b_outprefix}.fam" "${opt_refprefix}.fam"
+    cp "${b_outprefix}.frq" "${opt_refprefix}.frq"
   fi
 
-  rm ${tmpprefix}*
+  rm "${tmpprefix}"*
 
   unset batchcode
   unset b_inprefix

@@ -243,6 +243,10 @@ done
 
 #-------------------------------------------------------------------------------
 
+for bfile in ${opt_outprefix}_chr${chr}_imputed.dose.bcf ; do
+  ${bcftoolsexec} query -l ${bfile}
+done | sort -u | awk '{ print( $1, $1 ); }' > ${tmpprefix}_ordered.fam
+
 # write recode scripts
 printf "writing recode scripts..\n"
 for chr in ${cfg_chromosomes} ; do
@@ -264,8 +268,13 @@ ${plinkexec} \\
   --double-id \\
   --make-bed \\
   --out ${tmpprefix}_chr${chr}_plink
-rename ${tmpprefix}_chr${chr}_plink ${opt_outprefix}_chr${chr}_imputed \\
-  ${tmpprefix}_chr${chr}_plink.* \\
+${plinkexec} \\
+  --bfile ${tmpprefix}_chr${chr}_plink \\
+  --indiv-sort ${tmpprefix}_ordered.fam \\
+  --make-bed \\
+  --out ${tmpprefix}_chr${chr}_plink_reordered
+rename ${tmpprefix}_chr${chr}_plink_reordered ${opt_outprefix}_chr${chr}_imputed \\
+  ${tmpprefix}_chr${chr}_plink_reordered.* \\
 EOI
   chmod u+x ${scriptfn}
   jobscripts+=( "${scriptfn}" )

@@ -14,8 +14,8 @@ else
 fi
 readonly batchfiles
 
-declare -r tmpprefix=${opt_outprefix}_tmp
-declare -r debuglogfn=${tmpprefix}_debug.log
+declare -r tmpprefix="${opt_outprefix}_tmp"
+declare -r debuglogfn="${tmpprefix}_debug.log"
 
 #-------------------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ declare -r debuglogfn=${tmpprefix}_debug.log
 
 printf "  * Compile whitelist of variants common to all batches (if enabled)\n" | printlog 1
 
-if [ ${opt_minivarset} -eq 1 ] ; then
+if [ "${opt_minivarset}" -eq 1 ] ; then
   exit 0
 fi
 
@@ -33,7 +33,7 @@ if [ -f "${opt_varwhitelist}" ] ; then
   exit 0
 fi
 
-if ls ${tmpprefix}* > /dev/null 2>&1; then
+if ls "${tmpprefix}"* > /dev/null 2>&1; then
   printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
@@ -46,7 +46,7 @@ bimtogprs() {
   awk -F $'\t' '{
     OFS="\t"
     print( $1":"$4, $2 )
-  }' ${inputfile} \
+  }' "${inputfile}" \
   | sort -u -k 1,1
 }
 
@@ -73,33 +73,33 @@ for i in ${!batchfiles[@]} ; do
   esac
   # whatever format the input file is - make a bim file
   printf "* Recode variants set into bim format" | printlog 1
-  ${plinkexec} ${plinkflag} ${batchfiles[$i]/%.bed/.bim} \
+  ${plinkexec} ${plinkflag} "${batchfiles[$i]/%.bed/.bim}" \
         --make-just-bim \
-        --out ${tmpprefix}_ex \
+        --out "${tmpprefix}_ex" \
         2>&1 | printlog 2
-  sed -i -r 's/[ \t]+/\t/g; s/^chr//g;' ${tmpprefix}_ex.bim
-  sed -i -r 's/^XY/X/g; s/^X/23/g; s/^Y/24/g; s/^25/23/g;' ${tmpprefix}_ex.bim
+  sed -i -r 's/[ \t]+/\t/g; s/^chr//g;' "${tmpprefix}_ex.bim"
+  sed -i -r 's/^XY/X/g; s/^X/23/g; s/^Y/24/g; s/^25/23/g;' "${tmpprefix}_ex.bim"
   if [ -s "${tmpprefix}_ex.bim" ] ; then
     if [ $i -eq 0 ] ; then
-      bimtogprs ${tmpprefix}_ex.bim \
+      bimtogprs "${tmpprefix}_ex.bim" \
         | sort -t $'\t' -u -k 1,1 \
-        > ${tmpprefix}_ex.0.gprs
+        > "${tmpprefix}_ex.0.gprs"
     else
-      join -t $'\t' ${tmpprefix}_ex.1.gprs <( bimtogprs ${tmpprefix}_ex.bim ) \
+      join -t $'\t' "${tmpprefix}_ex.1.gprs" <( bimtogprs "${tmpprefix}_ex.bim" ) \
         | cut -f 1,2 \
         | sort -t $'\t' -u -k 1,1 \
-        > ${tmpprefix}_ex.0.gprs
+        > "${tmpprefix}_ex.0.gprs"
     fi
-    mv ${tmpprefix}_ex.0.gprs ${tmpprefix}_ex.1.gprs
-    rm -f ${tmpprefix}_ex.bim
+    mv "${tmpprefix}_ex.0.gprs" "${tmpprefix}_ex.1.gprs"
+    rm -f "${tmpprefix}_ex.bim"
   fi
   awk -F $'\t' '{
     OFS="\t"
     split( $1, gpvec, ":" )
     print( gpvec[1], gpvec[2] - 1, gpvec[2], $2 )
-  }' ${tmpprefix}_ex.1.gprs > ${opt_varwhitelist}
+  }' "${tmpprefix}_ex.1.gprs" > "${opt_varwhitelist}"
   unset plinkflag
 done
 
-rm ${tmpprefix}*
+rm "${tmpprefix}"*
 

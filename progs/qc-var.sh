@@ -3,8 +3,8 @@
 # exit on error
 set -Eeou pipefail
 
-declare -r tmpprefix=${opt_outprefix}_tmp
-declare -r debuglogfn=${tmpprefix}_debug.log
+declare -r tmpprefix="${opt_outprefix}_tmp"
+declare -r debuglogfn="${tmpprefix}_debug.log"
 
 declare -r cfg_hweflag=$( cfgvar_get hweflag )
 declare    cfg_hweneglogp=$( cfgvar_get hweneglogp )
@@ -36,17 +36,17 @@ if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outpref
   exit 0
 fi
 
-if ls ${tmpprefix}* > /dev/null 2>&1; then
+if ls "${tmpprefix}"* > /dev/null 2>&1; then
   printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
 printf "removing mendel errors..\n"
-${plinkexec} --bfile ${opt_inprefix} \
+${plinkexec} --bfile "${opt_inprefix}" \
              --me ${cfg_metrios} ${cfg_mevars} \
              --set-me-missing \
              --make-bed \
-             --out ${tmpprefix}_nome \
+             --out "${tmpprefix}_nome" \
              2>&1 | printlog 2
 
 declare keepflag=''
@@ -59,20 +59,20 @@ fi
 [ "${cfg_phenotypes}" != "" -a -s "${cfg_phenotypes}" ] || cfg_hweneglogp=${cfg_hweneglogp_ctrl}
 
 tmp_varmiss=${cfg_varmiss}
-n=$( wc -l ${opt_inprefix}.fam | cut -d ' ' -f 1 )
+n=$( wc -l "${opt_inprefix}.fam" | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
 printf "qc'ing non-sex chromosomes variants..\n"
-${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} \
+${plinkexec} --bfile "${tmpprefix}_nome" ${keepflag} \
              --not-chr 23,24 \
              --set-hh-missing \
              --geno ${tmp_varmiss} \
              --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
              --make-just-bim \
-             --out ${tmpprefix}_nonsex \
+             --out "${tmpprefix}_nonsex" \
              2>&1 | printlog 2
 declare nosexflag=''
-awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' ${opt_hqprefix}.fam \
-  > ${opt_hqprefix}.nosex
+awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' "${opt_hqprefix}.fam" \
+  > "${opt_hqprefix}.nosex"
 if [ -s "${opt_hqprefix}.nosex" ] ; then
   nosexflag="--remove ${opt_hqprefix}.nosex"
 fi
@@ -80,15 +80,15 @@ sex_hweneglogp=$(( cfg_hweneglogp*2 ))
 if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
-if [ $( get_xvar_count ${opt_inprefix}.bim ) -ge ${cfg_minvarcount} ] ; then
+if [ $( get_xvar_count "${opt_inprefix}.bim" ) -ge ${cfg_minvarcount} ] ; then
   printf "qc'ing sex chromosomes variants..\n"
-  ${plinkexec} --bfile ${tmpprefix}_nome ${keepflag} ${nosexflag} \
+  ${plinkexec} --bfile "${tmpprefix}_nome" ${keepflag} ${nosexflag} \
                --chr 23,24 \
                --set-hh-missing \
                --geno ${tmp_varmiss} \
                --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
                --make-just-bim \
-               --out ${tmpprefix}_sex \
+               --out "${tmpprefix}_sex" \
                2>&1 | printlog 2
 fi
 unset nosexflag
@@ -96,17 +96,17 @@ unset nosexflag
   printf "error: no variants left after QC.\n" >&2;
   exit 1;
 }
-cut -f 2 ${tmpprefix}_*sex.bim | sort -u > ${tmpprefix}.mrk
-${plinkexec} --bfile ${opt_inprefix} \
-             --extract ${tmpprefix}.mrk \
+cut -f 2 "${tmpprefix}_"*sex.bim | sort -u > "${tmpprefix}.mrk"
+${plinkexec} --bfile "${opt_inprefix}" \
+             --extract "${tmpprefix}.mrk" \
              --set-hh-missing \
              --make-bed \
-             --out ${tmpprefix}_out \
+             --out "${tmpprefix}_out" \
              2>&1 | printlog 2
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_out.fam
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
 
-rename ${tmpprefix}_out ${opt_outprefix} ${tmpprefix}_out.*
+rename "${tmpprefix}_out" "${opt_outprefix}" "${tmpprefix}_out".*
 
-rm ${tmpprefix}*
+rm "${tmpprefix}"*
 

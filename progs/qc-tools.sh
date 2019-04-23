@@ -2,7 +2,7 @@
 
 extract_sample_ids() {
   local idfile
-  idfile=$1
+  idfile="$1"
   readonly idfile
   if [ -z "${idfile}" ] ; then
     cat
@@ -19,7 +19,7 @@ export -f extract_sample_ids
 #-------------------------------------------------------------------------------
 
 get_genotype_file_format() {
-  local -r inputfile=$1
+  local -r inputfile="$1"
   #TODO implement plink2 native .gen format
   local    bedhex
            bedhex='0x6c 0x1b'
@@ -38,7 +38,7 @@ get_genotype_file_format() {
   fi
 
   local    filehead
-           filehead=$( zcat -f ${inputfile} | hexdump -n2 -e '2/1 "0x%02x "' )
+           filehead=$( zcat -f "${inputfile}" | hexdump -n2 -e '2/1 "0x%02x "' )
   readonly filehead
   case ${filehead} in
     "${bedhex}" )
@@ -62,9 +62,9 @@ get_unique_filename_from_path() {
   local -r path="$1"
   local -r numchars=6
   local    md5
-           md5=$(echo "$path" | md5sum)
+           md5=$(echo "${path}" | md5sum)
   readonly md5
-  printf "%s_%s" "$(basename "$path" )" "${md5:0:$numchars}"
+  printf "%s_%s" "$(basename "${path}" )" "${md5:0:$numchars}"
 }
 
 export -f get_unique_filename_from_path
@@ -89,7 +89,7 @@ export -f get_variant_info_for_dup_chr_cm_bp_aa_mm
 
 # in: plink bim
 get_xvar_count() {
-  awk '$1 == 23' $1 | wc -l
+  awk '$1 == 23' "$1" | wc -l
 }
 
 export -f get_xvar_count
@@ -98,7 +98,7 @@ export -f get_xvar_count
 
 # in: tab-separated plink bim; out: same
 standardize_bim_file() {
-  local -r fn=$1
+  local -r fn="$1"
   awk -F $'\t' '{
     OFS="\t"
     a[1] = toupper($5)
@@ -116,8 +116,8 @@ standardize_bim_file() {
       $2 = $2"_"catalog[$2]
     } else catalog[$2] = 1
     print;
-  }' ${fn} > ${fn}.tmp
-  mv ${fn}.tmp ${fn}
+  }' "${fn}" > "${fn}.tmp"
+  mv "${fn}.tmp" "${fn}"
 }
 
 export -f standardize_bim_file
@@ -143,7 +143,7 @@ attach_uids() {
   if [ -s "${infile}" ] ; then
     tabulate "${infile}" \
       | awk -F $'\t' \
-        -f ${BASEDIR}/lib/awk/idclean.awk \
+        -f "${BASEDIR}/lib/awk/idclean.awk" \
         -v head=${header} \
         -v uid=${locuid} \
         --source '{
