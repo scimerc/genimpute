@@ -6,46 +6,46 @@ set -Eeou pipefail
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 export BASEDIR
 
-bcftoolsexec=${BASEDIR}/lib/3rd/bcftools
-eaglexec=${BASEDIR}/lib/3rd/eagle
+bcftoolsexec="${BASEDIR}/lib/3rd/bcftools"
+eaglexec="${BASEDIR}/lib/3rd/eagle"
 minimac_version=3
 
 timeformat="ResStats\tRealSec:\t%e\tMaxMemKB:\t%M\tUserSec:\t%U\tSysSec:\t%S"
 timexec="/usr/bin/time -o /dev/stdout -f ${timeformat}"
 
-declare -r tmpprefix=${opt_outprefix}_tmp
-declare -r debuglogfn=${tmpprefix}_debug.log
-declare -r sampleprefix=${tmpprefix}_samples/sample
-declare -r scriptprefix=${tmpprefix}_scripts/script
-declare -r scriptlogprefix=${tmpprefix}_logs/script
+declare -r tmpprefix="${opt_outprefix}_tmp"
+declare -r debuglogfn="${tmpprefix}_debug.log"
+declare -r sampleprefix="${opt_outprefixbase}/.i/.s/samples/sample"
+declare -r scriptprefix="${opt_outprefixbase}/.i/.s/scripts/script"
+declare -r scriptlogprefix="${opt_outprefixbase}/.i/.s/logs/script"
 
-mkdir -p $( dirname ${sampleprefix} )
-mkdir -p $( dirname ${scriptprefix} )
-mkdir -p $( dirname ${scriptlogprefix} )
+mkdir -p "$( dirname "${sampleprefix}" )"
+mkdir -p "$( dirname "${scriptprefix}" )"
+mkdir -p "$( dirname "${scriptlogprefix}" )"
 
 declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 declare -r cfg_execmode=$( cfgvar_get execmode )
 declare -r cfg_igroupsize=$( cfgvar_get igroupsize )
 declare -r cfg_genomemap=$( cfgvar_get genomemap )
 declare -r cfg_queuecmd=$( cfgvar_get queuecmd )
-declare -r cfg_refprefix=$( cfgvar_get refprefix )
+declare -r cfg_refprefix="$( cfgvar_get refprefix )"
 
-declare -r genmap=${BASEDIR}/lib/data/${cfg_genomemap}
+declare -r genmap="${BASEDIR}/lib/data/${cfg_genomemap}"
 
 declare -a jobscripts
 
 #-------------------------------------------------------------------------------
 
-# split individuals in samples
+# split individuals in groups
 printf "splitting individuals into groups..\n"
-for bfile in ${opt_inprefix}_chr*.bcf ; do
-  ${bcftoolsexec} query -l ${bfile}
-done | sort -u | split -d -l ${cfg_igroupsize} /dev/stdin ${sampleprefix}
-groupsamplesize=${cfg_igroupsize}
-tmpsamplelist=$( ls "${sampleprefix}"* )
-totalsamplesize=$( cat "${sampleprefix}"* | wc -l )
-if [ ${totalsamplesize} -lt ${groupsamplesize} ] ; then
-  groupsamplesize=${totalsamplesize}
+for bfile in "${opt_inprefix}_chr"*.bcf ; do
+  "${bcftoolsexec}" query -l "${bfile}"
+done | sort -u | split -d -l ${cfg_igroupsize} /dev/stdin "${sampleprefix}"
+groupsize=${cfg_igroupsize}
+tmplist=$( ls "${sampleprefix}"* )
+total=$( cat "${sampleprefix}"* | wc -l )
+if [ ${total} -lt ${groupsize} ] ; then
+  groupsize=${total}
 fi
 
 #-------------------------------------------------------------------------------
@@ -60,9 +60,9 @@ for chr in ${cfg_chromosomes} ; do
     chrtag=X
   fi
 #TODO: implement different running time for reference-less phasing (stage ii)
-  runtimehrs=$(( 6 * ( totalsamplesize / 10000 + 1 ) ))
-  phasescriptfn=${scriptprefix}1_phase_chr${chr}.sh
-  cat > ${phasescriptfn} << EOI
+  runtimehrs=$(( 6 * ( total / 10000 + 1 ) ))
+  phasescriptfn="${scriptprefix}1_phase_chr${chr}.sh"
+  cat > "${phasescriptfn}" << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=1G
@@ -84,14 +84,14 @@ if [ ! -e "${cfg_refprefix}.chr${chr}.haplotypes.bcf" ] ; then
 fi
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
-${timexec} ${eaglexec} \\
+${timexec} "${eaglexec}" \\
   --chrom ${chrtag} \\
-  --geneticMapFile ${genmap} \\
-  --vcfRef ${cfg_refprefix}.chr${chr}.haplotypes.bcf \\
-  --vcfTarget ${opt_inprefix}_chr${chr}.bcf \\
-  --outPrefix ${tmpprefix}_chr${chr}_phasing \\
+  --geneticMapFile "${genmap}" \\
+  --vcfRef "${cfg_refprefix}.chr${chr}.haplotypes.bcf" \\
+  --vcfTarget "${opt_inprefix}_chr${chr}.bcf" \\
+  --outPrefix "${tmpprefix}_chr${chr}_phasing" \\
   --numThreads \$(( num_cpus * 2))
-mv ${tmpprefix}_chr${chr}_phasing.vcf.gz ${tmpprefix}_chr${chr}_phased.vcf.gz
+mv "${tmpprefix}_chr${chr}_phasing.vcf.gz" "${tmpprefix}_chr${chr}_phased.vcf.gz"
 EOI
   chmod u+x ${phasescriptfn}
   jobscripts+=( "${phasescriptfn}" )
@@ -106,7 +106,7 @@ printf "writing imputation scripts..\n"
 SBATCH_CONF_MM3="
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=14G
-#SBATCH --time=$(( 12 * ( groupsamplesize / 500 + 1 ) )):00:00
+#SBATCH --time=$(( 12 * ( groupsize / 500 + 1 ) )):00:00
 
 # results for batch3; n=9200 individuals total, 14 samples with n=650 each; hrc-32k reference
 # Minimac3-omp
@@ -119,7 +119,7 @@ SBATCH_CONF_MM3="
 SBATCH_CONF_MM4="
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=3G
-#SBATCH --time=$(( 4 * ( groupsamplesize / 500 + 1 ) )):00:00
+#SBATCH --time=$(( 4 * ( groupsize / 500 + 1 ) )):00:00
 
 # results for batch3; n=9200 individuals total, 14 samples with n=650 each; hrc-32k reference
 # minimac4
@@ -128,10 +128,10 @@ SBATCH_CONF_MM4="
 "
 
 for chr in ${cfg_chromosomes} ; do
-  for samplefile in ${tmpsamplelist} ; do
-    sampletag=${samplefile##*\/}
-    sampletag=${sampletag//*sample/s}
-    sampletag=${sampletag//*s/sample}
+  for samplefile in ${tmplist} ; do
+    sampletag="${samplefile##*\/}"
+    sampletag="${sampletag//*sample/s}"
+    sampletag="${sampletag//*s/sample}"
     imputescriptfn="${scriptprefix}2_impute_chr${chr}_${sampletag}.sh"
     case "${minimac_version}" in
       "3")
@@ -139,7 +139,7 @@ for chr in ${cfg_chromosomes} ; do
         sbatch_conf=${SBATCH_CONF_MM3}
         ;;
       "4")
-        minimacexec=${BASEDIR}/lib/3rd/minimac4
+        minimacexec="${BASEDIR}/lib/3rd/minimac4"
         sbatch_conf=${SBATCH_CONF_MM4}
         ;;
       *)
@@ -147,7 +147,7 @@ for chr in ${cfg_chromosomes} ; do
         exit 1
         ;;
     esac
-    cat >> ${imputescriptfn} << EOI
+    cat >> "${imputescriptfn}" << EOI
 #!/usr/bin/env bash
 ${sbatch_conf}
 
@@ -163,23 +163,24 @@ if [ ! -e "${cfg_refprefix}.chr${chr}.m3vcf.gz" ] ; then
 fi
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
-${bcftoolsexec} view -S ${samplefile} -Oz \\
-  --force-samples ${tmpprefix}_chr${chr}_phased.vcf.gz \\
-  > ${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz
-${timexec} ${minimacexec} \\
+"${bcftoolsexec}" view -S "${samplefile}" -Oz \\
+  --force-samples "${tmpprefix}_chr${chr}_phased.vcf.gz" \\
+  > "${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz"
+${timexec} "${minimacexec}" \\
   --cpus \$(( num_cpus * 2 )) \\
-  --haps ${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz \\
-  --refHaps ${cfg_refprefix}.chr${chr}.m3vcf.gz \\
+  --format GT,GP,DS \\
+  --haps "${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz" \\
+  --refHaps "${cfg_refprefix}.chr${chr}.m3vcf.gz" \\
   --noPhoneHome \\
-  --prefix ${tmpprefix}_chr${chr}_${sampletag}_imputing \\
-  > ${tmpprefix}_chr${chr}_${sampletag}_imputing.log 2>&1
-${bcftoolsexec} index -f ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.vcf.gz
+  --prefix "${tmpprefix}_chr${chr}_${sampletag}_imputing" \\
+  > "${tmpprefix}_chr${chr}_${sampletag}_imputing.log" 2>&1
+"${bcftoolsexec}" index -f "${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.vcf.gz"
 # convert to bcf
-${bcftoolsexec} view ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.vcf.gz \
-    -Ob --threads 3 \
-  > ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf
+"${bcftoolsexec}" view "${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.vcf.gz" \\
+    -Ob --threads 3 \\
+  > "${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf"
 # fix minimac3 output
-${bcftoolsexec} view -h ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf \\
+"${bcftoolsexec}" view -h "${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf" \\
   | awk -v genofilter='##FILTER=<ID=GENOTYPED,Description="Site was genotyped">' \\
     'BEGIN{ flag = 0 } {
       if ( \$0 ~ "^##FILTER" ) {
@@ -188,22 +189,18 @@ ${bcftoolsexec} view -h ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf \\
       }
       print
     }' \\
-  > ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch
-${bcftoolsexec} reheader -h ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch \\
-  ${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf \\
-  > ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf
-${bcftoolsexec} annotate --set-id %CHROM:%POS:%REF:%ALT -Ob \\
-  ${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf \\
-  > ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf
-${bcftoolsexec} index -f ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf
-mv \\
-  ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf \\
-  ${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.bcf
-mv \\
-  ${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf.csi \\
-  ${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.bcf.csi
+  > "${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch"
+"${bcftoolsexec}" reheader -h "${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch" \\
+  "${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.bcf" \\
+  > "${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf"
+"${bcftoolsexec}" annotate --set-id %CHROM:%POS:%REF:%ALT -Ob \\
+  "${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.bcf" \\
+  > "${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf"
+"${bcftoolsexec}" index -f "${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf"
+rename imputing_std.dose.bcf imputed.dose.bcf \\
+  "${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.bcf"*
 EOI
-    chmod u+x ${imputescriptfn}
+    chmod u+x "${imputescriptfn}"
     jobscripts+=( "${imputescriptfn}" )
   done
 done
@@ -213,8 +210,8 @@ done
 # write merge scripts
 printf "writing merge scripts..\n"
 for chr in ${cfg_chromosomes} ; do
-  scriptfn=${scriptprefix}3_merge_chr${chr}.sh
-  cat > ${scriptfn} << EOI
+  scriptfn="${scriptprefix}3_merge_chr${chr}.sh"
+  cat > "${scriptfn}" << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=4G
@@ -222,36 +219,41 @@ for chr in ${cfg_chromosomes} ; do
 
 set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
-if [ -e "${opt_outprefix}_chr${chr}_imputed.dose.bcf" ]; then
+if [ -e "${opt_outprefixbase}/bcf/chr${chr}.bcf" ]; then
   printf "merged vcf files present. nothing to do..\\n"
   exit 0
 fi
-Ns=\$( ls ${tmpprefix}_chr${chr}_*_imputed.dose.bcf | wc -l ) 
+Ns=\$( ls "${tmpprefix}_chr${chr}"_*_imputed.dose.bcf | wc -l ) 
 if [ \${Ns} -eq 1 ] ; then
-  cp ${tmpprefix}_chr${chr}_*_imputed.dose.bcf ${tmpprefix}_chr${chr}_imputed.dose.bcf
+  cp "${tmpprefix}_chr${chr}"_*_imputed.dose.bcf "${tmpprefix}_chr${chr}_imputed.dose.bcf"
 elif [ \${Ns} -gt 1 ] ; then 
-  ${bcftoolsexec} merge ${tmpprefix}_chr${chr}_*_imputed.dose.bcf --threads 3 -Ob \\
-    > ${tmpprefix}_chr${chr}_imputed.dose.bcf
+  "${bcftoolsexec}" merge "${tmpprefix}_chr${chr}"_*_imputed.dose.bcf --threads 3 -Ob \\
+    > "${tmpprefix}_chr${chr}_imputed.dose.bcf"
 fi
-mv \\
-  ${tmpprefix}_chr${chr}_imputed.dose.bcf \\
-  ${opt_outprefix}_chr${chr}_imputed.dose.bcf
+bcftools index "${tmpprefix}_chr${chr}_imputed.dose.bcf"
+rename "${tmpprefix}_chr${chr}_imputed.dose.bcf" "${opt_outprefixbase}/bcf/chr${chr}.bcf" \\
+       "${tmpprefix}_chr${chr}_imputed.dose.bcf"*
 EOI
-  chmod u+x ${scriptfn}
+  chmod u+x "${scriptfn}"
   jobscripts+=( "${scriptfn}" )
 done
 
 #-------------------------------------------------------------------------------
 
-for bfile in ${opt_outprefix}_chr${chr}_imputed.dose.bcf ; do
-  ${bcftoolsexec} query -l ${bfile}
-done | sort -u | awk '{ print( $1, $1 ); }' > ${tmpprefix}_ordered.fam
+# extract list of individuals to establish unique order
+for bfile in "${opt_outprefixibase}/bcf/chr"*.bcf ; do
+  "${bcftoolsexec}" query -l "${bfile}"
+done \\
+  | sort -u | awk '{
+    print( $1, $1 );
+  }' \\
+  > "${tmpprefix}_ordered.fam"
 
 # write recode scripts
 printf "writing recode scripts..\n"
 for chr in ${cfg_chromosomes} ; do
-  scriptfn=${scriptprefix}4_recode_chr${chr}.sh
-  cat > ${scriptfn} << EOI
+  scriptfn="${scriptprefix}4_recode_chr${chr}.sh"
+  cat > "${scriptfn}" << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=4G
@@ -259,24 +261,25 @@ for chr in ${cfg_chromosomes} ; do
 
 set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
-if [ -s "${opt_outprefix}_chr${chr}.bed" ]; then
+if [ -s "${opt_outprefixbase}/bed/chr${chr}.bed" ]; then
   printf "plink-recoded files present. nothing to do..\\n"
   exit 0
 fi
 ${plinkexec} \\
-  --bcf ${opt_outprefix}_chr${chr}_imputed.dose.bcf \\
+  --bcf "${opt_outprefixbase}/bcf/chr${chr}.bcf" \\
+  --vcf-min-gp 0.75 \\
   --double-id \\
   --make-bed \\
-  --out ${tmpprefix}_chr${chr}_plink
+  --out "${tmpprefix}_chr${chr}_plink"
 ${plinkexec} \\
-  --bfile ${tmpprefix}_chr${chr}_plink \\
-  --indiv-sort ${tmpprefix}_ordered.fam \\
+  --bfile "${tmpprefix}_chr${chr}_plink" \\
+  --indiv-sort "${tmpprefix}_ordered.fam" \\
   --make-bed \\
-  --out ${tmpprefix}_chr${chr}_plink_reordered
-rename ${tmpprefix}_chr${chr}_plink_reordered ${opt_outprefix}_chr${chr}_imputed \\
-  ${tmpprefix}_chr${chr}_plink_reordered.* \\
+  --out "${tmpprefix}_chr${chr}_plink_reordered"
+rename "${tmpprefix}_chr${chr}_plink_reordered" "${opt_outprefixbase}/bed/chr${chr}.bed" \\
+       "${tmpprefix}_chr${chr}_plink_reordered"* \\
 EOI
-  chmod u+x ${scriptfn}
+  chmod u+x "${scriptfn}"
   jobscripts+=( "${scriptfn}" )
 done
 
@@ -294,7 +297,7 @@ case ${cfg_execmode} in
   "local")
     for script in ${jobscripts}; do
       echo "running '${script}'.."
-      ${script} > ${scriptlogprefix}.out
+      "${script}" > "${scriptlogprefix}.out"
     done
     ;;
   "slurm")
@@ -305,7 +308,7 @@ case ${cfg_execmode} in
       echo "$cat"
       joblist=""
       for script in $(echo "${jobscripts}" | grep "${cat}_" ); do
-        jobname=$( echo $( basename $script ) | grep -o 'script[^/]\+' | sed 's/cript//' )
+        jobname=$( echo $( basename "${script}" ) | grep -o 'script[^/]\+' | sed 's/cript//' )
         echo "${cfg_queuecmd} ${jobdep}
               --job-name=${jobname}
               --output=${tmpprefix}_slurm_%x_%j.out
@@ -313,8 +316,8 @@ case ${cfg_execmode} in
         jobid=$( \
           ${cfg_queuecmd} ${jobdep} \
             --job-name=${jobname} \
-            --output=${scriptlogprefix}_slurm_%x_%j.out \
-            --parsable ${script}
+            --output="${scriptlogprefix}_slurm"_%x_%j.out \
+            --parsable "${script}"
         )
         joblist="${joblist}:${jobid}"
       done

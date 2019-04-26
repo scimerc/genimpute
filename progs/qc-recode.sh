@@ -62,7 +62,7 @@ for i in ${!batchfiles[@]} ; do
       flagformat='--vcf'
       ;;
     * )
-      printf "error: fileformat '%s' not handled\n" ${fformat} >&2
+      printf "error: unhandled fileformat '%s'.\n" ${fformat} >&2
       exit 1
       ;;
   esac
@@ -80,7 +80,10 @@ for i in ${!batchfiles[@]} ; do
     --merge-x no-fail \
     --make-bed \
     --out "${tmpprefix}_mx" \
-    2>&1 | printlog 2
+    2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   # re-write variant info in universal format
   standardize_bim_file "${tmpprefix}_mx.bim"
   if [ ! -z "${bedflag}" ] ; then
@@ -88,7 +91,10 @@ for i in ${!batchfiles[@]} ; do
       --bfile "${tmpprefix}_mx" ${bedflag} \
       --make-bed \
       --out "${tmpprefix}_out" \
-      2>&1 | printlog 2
+      2> >( tee "${tmpprefix}.err" ) | printlog 2
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
     mv "${tmpprefix}_out.log" "${b_outprefix}.1.log"
   else
     rename "${tmpprefix}_mx" "${tmpprefix}_out" "${tmpprefix}_mx".*
@@ -110,8 +116,11 @@ for i in ${!batchfiles[@]} ; do
       --bfile "${tmpprefix}_out" ${pedflag} \
       --recode transpose \
       --out "${tmpprefix}_out" \
-      2>&1 | printlog 2
-      mv "${tmpprefix}_out.log" "${b_outprefix}.2.log"
+      2> >( tee "${tmpprefix}.err" ) | printlog 2
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
+    mv "${tmpprefix}_out.log" "${b_outprefix}.2.log"
   else
     printf "no colocalized variants found.\n"
     printf "skipping batch '$( basename "${batchfiles[$i]}" )' tped recoding..\n"

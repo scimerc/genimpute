@@ -55,7 +55,10 @@ while true ; do
           --bfile "${b_inprefix}" ${plinkflag} \
           --make-bed \
           --out "${b_outprefix}" \
-          2>&1 | printlog 2
+          2> >( tee "${tmpprefix}.err" ) | printlog 2
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
     printf "${b_outprefix}\n" >> "${batchlist}"
     unset batchcode
     unset inprefix
@@ -66,7 +69,10 @@ while true ; do
   ${plinkexec} \
         --merge-list "${batchlist}" \
         --out "${tmpprefix}_out" \
-        2>&1 | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   # extract plink's warnings about chromosome and position clashes from plink's log and add the
   # corresponding variant names to plink's own missnp file.
   grep '^Warning: Multiple' "${tmpprefix}_out.log" \

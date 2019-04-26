@@ -118,6 +118,10 @@ cfgvar_setall_readonly
 # append configuration tag to output prefix
 opt_outprefixbase="${opt_outprefixbase}_$( cfgvar_show_config | md5sum | head -c 6 )"
 
+# prepare output containers
+mkdir -p "${opt_outprefixbase}/bcf" "${opt_outprefixbase}/bed" "${opt_outprefixbase}/.i/.s" \
+         "${opt_outprefixbase}/.i/qc" "${opt_outprefixbase}/.i/ph" "${opt_outprefixbase}/.i/im"
+
 # export input and output names
 export opt_inputfiles
 export opt_outprefixbase
@@ -198,6 +202,8 @@ source "${BASEDIR}/progs/qc-tools.sh"
 # pre-processing
 #---------------------------------------------------------------------------------------------------
 
+echo "starting.."
+
 # export vars
 export cfg_uid
 cfg_uid="$( cfgvar_get uid )"
@@ -206,14 +212,14 @@ export cfg_uid
 export opt_dryimpute
 export opt_minivarset
 export opt_samplewhitelist
-export opt_varwhitelist="${opt_outprefixbase}_vwlist.mrk"
-export opt_refprefix="${opt_outprefixbase}_refset"
+export opt_varwhitelist="${opt_outprefixbase}/.i/qc/a_vwlist.mrk"
+export opt_refprefix="${opt_outprefixbase}/.i/qc/a_refset"
 
 #---------------------------------------------------------------------------------------------------
 
 echo "==== Whitelist ====" | printlog 1
 
-export opt_outprefix="${opt_outprefixbase}_vwlist"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/a_vwlist"
 
 # call wlist
 bash "${BASEDIR}/progs/qc-wlist.sh"
@@ -225,7 +231,7 @@ unset opt_outprefix
 
 echo "==== Recoding ====" | printlog 1
 
-export opt_outprefix="${opt_outprefixbase}_a_recode"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/a_recode"
 
 # call recode
 bash "${BASEDIR}/progs/qc-recode.sh"
@@ -237,8 +243,8 @@ unset opt_outprefix
 
 echo "==== Alignment ====" | printlog 1
 
-export opt_inprefix="${opt_outprefixbase}_a_recode"
-export opt_outprefix="${opt_outprefixbase}_b_align"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/a_recode"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/b_align"
 
 # call align
 bash "${BASEDIR}/progs/qc-align.sh"
@@ -253,8 +259,8 @@ unset opt_outprefix
 
 echo "==== Merge ====" | printlog 1
 
-export opt_inprefix="${opt_outprefixbase}_b_align"
-export opt_outprefix="${opt_outprefixbase}_c_proc"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/b_align"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 
 # call merge
 bash "${BASEDIR}/progs/qc-merge.sh"
@@ -270,30 +276,16 @@ declare qciter=0
 
 # biography
 
-if [ ! -f "${opt_outprefixbase}.bio" ] ; then
-  echo "initializing sample biography file.."
-  # initialize sample biography file
-  declare opt_outprefix="${opt_outprefixbase}_c_proc"
-  declare opt_biofile="${opt_outprefixbase}.bio"
-  cut -f 1-4 "${opt_outprefix}.fam" \
-    | awk -F $'\t' -v uid=${cfg_uid} -f "${BASEDIR}/lib/awk/idclean.awk" \
-      --source '
-        BEGIN{
-          OFS="\t";
-          print( uid, "FID", "IID", "P1ID", "P2ID" )
-        } { print( idclean( $1"_"$2 ), $0 ) } \
-      ' \
-    | sort -u -k 1,1 > "${opt_biofile}"
-  Norg=$( cat "${opt_outprefix}.fam" | wc -l )
-  Nuid=$( cat "${opt_biofile}" | wc -l )
-  if [ ${Norg} -ge ${Nuid} ] ; then
-    echo '========> conflicts generated in universal IDs.'
-    echo 'please recode IDs so they do not lead to conflicts.'
-    exit 1
-  fi
-  unset opt_outprefix
-  unset opt_biofile
-fi
+# export vars
+export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
+export opt_biofile="${opt_outprefixbase}/bio.txt"
+
+# call init-bio
+bash "${BASEDIR}/progs/init-bio.sh"
+
+# cleanup
+unset opt_outprefix
+unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
@@ -302,8 +294,8 @@ fi
 echo "==== Variant HQC ====" | printlog 1
 
 # export vars
-export opt_inprefix="${opt_outprefixbase}_c_proc"
-export opt_hqprefix="${opt_outprefixbase}_d_hqset"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/c_proc"
+export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 
 # call hqset
 bash "${BASEDIR}/progs/qc-hqset.sh"
@@ -319,10 +311,10 @@ unset opt_inprefix
 echo "==== Individual QC ====" | printlog 1
 
 # export vars
-export opt_inprefix="${opt_outprefixbase}_c_proc"
-export opt_hqprefix="${opt_outprefixbase}_d_hqset"
-export opt_outprefix="${opt_outprefixbase}_e_indqc"
-export opt_biofile="${opt_outprefixbase}.bio"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/c_proc"
+export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/e_indqc"
+export opt_biofile="${opt_outprefixbase}/bio.txt"
 
 # call indqc
 bash "${BASEDIR}/progs/qc-ind.sh"
@@ -340,9 +332,9 @@ unset opt_biofile
 echo "==== Variant QC ====" | printlog 1
 
 # export vars
-export opt_hqprefix="${opt_outprefixbase}_d_hqset"
-export opt_inprefix="${opt_outprefixbase}_e_indqc"
-export opt_outprefix="${opt_outprefixbase}_f_varqc"
+export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/e_indqc"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 
 # call qcvar
 bash "${BASEDIR}/progs/qc-var.sh"
@@ -357,10 +349,10 @@ unset opt_outprefix
 # perform final QC (control-HWE? batch effects?)
 
 # export vars
-export opt_hqprefix="${opt_outprefixbase}_d_hqset"
-export opt_inprefix="${opt_outprefixbase}_f_varqc"
-export opt_outprefix="${opt_outprefixbase}_g_finqc"
-export opt_batchoutprefix="${opt_outprefixbase}_c_proc_batch"
+export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/f_varqc"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/g_finqc"
+export opt_batchoutprefix="${opt_outprefixbase}/.i/qc/c_proc_batch"
 
 # call qcfinal
 bash "${BASEDIR}/progs/qc-final.sh"
@@ -376,11 +368,11 @@ unset opt_batchoutprefix
 # get high quality set
 
 # export vars
-export opt_inprefix="${opt_outprefixbase}_g_finqc"
-export opt_hqprefix="${opt_outprefixbase}_h_hqset"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
+export opt_hqprefix="${opt_outprefixbase}/.i/qc/h_hqset"
 
 # call hqset
-bash "${BASEDIR}"/progs/qc-hqset.sh "$( cfgvar_get refprefix )"
+bash "${BASEDIR}/progs/qc-hqset.sh" "$( cfgvar_get refprefix )"
 
 # cleanup
 unset opt_hqprefix
@@ -393,10 +385,10 @@ unset opt_inprefix
 echo "==== PCA etc. ====" | printlog 1
 
 # export vars
-export opt_hqprefix="${opt_outprefixbase}_h_hqset"
-export opt_inprefix="${opt_outprefixbase}_g_finqc"
-export opt_outprefix="${opt_outprefixbase}_g_finqc"
-export opt_biofile="${opt_outprefixbase}.bio"
+export opt_hqprefix="${opt_outprefixbase}/.i/qc/h_hqset"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/g_finqc"
+export opt_biofile="${opt_outprefixbase}/bio.txt"
 
 # call getpcs
 bash "${BASEDIR}/progs/qc-getpcs.sh"
@@ -410,6 +402,7 @@ unset opt_biofile
 #---------------------------------------------------------------------------------------------------
 
 if [ ${opt_qconly} -eq 1 ] ; then
+  echo "done."
   exit 0
 fi
 
@@ -418,8 +411,8 @@ fi
 echo "==== Recoding ====" | printlog 1
 
 # export vars
-export opt_inprefix="${opt_outprefixbase}_g_finqc"
-export opt_outprefix="${opt_outprefixbase}_i_pre"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
+export opt_outprefix="${opt_outprefixbase}/.i/ph/i_pre"
 
 # call convert
 bash "${BASEDIR}/progs/convert.sh"
@@ -433,8 +426,8 @@ unset opt_outprefix
 # impute
 
 # export vars
-export opt_inprefix="${opt_outprefixbase}_i_pre"
-export opt_outprefix="${opt_outprefixbase}_i_imp"
+export opt_inprefix="${opt_outprefixbase}/.i/ph/i_pre"
+export opt_outprefix="${opt_outprefixbase}/.i/im/i_imp"
 
 # call impute
 bash "${BASEDIR}/progs/impute.sh"
@@ -442,4 +435,6 @@ bash "${BASEDIR}/progs/impute.sh"
 # cleanup
 unset opt_inprefix
 unset opt_outprefix
+
+echo "done."
 

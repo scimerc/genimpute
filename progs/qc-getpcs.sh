@@ -28,17 +28,26 @@ printf "computing genetic principal components..\n"
 ${plinkexec} --bfile "${opt_hqprefix}" \
              --genome gz \
              --out "${opt_hqprefix}" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
 ${plinkexec} --bfile "${opt_hqprefix}" \
              --cluster \
              --read-genome "${opt_hqprefix}.genome.gz" \
              --pca header tabs var-wts \
              --out "${opt_hqprefix}" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
 ${plinkexec} --bfile "${opt_inprefix}" \
              --missing \
              --out "${opt_outprefix}" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
 
 # update biography file with genetic PCs
 {

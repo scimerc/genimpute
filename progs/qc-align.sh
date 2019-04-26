@@ -3,9 +3,13 @@
 # exit on error
 set -Eeou pipefail
 
-declare  cfg_genomebuild; 
-         cfg_genomebuild="$( cfgvar_get genomebuild )"; 
+declare  cfg_genomebuild
+         cfg_genomebuild="$( cfgvar_get genomebuild )"
 readonly cfg_genomebuild
+
+declare  cfg_infosep
+         cfg_infosep="$( cfgvar_get infosep )"
+readonly cfg_infosep
 
 declare  cfg_refprefix
          cfg_refprefix="$( cfgvar_get refprefix )"
@@ -30,11 +34,11 @@ readonly opt_refcode
 get_plink_varinfo_blacklist() {
 # stdin: plink universal variant info file sorted on chromosome and genomic position; stdout: rs
 # spare only one variant from sets of coherent colocalized variants, blacklist all else
-  awk '{
+  awk -v infosep="${cfg_infosep}" '{
     blackflag = 0
     vargp = $1"_"$4
     varid = $2
-    split( varid, avec, "_" )
+    split( varid, avec, infosep )
     coloc_with_missing = vargp == curvargp && avec[2] == 0 || avec[3] == 0
     if ( NR > 1 && ( varid == curvarid || coloc_with_missing ) ) {
       missing = 0
@@ -102,14 +106,9 @@ if [ -z "${cfg_refprefix}" ] ; then
   for i in ${!batchfiles[@]} ; do
     declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
     declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
-    cut -f 2 "${b_inprefix}.bim" \
-      | awk -F ':' '{
-        OFS="\t"
-        split( $2, infovec, "_" )
-        print( $1, infovec[1], infovec[2], infovec[3] );
-      }'
+    cut -f 2 "${b_inprefix}.bim" | tr "${cfg_infosep}" "\t"
   done \
-    | sort -u | sort -k 1,1n -k 4,4n \
+    | sort -u -k 1,1n -k 2,2n \
     > "${varreffile}"
   unset batchcode
   unset b_inprefix
@@ -153,7 +152,10 @@ for i in ${!batchfiles[@]} ; do
         --bfile "${b_inprefix}" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_nb" \
-        2>&1 | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   unset plinkflag
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nb.bim"
@@ -165,16 +167,20 @@ for i in ${!batchfiles[@]} ; do
     exit 1;
   }
   # get chr:bp strings from bim file and join with the corresponding field of varreffile
-  awk -F $'\t' '{ OFS="\t"; $7 = $1":"$4; print; }' "${tmpprefix}_nb.bim" \
+  awk -F $'\t' -v infosep="${cfg_infosep}" '{
+    OFS="\t"
+    $7 = $1 infosep $4
+    print
+  }' "${tmpprefix}_nb.bim" \
     | sort -t $'\t' -k 7,7 \
     | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' <( \
-      awk '{
+      awk -v infosep="${cfg_infosep}" '{
         OFS="\t"
         chr = $1
         if ( chr == "MT" ) chr = 26
         if ( chr == "X" || chr == "XY" ) chr = 23
         if ( chr == "Y" ) chr = 24
-        print( chr":"$2, $3, $4 )
+        print( chr infosep $2, $3, $4 )
       }' "${varreffile}" \
       | sort -t $'\t' -k 1,1 \
     ) - | awk -F $'\t' \
@@ -186,6 +192,7 @@ for i in ${!batchfiles[@]} ; do
       -v batchblacklist="${batchblacklist}" \
       -v batchfliplist="${batchfliplist}" \
       -v batchidmap="${batchidmap}" \
+      -v infosep="${cfg_infosep}" \
       --source 'BEGIN{
           OFS="\t"
           total_miss = 0
@@ -226,10 +233,10 @@ for i in ${!batchfiles[@]} ; do
                   blackcatalog[$4] = 1
                 }
                 else {
-                  newid = $1"_"$5"_"$6
+                  newid = $1 infosep $5 infosep $6
                   if ( newid in idcatalog ) {
                     idcatalog[newid]++
-                    newid = newid"_"idcatalog[newid]
+                    newid = newid infosep idcatalog[newid]
                   } else idcatalog[newid] = 1
                   idmapcatalog[$4] = newid
                   if ( $2 == 0 || $3 == 0 ) {
@@ -251,7 +258,7 @@ for i in ${!batchfiles[@]} ; do
           print( "total flipped:    ", total_flip )
           print( "total ambiguous:  ", total_ambi )
           for ( varid in idmapcatalog ) {
-            split( varid, avec, "_" )
+            split( varid, avec, infosep )
             if ( avec[2] == 0 ) aref = avec[3]
             if ( avec[3] == 0 ) aref = avec[2]
             print( varid, idmapcatalog[varid] ) >batchidmap
@@ -285,7 +292,10 @@ for i in ${!batchfiles[@]} ; do
         --bfile "${tmpprefix}_nb" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_nbb" \
-        2>&1 | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   unset plinkflag
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbb.bim"
@@ -299,7 +309,10 @@ for i in ${!batchfiles[@]} ; do
         --bfile "${tmpprefix}_nbb" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_nbf" \
-        2>&1 | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   unset plinkflag
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbf.bim"
@@ -309,13 +322,19 @@ for i in ${!batchfiles[@]} ; do
         --update-name "${batchidmap}" \
         --make-bed \
         --out "${tmpprefix}_un" \
-        2>&1 | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   ${plinkexec} \
         --bfile "${tmpprefix}_un" \
         --update-alleles "${batchallelemap}" \
         --make-bed \
         --out "${tmpprefix}_una" \
-        2>&1 | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   declare plinkflag=''
   parcount=$( awk '$1 == 25' "${tmpprefix}_una.bim" | wc -l )
   # split X chromosome variants
@@ -326,12 +345,18 @@ for i in ${!batchfiles[@]} ; do
         --bfile "${tmpprefix}_una" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_out" \
-        2>&1 | printlog 2 
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi 
   ${plinkexec} \
         --bfile "${tmpprefix}_out" \
         --freq \
         --out "${tmpprefix}_out" \
-        2>&1 | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   unset plinkflag
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"

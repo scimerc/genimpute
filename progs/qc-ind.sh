@@ -45,12 +45,18 @@ if [ ${cfg_hvm} -eq 1 ] ; then
                --set-hh-missing \
                --het \
                --out "${tmpprefix}_sq" \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   ${plinkexec} --bfile "${opt_hqprefix}" \
                --set-hh-missing \
                --missing \
                --out "${tmpprefix}_sq" \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   printf "removing mixups and low-coverage individuals..\n"
   "${BASEDIR}"/progs/het_vs_miss.Rscript -m "${tmpprefix}_sq.imiss" -h "${tmpprefix}_sq.het" \
     -o "${tmpprefix}_out" >> "${debuglogfn}"
@@ -63,6 +69,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   # write plink flag for non-mixup info later
   plinkflag="--keep ${tmpprefix}_out.clean.id"
 else
+  # write a dummy clean.id file including everyone
   cut -f 1,2 "${opt_hqprefix}" > "${tmpprefix}_out.clean.id"
 fi
 # extract high coverage variants
@@ -74,7 +81,10 @@ ${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
              --geno ${tmp_varmiss} \
              --make-just-bim \
              --out "${tmpprefix}_hcv" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 cut -d ' ' -f 2 "${tmpprefix}_hcv.bim" > "${tmpprefix}_hcv.mrk"
 # extract high coverage individuals
 tmp_samplemiss=${cfg_samplemiss}
@@ -86,7 +96,10 @@ ${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
              --mind ${tmp_samplemiss} \
              --make-just-fam \
              --out "${tmpprefix}_hci" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 # identify related individuals
 printf "identifying related individuals..\n"
 ${plinkexec} --bfile "${opt_hqprefix}" \
@@ -94,7 +107,10 @@ ${plinkexec} --bfile "${opt_hqprefix}" \
              --set-hh-missing \
              --genome gz \
              --out "${tmpprefix}_sq" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
              >> "${debuglogfn}"
 ${plinkexec} --bfile "${opt_hqprefix}" \
              --keep "${tmpprefix}_hci.fam" \
@@ -103,7 +119,10 @@ ${plinkexec} --bfile "${opt_hqprefix}" \
              --read-genome "${tmpprefix}_sq.genome.gz" \
              --rel-cutoff ${cfg_pihatrel} \
              --out "${tmpprefix}_sq" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 # rename list of unrelated individuals for later use
 mv "${tmpprefix}_sq.rel.id" "${opt_outprefixbase}.ids"
 # erase eventual dysfunctional family information
@@ -117,27 +136,25 @@ cut -f 1 "${opt_hqprefix}.fam" | sort | uniq -c | tabulate \
       sex[$1,$2] = $5
     } END{
       for ( sid in dad ) {
-        disfamvec = sex[dad[sid]] == 0 || sex[mom[sid]] == 0
-        disfamvec = disfamvec || sex[dad[sid]] == sex[mom[sid]]
-        if ( disfamvec ) {
+        dysfamvec = sex[dad[sid]] == 0 || sex[mom[sid]] == 0
+        dysfamvec = dysfamvec || sex[dad[sid]] == sex[mom[sid]]
+        if ( dysfamvec ) {
           split( sid, vid, SUBSEP )
           print( vid[1], vid[2], 0, 0 )
         }
       }
     }' \
   > "${tmpprefix}_dysfam.tri"
-${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
-             --update-parents "${tmpprefix}_dysfam.tri" \
-             --make-just-fam \
-             --out "${tmpprefix}_nodysfam" \
-             2>&1 | printlog 2
 # remove mixups and update sex and parents in input set
 ${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
-             --update-parents "${tmpprefix}_nodysfam.fam" \
-             --update-sex "${tmpprefix}_nodysfam.fam" 3 \
+             --update-parents "${tmpprefix}_dysfam.tri" \
+             --update-sex "${opt_hqprefix}.fam" 3 \
              --make-bed \
              --out "${tmpprefix}_out" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
 unset plinkflag

@@ -72,7 +72,10 @@ if [ ! -z "${1:+x}" ] ; then
   ${plinkexec} --bfile "${opt_inprefix}" \
                --bmerge "${opt_refprefix}" \
                --out "${tmpprefix}_draft" \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
 fi
 declare tmpindex=0
 declare -a tmp_varmiss=( 0.01 0.05 0.1 )
@@ -91,7 +94,10 @@ while [ $Nhq -lt $Nmin -a $tmpindex -lt 3 ] ; do
                --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
                --make-just-bim \
                --out "${tmpprefix}_nonsex" \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   if [ $( get_xvar_count "${tmpprefix}_draft.bim" ) -ge ${cfg_minvarcount} ] ; then
     # get sex hq-variants from input file
     ${plinkexec} --bfile "${tmpprefix}_draft" ${keepflag} \
@@ -100,7 +106,10 @@ while [ $Nhq -lt $Nmin -a $tmpindex -lt 3 ] ; do
                  --maf ${cfg_freq} \
                  --make-just-bim \
                  --out "${tmpprefix}_sex" \
-                 2>&1 | printlog 2
+                 2> >( tee "${tmpprefix}.err" ) | printlog 2
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
   fi
   Nhq=$( sort -u -k 2,2 "${tmpprefix}_"*sex.bim | wc -l )
   tmpindex=$(( tmpindex + 1 ))
@@ -116,18 +125,27 @@ ${plinkexec} --bfile "${tmpprefix}_draft" \
              --extract "${tmpprefix}_hq.mrk" \
              --make-bed \
              --out "${tmpprefix}_hq" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 # LD-prune hq variants
 ${plinkexec} --bfile "${tmpprefix}_hq" ${keepflag} \
              ${cfg_pruneflags} \
              --out "${tmpprefix}_hq_LD" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
 # extract LD-pruned hq variants from hq plink set
 ${plinkexec} --bfile "${tmpprefix}_hq" \
              --extract "${tmpprefix}_hq_LD.prune.in" \
              --make-bed \
              --out "${tmpprefix}_hq_LDpruned" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 # if there are enough X chromosome variants impute sex based on them
 if [ $( get_xvar_count "${tmpprefix}_hq_LDpruned.bim" ) -ge $cfg_minvarcount ] ; then
   freqflag=''
@@ -141,7 +159,10 @@ if [ $( get_xvar_count "${tmpprefix}_hq_LDpruned.bim" ) -ge $cfg_minvarcount ] ;
                --impute-sex ycount \
                --make-bed \
                --out "${tmpprefix}_hq_LDpruned_isex" \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   rename _hq_LDpruned_isex _out "${tmpprefix}_hq_LDpruned_isex".*
   declare -r xindcount=$( awk '$5 == 1 || $5 == 2' "${tmpprefix}_out.fam" | wc -l )
   # if sex could be imputed for enough individuals impute it once again after HWE tests
@@ -150,7 +171,10 @@ if [ $( get_xvar_count "${tmpprefix}_hq_LDpruned.bim" ) -ge $cfg_minvarcount ] ;
                  --hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag} \
                  --make-just-bim \
                  --out "${tmpprefix}_sexhwe" \
-                 2>&1 | printlog 2
+                 2> >( tee "${tmpprefix}.err" ) | printlog 2
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
     # if there are enough X chromosome variants after HWE re-impute sex based on them
     if [ $( get_xvar_count "${tmpprefix}_sexhwe.bim" ) -ge ${cfg_minvarcount} ] ; then
       ${plinkexec} --bfile "${tmpprefix}_hq_LDpruned" ${freqflag} \
@@ -158,7 +182,10 @@ if [ $( get_xvar_count "${tmpprefix}_hq_LDpruned.bim" ) -ge $cfg_minvarcount ] ;
                    --impute-sex ycount \
                    --make-bed \
                    --out "${tmpprefix}_hq_LDpruned_isexhwe" \
-                   2>&1 | printlog 2
+                   2> >( tee "${tmpprefix}.err" ) | printlog 2
+      if [ $? -ne 0 ] ; then
+        cat "${tmpprefix}.err"
+      fi
       # replace the original sex imputation files
       rename _hq_LDpruned_isexhwe _out "${tmpprefix}_hq_LDpruned_isexhwe".*
     fi

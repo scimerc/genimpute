@@ -47,7 +47,10 @@ ${plinkexec} --bfile "${opt_inprefix}" \
              --set-me-missing \
              --make-bed \
              --out "${tmpprefix}_nome" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
@@ -69,7 +72,10 @@ ${plinkexec} --bfile "${tmpprefix}_nome" ${keepflag} \
              --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \
              --make-just-bim \
              --out "${tmpprefix}_nonsex" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 declare nosexflag=''
 awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' "${opt_hqprefix}.fam" \
   > "${opt_hqprefix}.nosex"
@@ -89,7 +95,10 @@ if [ $( get_xvar_count "${opt_inprefix}.bim" ) -ge ${cfg_minvarcount} ] ; then
                --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag} \
                --make-just-bim \
                --out "${tmpprefix}_sex" \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
 fi
 unset nosexflag
 [ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
@@ -102,7 +111,10 @@ ${plinkexec} --bfile "${opt_inprefix}" \
              --set-hh-missing \
              --make-bed \
              --out "${tmpprefix}_out" \
-             2>&1 | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 2
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
 

@@ -42,7 +42,10 @@ if [ $Nold -eq $Nnew ] ; then
   ${plinkexec} --bfile ${opt_inprefix} \
                --update-ids ${tmpprefix}.idmap \
                --make-bed --out ${tmpprefix}_idfix \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
 else
   printf "====> warning: could not purge IDs due to ensuing conflicts.\n"
   cp ${opt_inprefix}.bed ${tmpprefix}_idfix.bed
@@ -66,7 +69,10 @@ for chr in ${tmp_chromosomes} ; do
                --chr ${chr} \
                --recode vcf bgz \
                --out ${tmpprefix}_chr${chr} \
-               2>&1 | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   ${bcftoolsexec} convert -Ob --threads 3 \
                   ${tmpprefix}_chr${chr}.vcf.gz \
                   > ${tmpprefix}_chr${chr}_out.bcf

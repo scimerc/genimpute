@@ -3,6 +3,10 @@
 # exit on error
 set -Eeou pipefail
 
+declare  cfg_infosep
+         cfg_infosep="$( cfgvar_get infosep )"
+readonly cfg_infosep
+
 declare  cfg_refprefix
          cfg_refprefix="$( cfgvar_get refprefix )"
 readonly cfg_refprefix
@@ -43,9 +47,9 @@ fi
 bimtogprs() {
 # in: tab-separated plink bim; stdout: chr:bp, rs
   local -r inputfile="$1"
-  awk -F $'\t' '{
+  awk -F $'\t' -v infosep="${cfg_infosep}" '{
     OFS="\t"
-    print( $1":"$4, $2 )
+    print( $1 infosep $4, $2 )
   }' "${inputfile}" \
   | sort -u -k 1,1
 }
@@ -67,16 +71,19 @@ for i in ${!batchfiles[@]} ; do
       plinkflag="--bcf"
       ;;
     * ) 
-      printf "error: fileformat '%s' not handled\n" ${fformat} >&2
+      printf "error: unhandled fileformat '%s'.\n" ${fformat} >&2
       exit 1
       ;;
   esac
   # whatever format the input file is - make a bim file
   printf "* Recode variants set into bim format" | printlog 1
   ${plinkexec} ${plinkflag} "${batchfiles[$i]/%.bed/.bim}" \
-        --make-just-bim \
-        --out "${tmpprefix}_ex" \
-        2>&1 | printlog 2
+               --make-just-bim \
+               --out "${tmpprefix}_ex" \
+               2> >( tee "${tmpprefix}.err" ) | printlog 2
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   sed -i -r 's/[ \t]+/\t/g; s/^chr//g;' "${tmpprefix}_ex.bim"
   sed -i -r 's/^XY/X/g; s/^X/23/g; s/^Y/24/g; s/^25/23/g;' "${tmpprefix}_ex.bim"
   if [ -s "${tmpprefix}_ex.bim" ] ; then
@@ -93,9 +100,9 @@ for i in ${!batchfiles[@]} ; do
     mv "${tmpprefix}_ex.0.gprs" "${tmpprefix}_ex.1.gprs"
     rm -f "${tmpprefix}_ex.bim"
   fi
-  awk -F $'\t' '{
+  awk -F $'\t' -v infosep="${cfg_infosep}" '{
     OFS="\t"
-    split( $1, gpvec, ":" )
+    split( $1, gpvec, infosep )
     print( gpvec[1], gpvec[2] - 1, gpvec[2], $2 )
   }' "${tmpprefix}_ex.1.gprs" > "${opt_varwhitelist}"
   unset plinkflag
