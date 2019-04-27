@@ -3,7 +3,7 @@
 # exit on error
 set -Eeou pipefail
 
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 
 # define default configuration
 
@@ -13,7 +13,7 @@ export BASEDIR
 
 source "${BASEDIR}/progs/cfgmgr.sh"
 
-cfgvar_init_from_file "${BASEDIR}/lib/data/genimpute_default.cfg"
+cfgvar_init_from_file "${BASEDIR}/lib/genimpute_default.cfg"
 
 #---------------------------------------------------------------------------------------------------
 
@@ -136,7 +136,7 @@ printlog() {
   local logfn
   logfn="${opt_outprefixbase}.log"
   readonly logfn
-  # print struff to log
+  # print stuff to log
   IFS=$'\n'
   while read line; do
     echo $(date) $lvl "${line}" >> ${logfn}
