@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 
+# exit on error
 set -Eeou pipefail
 
-# get parent dir of this script
-declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
-export BASEDIR
+source "${BASEDIR}/progs/checkdep.sh"
 
 bcftoolsexec=${BASEDIR}/lib/3rd/bcftools
 
 declare -r tmpprefix=${opt_outprefix}_tmp
-declare -r debuglogfn=${tmpprefix}_debug.log
-
 declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 
 #-------------------------------------------------------------------------------
@@ -18,15 +15,33 @@ declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 # input: final QC plink file set
 # output: chromosome-wise eagle VCF input files
 
+echo -e "==== Recoding ====\n" | printlog 1
+
 printf "\
   * Purge individual and family IDs
   * Convert plink file set into VCF format
-" | printlog 1
+\n" | printlog 1
+
+declare -ra cfg_chromosomes_arr=( $cfg_chromosomes )
+tmp_chromosomes=$( join \
+  <( printf "%s\n" ${cfg_chromosomes_arr[@]} | sort -u ) \
+  <( cut -f 1 ${opt_inprefix}.bim | sort -u ) \
+)
+
+declare cskip=1
+for chr in ${tmp_chromosomes} ; do
+  [ -s ${opt_outprefix}_chr${chr}.bcf ] || cskip=0
+done
+if [ ${cskip} -eq 1 ] ; then
+  printf "> all bcf files present. skipping conversion..\n"
+  exit 0
+fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
+
 # purge fam file ids of any unwanted characters
 awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk --source '{
   OFS="\t"
@@ -39,10 +54,10 @@ awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk --source '{
 Nold=$( sort -u -k 1,2 ${tmpprefix}.idmap | wc -l )
 Nnew=$( sort -u -k 3,4 ${tmpprefix}.idmap | wc -l )
 if [ $Nold -eq $Nnew ] ; then
-  ${plinkexec} --bfile ${opt_inprefix} \
+  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} \
                --update-ids ${tmpprefix}.idmap \
                --make-bed --out ${tmpprefix}_idfix \
-               2> >( tee "${tmpprefix}.err" ) | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
@@ -54,22 +69,17 @@ else
 fi
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_idfix.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_idfix.fam
-declare -ra cfg_chromosomes_arr=( $cfg_chromosomes )
-tmp_chromosomes=$( join \
-  <( printf "%s\n" ${cfg_chromosomes_arr[@]} | sort -u ) \
-  <( cut -f 1 ${tmpprefix}_idfix.bim | sort -u ) \
-)
 # convert input files to vcf formats
 for chr in ${tmp_chromosomes} ; do
   if [ -e ${opt_outprefix}_chr${chr}.bcf ] ; then
-    printf "bcf file '%s' found. skipping conversion..\\n" ${opt_outprefix}_chr${chr}.bcf
+    printf "> bcf file '%s' found. skipping conversion..\\n" ${opt_outprefix}_chr${chr}.bcf
     continue
   fi
-  ${plinkexec} --bfile ${tmpprefix}_idfix \
+  ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_idfix \
                --chr ${chr} \
                --recode vcf bgz \
                --out ${tmpprefix}_chr${chr} \
-               2> >( tee "${tmpprefix}.err" ) | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi

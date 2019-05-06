@@ -3,10 +3,14 @@
 # exit on error
 set -Eeou pipefail
 
+source "${BASEDIR}/progs/checkdep.sh"
+
 declare -r tmpprefix="${opt_outprefix}_tmp"
-declare -r debuglogfn="${tmpprefix}_debug.log"
 
 declare -r cfg_hvm=$( cfgvar_get hvm )
+declare -r cfg_hvmmax=$( cfgvar_get hvmmax )
+declare -r cfg_hvmmin=$( cfgvar_get hvmmin )
+declare -r cfg_hvmsdn=$( cfgvar_get hvmsdn )
 declare -r cfg_pihatrel=$( cfgvar_get pihatrel )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
 declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
@@ -19,19 +23,21 @@ declare -r cfg_uid=$( cfgvar_get uid )
 # input: merged plink set and hq plink set
 # output: clean plink set (with imputed sex from hq set and no mixups)
 
+echo -e "==== Individual QC ====\n" | printlog 1
+
 printf "\
-  * Exclude potentially contaminated and low-coverage individuals
+  * Exclude possibly contaminated (mean+%dsd heterozygosity) and low-coverage (%.0f%%) individuals
   * Erase parent information for any dysfunctional families
   * Annotate relatedness information
-" | printlog 1
+\n" ${cfg_hvmsdn} "$( echo "(1 - ${cfg_hvmmax})*100" | bc )"  | printlog 1
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "'%s' found. skipping individual QC..\n" "${opt_outprefix}.bed"
+  printf "> '%s' found. skipping individual QC..\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
 if ls "${tmpprefix}"* > /dev/null 2>&1; then
-  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -40,48 +46,81 @@ fi
 declare plinkflag=''
 # run 'het_VS_miss.Rscript' to find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
-  printf "computing individual heterozygosity and missing rates..\n"
-  ${plinkexec} --bfile "${opt_hqprefix}" \
+  printf "> computing individual heterozygosity and missing rates..\n"
+  ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
                --set-hh-missing \
                --het \
                --out "${tmpprefix}_sq" \
-               2> >( tee "${tmpprefix}.err" ) | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  ${plinkexec} --bfile "${opt_hqprefix}" \
+  ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
                --set-hh-missing \
                --missing \
                --out "${tmpprefix}_sq" \
-               2> >( tee "${tmpprefix}.err" ) | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  printf "removing mixups and low-coverage individuals..\n"
-  "${BASEDIR}"/progs/het_vs_miss.Rscript -m "${tmpprefix}_sq.imiss" -h "${tmpprefix}_sq.het" \
-    -o "${tmpprefix}_out" >> "${debuglogfn}"
-  mv "${tmpprefix}_out_hetVSmiss.pdf" "${opt_outprefix}_hetVSmiss.pdf"
-  mv "${tmpprefix}_out_hetVSmiss.log" "${opt_outprefix}_hetVSmiss.log"
+  printf "> removing mixups and low-coverage individuals..\n"
+  join --header -t $'\t' \
+    <( attach_uids -h "${tmpprefix}_sq.imiss" \
+      | tail -n +2               | sort -t $'\t' -u -k 1,1 ) \
+    <( attach_uids -h "${tmpprefix}_sq.het" \
+      | tail -n +2 | cut -f 1,4- | sort -t $'\t' -u -k 1,1 ) \
+    | awk -F $'\t' \
+      -f "${BASEDIR}/lib/awk/stats.awk" \
+      -v maxmis=${cfg_hvmmax} \
+      -v minmis=${cfg_hvmmin} \
+      -v sdn=${cfg_hvmsdn} \
+      --source '{
+        if ( NR > 1 ) {
+          fid[$1] = $2
+          iid[$1] = $3
+          het[$1] = ( $10 - $8 ) / $10
+          mis[$1] = $7
+        }
+      } END{
+        OFS = "\t"
+        meanhet = smean( het )
+        sdhet = ssd( het )
+        meanmis = smean( mis )
+        sdmis = ssd( mis )
+        misthreshmax = maxmis
+        misthresh = pmin( meanmis + sdn*sdmis, minmis )
+        for ( uid in iid ) {
+          # keep samples with low heterozygosity or too low coverage (within limits) to tell
+          goodhet = mis[uid] <= misthresh && het[uid] <= meanhet + sdn*sdhet
+          highmis = mis[uid] >= misthresh && mis[uid] <= misthreshmax
+          if ( goodhet || highmis ) print( fid[uid], iid[uid] )
+        }
+      }' | sort -u \
+      > "${tmpprefix}_out.clean.id"
   [ -s "${tmpprefix}_out.clean.id" ] || {
-    printf "error: file '%s' empty or not found.\n" "${tmpprefix}_out.clean.id" >&2;
+    printf "> error: file '%s' empty or not found.\n" "${tmpprefix}_out.clean.id" >&2;
     exit 1;
   }
   # write plink flag for non-mixup info later
   plinkflag="--keep ${tmpprefix}_out.clean.id"
 else
   # write a dummy clean.id file including everyone
-  cut -f 1,2 "${opt_hqprefix}" > "${tmpprefix}_out.clean.id"
+  cut -f 1,2 "${opt_hqprefix}.fam" | sort -u > "${tmpprefix}_out.clean.id"
 fi
 # extract high coverage variants
 tmp_varmiss=${cfg_varmiss}
 M=$( wc -l "${opt_inprefix}.fam" | cut -d ' ' -f 1 )
 if [ $M -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
-printf "extracting high coverage variants..\n"
-${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
+printf "> extracting high coverage variants..\n"
+echo "  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} ${plinkflag}
+             --geno ${tmp_varmiss}
+             --make-just-bim
+             --out ${tmpprefix}_hcv" | printlog 2
+${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
              --geno ${tmp_varmiss} \
              --make-just-bim \
              --out "${tmpprefix}_hcv" \
-             2> >( tee "${tmpprefix}.err" ) | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
@@ -90,40 +129,44 @@ cut -d ' ' -f 2 "${tmpprefix}_hcv.bim" > "${tmpprefix}_hcv.mrk"
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l "${opt_inprefix}.bim" | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
-printf "extracting high coverage individuals..\n"
-${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
+printf "> extracting high coverage individuals..\n"
+echo "  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} ${plinkflag}
+             --extract ${tmpprefix}_hcv.mrk
+             --mind ${tmp_samplemiss}
+             --make-just-fam
+             --out ${tmpprefix}_hci" | printlog 2
+${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
              --extract "${tmpprefix}_hcv.mrk" \
              --mind ${tmp_samplemiss} \
              --make-just-fam \
              --out "${tmpprefix}_hci" \
-             2> >( tee "${tmpprefix}.err" ) | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 # identify related individuals
-printf "identifying related individuals..\n"
-${plinkexec} --bfile "${opt_hqprefix}" \
+printf "> identifying related individuals..\n"
+${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
              --keep "${tmpprefix}_hci.fam" \
              --set-hh-missing \
              --genome gz \
              --out "${tmpprefix}_sq" \
-             2> >( tee "${tmpprefix}.err" ) | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
-             >> "${debuglogfn}"
-${plinkexec} --bfile "${opt_hqprefix}" \
+${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
              --keep "${tmpprefix}_hci.fam" \
              --set-hh-missing \
              --cluster \
              --read-genome "${tmpprefix}_sq.genome.gz" \
              --rel-cutoff ${cfg_pihatrel} \
              --out "${tmpprefix}_sq" \
-             2> >( tee "${tmpprefix}.err" ) | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
-# rename list of unrelated individuals for later use
+# rename list of clean unrelated individuals for later use
 mv "${tmpprefix}_sq.rel.id" "${opt_outprefixbase}.ids"
 # erase eventual dysfunctional family information
 cut -f 1 "${opt_hqprefix}.fam" | sort | uniq -c | tabulate \
@@ -146,12 +189,12 @@ cut -f 1 "${opt_hqprefix}.fam" | sort | uniq -c | tabulate \
     }' \
   > "${tmpprefix}_dysfam.tri"
 # remove mixups and update sex and parents in input set
-${plinkexec} --bfile "${opt_inprefix}" ${plinkflag} \
+${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
              --update-parents "${tmpprefix}_dysfam.tri" \
              --update-sex "${opt_hqprefix}.fam" 3 \
              --make-bed \
              --out "${tmpprefix}_out" \
-             2> >( tee "${tmpprefix}.err" ) | printlog 2
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
@@ -196,7 +239,7 @@ extract_related_lists_from_grm_file() {
 # update biography file with sex information
 {
   {
-    printf '%s\t' ${cfg_uid}
+    printf "%s\t" ${cfg_uid}
     head -n 1 "${opt_hqprefix}.sexcheck" | tabulate | cut -f 3-
   } | join -t $'\t'     "${opt_biofile}" - \
     | tee "${tmpprefix}.0.bio"
@@ -204,9 +247,11 @@ extract_related_lists_from_grm_file() {
   TNF=$( cat "${tmpprefix}.0.bio" | wc -w )
   # merge information for existing individuals
   attach_uids "${opt_hqprefix}.sexcheck" \
+    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 \
     | join -t $'\t'     "${opt_biofile}" - \
   # add non-existing individuals and pad the extra fields with NAs
   attach_uids "${opt_hqprefix}.sexcheck" \
+    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 \
     | join -t $'\t' -v1 "${opt_biofile}" - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"
@@ -217,9 +262,36 @@ extract_related_lists_from_grm_file() {
 } | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.1.bio"
 mv "${tmpprefix}.1.bio" "${opt_biofile}"
 
+# update biography file with heterozygosity information
+{
+  {
+    printf "%s\t" ${cfg_uid}
+    head -n 1 "${tmpprefix}_sq.het" | tabulate | cut -f 3-
+  } | join -t $'\t'     "${opt_biofile}" - \
+    | tee "${tmpprefix}.2.bio"
+  # count number of fields in the merged file
+  TNF=$( cat "${tmpprefix}.2.bio" | wc -w )
+  # merge information for existing individuals
+  attach_uids "${tmpprefix}_sq.het" \
+    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 \
+    | join -t $'\t'     "${opt_biofile}" - \
+  # add non-existing individuals and pad the extra fields with NAs
+  attach_uids "${tmpprefix}_sq.het" \
+    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 \
+    | join -t $'\t' -v1 "${opt_biofile}" - \
+    | awk -F $'\t' -v TNF=${TNF} '{
+      OFS="\t"
+      printf($0)
+      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
+      printf("\n")
+    }'
+} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.3.bio"
+mv "${tmpprefix}.3.bio" "${opt_biofile}"
+
 # update biography file with potential mixup information
 {
   attach_uids "${tmpprefix}_out.clean.id" \
+    | cut -f 1,4- | sort -u -k 1,1 \
     | join -t $'\t' -v1 "${opt_biofile}" - \
     | awk -F $'\t' -v hvm=${cfg_hvm} '{
       OFS="\t"
@@ -229,6 +301,7 @@ mv "${tmpprefix}.1.bio" "${opt_biofile}"
       else print( $0, hvmtag )
     }'
   attach_uids "${tmpprefix}_out.clean.id" \
+    | cut -f 1,4- | sort -u -k 1,1 \
     | join -t $'\t'     "${opt_biofile}" - \
     | awk -F $'\t' -v hvm=${cfg_hvm} '{
       OFS="\t"
@@ -236,8 +309,8 @@ mv "${tmpprefix}.1.bio" "${opt_biofile}"
       if ( hvm != 1 ) hvmtag="__NA__"
       print( $0, hvmtag )
     }'
-} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.2.bio"
-mv "${tmpprefix}.2.bio" "${opt_biofile}"
+} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.4.bio"
+mv "${tmpprefix}.4.bio" "${opt_biofile}"
 
 # update biography file with sample relationship
 {
@@ -246,8 +319,8 @@ mv "${tmpprefix}.2.bio" "${opt_biofile}"
   extract_related_lists_from_grm_file "${tmpprefix}_sq.genome.gz" \
     | join -t $'\t' -v1 "${opt_biofile}" - \
     | awk -F $'\t' '{ OFS="\t"; print( $0, "__NA__" ) }'
-} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.3.bio"
-mv "${tmpprefix}.3.bio" "${opt_biofile}"
+} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.5.bio"
+mv "${tmpprefix}.5.bio" "${opt_biofile}"
 
 rename "${tmpprefix}_out" "${opt_outprefix}" "${tmpprefix}_out".*
 

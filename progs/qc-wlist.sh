@@ -3,13 +3,11 @@
 # exit on error
 set -Eeou pipefail
 
+source "${BASEDIR}/progs/checkdep.sh"
+
 declare  cfg_infosep
          cfg_infosep="$( cfgvar_get infosep )"
 readonly cfg_infosep
-
-declare  cfg_refprefix
-         cfg_refprefix="$( cfgvar_get refprefix )"
-readonly cfg_refprefix
 
 if [ ! -z "${cfg_refprefix}" ] ; then
   declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
@@ -19,26 +17,27 @@ fi
 readonly batchfiles
 
 declare -r tmpprefix="${opt_outprefix}_tmp"
-declare -r debuglogfn="${tmpprefix}_debug.log"
 
 #-------------------------------------------------------------------------------
 
-# input: merged plink set
-# output: hq plink set (with imputed sex, if possible)
+# input: recoded plink sets
+# output: maximum common variant set
 
-printf "  * Compile whitelist of variants common to all batches (if enabled)\n" | printlog 1
+echo -e "==== Whitelist ====\n" | printlog 1
 
-if [ "${opt_minivarset}" -eq 1 ] ; then
-  exit 0
-fi
+printf "\
+  * Compile list of variants common to all batches (and reference)\n
+" | printlog 1
+
+$( cfgvar_get intersect ) || exit 0
 
 if [ -f "${opt_varwhitelist}" ] ; then
-  printf "variant white list found. skipping compilation..\n"
+  printf "> variant white list found. skipping compilation..\n"
   exit 0
 fi
 
 if ls "${tmpprefix}"* > /dev/null 2>&1; then
-  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -58,7 +57,7 @@ bimtogprs() {
 
 for i in ${!batchfiles[@]} ; do
   declare plinkflag=""
-  [ -f "${batchfiles[$i]}" ] || { printf "file '%s' not found." "${batchfiles[$i]}"; exit 1; }
+  [ -f "${batchfiles[$i]}" ] || { printf "> file '%s' not found." "${batchfiles[$i]}"; exit 1; }
   declare fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
   case "${fformat}" in
     "bed" ) 
@@ -71,16 +70,16 @@ for i in ${!batchfiles[@]} ; do
       plinkflag="--bcf"
       ;;
     * ) 
-      printf "error: unhandled fileformat '%s'.\n" ${fformat} >&2
+      printf "> error: unhandled fileformat '%s'.\n" ${fformat} >&2
       exit 1
       ;;
   esac
   # whatever format the input file is - make a bim file
   printf "* Recode variants set into bim format" | printlog 1
-  ${plinkexec} ${plinkflag} "${batchfiles[$i]/%.bed/.bim}" \
+  ${plinkexec} --allow-extra-chr ${plinkflag} "${batchfiles[$i]/%.bed/.bim}" \
                --make-just-bim \
                --out "${tmpprefix}_ex" \
-               2> >( tee "${tmpprefix}.err" ) | printlog 2
+               2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi

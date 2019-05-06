@@ -3,8 +3,9 @@
 # exit on error
 set -Eeou pipefail
 
+source "${BASEDIR}/progs/checkdep.sh"
+
 declare -r  tmpprefix="${opt_outprefix}_tmp"
-declare -r  debuglogfn="${tmpprefix}_debug.log"
 declare -ra batchfiles=( ${opt_inputfiles} )
 
 #-------------------------------------------------------------------------------
@@ -12,31 +13,33 @@ declare -ra batchfiles=( ${opt_inputfiles} )
 # input: aligned plink file sets
 # output: merged plink file set, eventually purged of conflicts
 
+echo -e "==== Merge ====\n" | printlog 1
+
 printf "\
   * Initialize global blacklist
   * While true
     * For every batch
       * Purge batchfile of global blacklist (if any)
     * Attempt merging resulting batchfiles
-    * Stop on success
-    * Abort procedure if blacklist is not empty \
-      (if we run more than 2 times something might be weird)
+    * End on success
+    * Abort entire procedure if blacklist is not empty \
+      (if more than twice something is weird)
     * Append mismatching variants to global blacklist (derived from errors)
-" | printlog 1
+\n" | printlog 1
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "'%s' already exists. skipping merge..\n" "${opt_outprefix}.bed"
+  printf "> '%s' already exists. skipping merge..\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
 if ls "${tmpprefix}"* > /dev/null 2>&1; then
-  printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
   exit 1
 fi
 
 #-------------------------------------------------------------------------------
 
-printf "merging batches..\n"
+printf "> merging batches..\n"
 
 declare -r varblacklist="${tmpprefix}.exclude"
 declare -r mismatchlist="${tmpprefix}.mismatch"
@@ -51,11 +54,11 @@ while true ; do
     if [ -s "${varblacklist}" ] ; then
       plinkflag="--exclude ${varblacklist}" 
     fi
-    ${plinkexec} \
+    ${plinkexec} --allow-extra-chr \
           --bfile "${b_inprefix}" ${plinkflag} \
           --make-bed \
           --out "${b_outprefix}" \
-          2> >( tee "${tmpprefix}.err" ) | printlog 2
+          2> >( tee "${tmpprefix}.err" ) | printlog 3
     if [ $? -ne 0 ] ; then
       cat "${tmpprefix}.err"
     fi
@@ -66,10 +69,10 @@ while true ; do
   done
   unset plinkflag
   # NOTE: if only one batch is present plink throws a warning
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --merge-list "${batchlist}" \
         --out "${tmpprefix}_out" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
@@ -89,7 +92,7 @@ while true ; do
   fi
   # no! prepare to repeat loop
   sort -u "${tmpprefix}.missnp" > "${varblacklist}"
-  printf "repeating merging attempt..\n"
+  printf "> repeating merging attempt..\n"
   rm "${tmpprefix}.missnp"
 done
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"

@@ -5,6 +5,8 @@ set -Eeou pipefail
 
 #---------------------------------------------------------------------------------------------------
 
+echo "starting.."
+
 # define default configuration
 
 # get parent dir of this script
@@ -20,11 +22,10 @@ cfgvar_init_from_file "${BASEDIR}/lib/genimpute_default.cfg"
 # define default options and parse command line
 
 declare opt_dryimpute=0
-declare opt_minivarset=0
-declare opt_qconly=0
+declare opt_imputeonly=false
+declare opt_qconly=false
 declare opt_outprefixdefault='genimpute'
 declare opt_outprefixbase="${opt_outprefixdefault}"
-declare opt_samplewhitelist=""
 
 usage() {
 cat << EOF
@@ -40,11 +41,10 @@ NOTE:
 OPTIONS:
   -c <config file>      optional configuration file
   -d                    dry imputation: write scripts but do not run them
-  -m                    reduce variant set to the minimal one common to all
+  -i                    perform imputation only (assumes qc'd files present)
   -q                    perform quality control only, do not phase or impute
-  -w <sample file>      optional white list of individuals to restrict qc to
   -o <output prefix>    optional output prefix [default: '${opt_outprefixdefault}']
-  -h                    show help message
+  -h                    show this help message and exit
 
 
 CONFIGURATION:
@@ -54,7 +54,7 @@ CONFIGURATION:
 EOF
 }
 
-while getopts "c:dmqw:o:h" opt; do
+while getopts "c:diqo:h" opt; do
 case "${opt}" in
   c)
     opt_cfgfile="${OPTARG}"
@@ -62,14 +62,11 @@ case "${opt}" in
   d)
     opt_dryimpute=1
     ;;
-  m)
-    opt_minivarset=1
+  i)
+    opt_imputeonly=true
     ;;
   q)
-    opt_qconly=1
-    ;;
-  w)
-    opt_samplewhitelist="${OPTARG}"
+    opt_qconly=true
     ;;
   o)
     opt_outprefixbase="${OPTARG}"
@@ -116,15 +113,22 @@ fi
 cfgvar_setall_readonly
 
 # append configuration tag to output prefix
-opt_outprefixbase="${opt_outprefixbase}_$( cfgvar_show_config | md5sum | head -c 6 )"
-
-# prepare output containers
-mkdir -p "${opt_outprefixbase}/bcf" "${opt_outprefixbase}/bed" "${opt_outprefixbase}/.i/.s" \
-         "${opt_outprefixbase}/.i/qc" "${opt_outprefixbase}/.i/ph" "${opt_outprefixbase}/.i/im"
+opt_outprefixbase="${opt_outprefixbase}_$(
+  cfgvar_show_config | egrep -v 'execommand|plink' \
+    | md5sum | head -c6
+)"
 
 # export input and output names
 export opt_inputfiles
 export opt_outprefixbase
+
+# prepare output containers
+mkdir -p "${opt_outprefixbase}/bcf" "${opt_outprefixbase}/bed" \
+         "${opt_outprefixbase}/.i/.s" "${opt_outprefixbase}/.i/qc" "${opt_outprefixbase}/.i/im"
+
+#---------------------------------------------------------------------------------------------------
+
+# define executables
 
 printlog() {
   local lvl
@@ -150,7 +154,55 @@ printlog() {
 }
 export -f printlog
 
+declare jobdepflag=""
+declare joblist=""
+
+#TODO: find the time executable in the cluster and restore the time commands
+# declare -r timeformat="ResStats\tRealSec:\t%e\tMaxMemKB:\t%M\tUserSec:\t%U\tSysSec:\t%S"
+# declare -r timexec="/usr/bin/env time -o /dev/stdout -f ${timeformat}"
+
+export timexec=''
+
+declare -r cfg_plinkctime=$( cfgvar_get plinkctime )
+declare -r cfg_plinkmem=$( cfgvar_get plinkmem )
+
+run() {
+  local cmd="$*"
+  local plinkflag="--memory 100"
+  local sbatchflag="--mem-per-cpu=120MB"
+  if [ "${cmd}" != "" ] ; then
+    declare -r cfg_execommand=$( cfgvar_get execommand )
+    case ${cfg_execommand} in
+      *bash*)
+        echo "running '$( basename ${cmd} )'.."
+        export plinkexec="${BASEDIR}/lib/3rd/plink"
+        ${timexec} ${cfg_execommand} ${cmd}
+        ;;
+      *sbatch*)
+        echo "submitting '$( basename ${cmd} )'.."
+        if [ "${cfg_plinkmem}" != "" ] ; then
+          plinkflag="--memory ${cfg_plinkmem}"
+          sbatchflag="--mem-per-cpu=$((cfg_plinkmem + cfg_plinkmem/10))MB"
+        fi
+        export plinkexec="${BASEDIR}/lib/3rd/plink ${plinkflag}"
+        jobnum=$( ${cfg_execommand} ${sbatchflag} --time=${cfg_plinkctime} ${jobdepflag} \
+                  --output=${opt_outprefix}_slurm_%x_%j.out --parsable ${cmd} )
+        joblist=${joblist}:${jobnum}
+        jobdepflag="--dependency=afterok${joblist}"
+        echo submitted job ${jobnum}.
+        ;;
+      *)
+        echo "error: unknown execution command '${cfg_execommand}'" >&2
+        exit 1
+        ;;
+    esac
+  fi
+}
+
+#---------------------------------------------------------------------------------------------------
+
 # initialize log file
+
 > "${opt_outprefixbase}.log"
 
 { 
@@ -158,7 +210,7 @@ export -f printlog
   echo -e "================================================================================"
   echo -e "$( basename $0 ) -- $(date)"
   echo -e "================================================================================"
-  echo -e "\ngenotype files:\n$( ls -1 ${opt_inputfiles} )\n"
+  echo -e "\ngenotype files:\n\n$( printf '  %s\n' ${opt_inputfiles} )\n"
   echo -e "================================================================================"
   echo
 } | printlog 1
@@ -171,29 +223,6 @@ echo -e "\n=====================================================================
 
 #---------------------------------------------------------------------------------------------------
 
-# define executables
-
-plinkexec="${BASEDIR}/lib/3rd/plink --allow-extra-chr"
-export plinkexec
-
-#---------------------------------------------------------------------------------------------------
-
-# check dependencies
-
-{
-  locale
-  echo
-  awk --version 2> /dev/null || { echo 'awk is not installed. aborting..'; exit 1; }
-  echo
-  join --version 2> /dev/null || { echo 'join is not installed. aborting..'; exit 1; }
-  echo
-  R --version 2> /dev/null || { echo 'R is not installed. aborting..'; exit 1; }
-  echo -e "================================================================================"
-  echo
-} | printlog 1
-
-#---------------------------------------------------------------------------------------------------
-
 # source utility functions
 
 source "${BASEDIR}/progs/qc-tools.sh"
@@ -202,52 +231,49 @@ source "${BASEDIR}/progs/qc-tools.sh"
 # pre-processing
 #---------------------------------------------------------------------------------------------------
 
-echo "starting.."
-
 # export vars
-export cfg_uid
-cfg_uid="$( cfgvar_get uid )"
+
+declare  cfg_uid
+         cfg_uid="$( cfgvar_get uid )"
 readonly cfg_uid
 export cfg_uid
+
+declare  cfg_refprefix
+         cfg_refprefix="$( cfgvar_get refprefix )"
+readonly cfg_refprefix
+export cfg_refprefix
+
 export opt_dryimpute
-export opt_minivarset
-export opt_samplewhitelist
 export opt_varwhitelist="${opt_outprefixbase}/.i/qc/a_vwlist.mrk"
 export opt_refprefix="${opt_outprefixbase}/.i/qc/a_refset"
 
 #---------------------------------------------------------------------------------------------------
 
-echo "==== Whitelist ====" | printlog 1
-
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_vwlist"
 
 # call wlist
-bash "${BASEDIR}/progs/qc-wlist.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-wlist.sh"
 
 # cleanup
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
-
-echo "==== Recoding ====" | printlog 1
 
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_recode"
 
 # call recode
-bash "${BASEDIR}/progs/qc-recode.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-recode.sh"
 
 # cleanup
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
-
-echo "==== Alignment ====" | printlog 1
 
 export opt_inprefix="${opt_outprefixbase}/.i/qc/a_recode"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/b_align"
 
 # call align
-bash "${BASEDIR}/progs/qc-align.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-align.sh"
 
 # cleanup
 unset opt_inprefix
@@ -255,15 +281,13 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
-# merge batches (if more than a single one)
-
-echo "==== Merge ====" | printlog 1
+# merge batches (if more than a single one present)
 
 export opt_inprefix="${opt_outprefixbase}/.i/qc/b_align"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 
 # call merge
-bash "${BASEDIR}/progs/qc-merge.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-merge.sh"
 
 # cleanup
 unset opt_inprefix
@@ -281,7 +305,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 export opt_biofile="${opt_outprefixbase}/bio.txt"
 
 # call init-bio
-bash "${BASEDIR}/progs/init-bio.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/init-bio.sh"
 
 # cleanup
 unset opt_outprefix
@@ -291,24 +315,20 @@ unset opt_biofile
 
 # get high quality set
 
-echo "==== Variant HQC ====" | printlog 1
-
 # export vars
 export opt_inprefix="${opt_outprefixbase}/.i/qc/c_proc"
-export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 
 # call hqset
-bash "${BASEDIR}/progs/qc-hqset.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-hqset.sh"
 
 # cleanup
-unset opt_hqprefix
+unset opt_outprefix
 unset opt_inprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # identify duplicate, mixup and related individuals
-
-echo "==== Individual QC ====" | printlog 1
 
 # export vars
 export opt_inprefix="${opt_outprefixbase}/.i/qc/c_proc"
@@ -317,7 +337,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/e_indqc"
 export opt_biofile="${opt_outprefixbase}/bio.txt"
 
 # call indqc
-bash "${BASEDIR}/progs/qc-ind.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-ind.sh"
 
 # cleanup
 unset opt_hqprefix
@@ -329,15 +349,13 @@ unset opt_biofile
 
 # perform standard variant-level QC
 
-echo "==== Variant QC ====" | printlog 1
-
 # export vars
 export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 export opt_inprefix="${opt_outprefixbase}/.i/qc/e_indqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 
 # call qcvar
-bash "${BASEDIR}/progs/qc-var.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-var.sh"
 
 # cleanup
 unset opt_hqprefix
@@ -355,7 +373,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_batchoutprefix="${opt_outprefixbase}/.i/qc/c_proc_batch"
 
 # call qcfinal
-bash "${BASEDIR}/progs/qc-final.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-final.sh"
 
 # cleanup
 unset opt_hqprefix
@@ -369,20 +387,18 @@ unset opt_batchoutprefix
 
 # export vars
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
-export opt_hqprefix="${opt_outprefixbase}/.i/qc/h_hqset"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/h_hqset"
 
 # call hqset
-bash "${BASEDIR}/progs/qc-hqset.sh" "$( cfgvar_get refprefix )"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-hqset.sh" "${cfg_refprefix}"
 
 # cleanup
-unset opt_hqprefix
+unset opt_outprefix
 unset opt_inprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # compute genetic PCs
-
-echo "==== PCA etc. ====" | printlog 1
 
 # export vars
 export opt_hqprefix="${opt_outprefixbase}/.i/qc/h_hqset"
@@ -391,7 +407,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_biofile="${opt_outprefixbase}/bio.txt"
 
 # call getpcs
-bash "${BASEDIR}/progs/qc-getpcs.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/qc-getpcs.sh"
 
 # cleanup
 unset opt_hqprefix
@@ -399,23 +415,18 @@ unset opt_inprefix
 unset opt_outprefix
 unset opt_biofile
 
-#---------------------------------------------------------------------------------------------------
+${opt_qconly} && { echo "done."; exit 0; }
 
-if [ ${opt_qconly} -eq 1 ] ; then
-  echo "done."
-  exit 0
-fi
+#---------------------------------------------------------------------------------------------------
 
 # convert
 
-echo "==== Recoding ====" | printlog 1
-
 # export vars
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
-export opt_outprefix="${opt_outprefixbase}/.i/ph/i_pre"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/i_pre"
 
 # call convert
-bash "${BASEDIR}/progs/convert.sh"
+${opt_imputeonly} || run "${BASEDIR}/progs/convert.sh"
 
 # cleanup
 unset opt_inprefix
@@ -426,11 +437,11 @@ unset opt_outprefix
 # impute
 
 # export vars
-export opt_inprefix="${opt_outprefixbase}/.i/ph/i_pre"
+export opt_inprefix="${opt_outprefixbase}/.i/qc/i_pre"
 export opt_outprefix="${opt_outprefixbase}/.i/im/i_imp"
 
 # call impute
-bash "${BASEDIR}/progs/impute.sh"
+run "${BASEDIR}/progs/impute.sh"
 
 # cleanup
 unset opt_inprefix

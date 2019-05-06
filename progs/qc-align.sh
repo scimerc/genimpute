@@ -3,6 +3,8 @@
 # exit on error
 set -Eeou pipefail
 
+source "${BASEDIR}/progs/checkdep.sh"
+
 declare  cfg_genomebuild
          cfg_genomebuild="$( cfgvar_get genomebuild )"
 readonly cfg_genomebuild
@@ -10,10 +12,6 @@ readonly cfg_genomebuild
 declare  cfg_infosep
          cfg_infosep="$( cfgvar_get infosep )"
 readonly cfg_infosep
-
-declare  cfg_refprefix
-         cfg_refprefix="$( cfgvar_get refprefix )"
-readonly cfg_refprefix
 
 if [ ! -z "${cfg_refprefix}" ] ; then
   declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
@@ -91,18 +89,19 @@ get_plink_varinfo_blacklist() {
 # input: plink bed and eventual tped file sets
 # output: purged and [reference] strand-aligned plink file sets
 
+echo -e "==== Alignment ====\n" | printlog 1
+
 printf "\
   * For every batch:
-    * Create a blacklist with non-coherent variants (tped)
+    * Create a blacklist with non-coherent co-localized variants (tped)
     * Append non reference-compatible variants to blacklist
     * Create a fliplist to align strand-flipped variants to reference
     * Purge batch file of blacklist
     * Align fliplist in batch file
-" | printlog 1
+\n" | printlog 1
 
 if [ -z "${cfg_refprefix}" ] ; then
-  declare tmpprefix="${opt_outprefix}_tmp"
-  varreffile="${tmpprefix}.gpa"
+  varreffile="${opt_outprefix}.gpa"
   for i in ${!batchfiles[@]} ; do
     declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
     declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
@@ -112,22 +111,20 @@ if [ -z "${cfg_refprefix}" ] ; then
     > "${varreffile}"
   unset batchcode
   unset b_inprefix
-  unset tmpprefix
 fi
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
   declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
   declare b_outprefix="${opt_outprefix}_batch_${batchcode}"
   declare tmpprefix="${b_outprefix}_tmp"
-  declare debuglogfn="${tmpprefix}_debug.log"
   # check for hash collisions
   if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
-    printf "'%s' already exists. skipping alignment step..\n" "${b_outprefix}.bed"
-    printf "try increasing 'numchars' in the hash function if you think this should not happen.\n"
+    printf "> '%s' already exists. skipping alignment step..\n" "${b_outprefix}.bed"
+    printf "> increase 'numchars' in the hash function if you think this shouldn't happen.\n"
     continue
   fi
   if ls "${tmpprefix}"* > /dev/null 2>&1; then
-    printf "temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+    printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
     exit 1
   fi
   # define input specific plink settings
@@ -140,7 +137,7 @@ for i in ${!batchfiles[@]} ; do
     | get_plink_varinfo_blacklist \
     | sort -u > "${batchblacklist}"
   {
-    printf "$( wc -l "${batchblacklist}" | cut -d ' ' -f 1 ) "
+    printf "> $( wc -l "${batchblacklist}" | cut -d ' ' -f 1 ) "
     printf "colocalized variants marked for deletion.\n"
   } | printlog 1
   declare plinkflag=""
@@ -148,11 +145,11 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--exclude ${batchblacklist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --bfile "${b_inprefix}" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_nb" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
@@ -161,9 +158,9 @@ for i in ${!batchfiles[@]} ; do
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nb.bim"
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nb.fam"
   # check usability of reference
-  printf "matching batch '%s' variants to reference..\n" "$( basename "${batchfiles[$i]}" )"
+  printf "> matching batch '%s' variants to reference..\n" "$( basename "${batchfiles[$i]}" )"
   [ -s "${varreffile}" ] || {
-    printf "error: file '%s' is unusable.\n" "${varreffile}" >&2;
+    printf "> error: file '%s' is unusable.\n" "${varreffile}" >&2;
     exit 1;
   }
   # get chr:bp strings from bim file and join with the corresponding field of varreffile
@@ -253,10 +250,10 @@ for i in ${!batchfiles[@]} ; do
             }
           }
         } END{
-          print( "total missing:    ", total_miss )
-          print( "total mismatch:   ", total_mism )
-          print( "total flipped:    ", total_flip )
-          print( "total ambiguous:  ", total_ambi )
+          print( "> total missing:    ", total_miss )
+          print( "> total mismatch:   ", total_mism )
+          print( "> total flipped:    ", total_flip )
+          print( "> total ambiguous:  ", total_ambi )
           for ( varid in idmapcatalog ) {
             split( varid, avec, infosep )
             if ( avec[2] == 0 ) aref = avec[3]
@@ -277,22 +274,22 @@ for i in ${!batchfiles[@]} ; do
   # list unique
   sort -t $'\t' -u "${batchfliplist}" > "${tmpvarctrl}"
   mv "${tmpvarctrl}" "${batchfliplist}"
-  printf "$( wc -l "${batchfliplist}" ) variants to be flipped.\n" | printlog 1
+  printf "> $( wc -l "${batchfliplist}" ) variants to be flipped.\n" | printlog 1
   # list unique
   sort -t $'\t' -u "${batchblacklist}" | join -v1 -t $'\t' - "${batchidmap}" > "${tmpvarctrl}"
   mv "${tmpvarctrl}" "${batchblacklist}"
-  printf "$( wc -l "${batchblacklist}" ) variants to be excluded.\n" | printlog 1
+  printf "> $( wc -l "${batchblacklist}" ) variants to be excluded.\n" | printlog 1
 
   declare plinkflag=""
   if [ -s "${batchblacklist}" ] ; then
     plinkflag="--exclude ${batchblacklist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_nb" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_nbb" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
@@ -305,11 +302,11 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--flip ${batchfliplist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_nbb" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_nbf" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
@@ -317,21 +314,21 @@ for i in ${!batchfiles[@]} ; do
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbf.bim"
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbf.fam"
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_nbf" \
         --update-name "${batchidmap}" \
         --make-bed \
         --out "${tmpprefix}_un" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_un" \
         --update-alleles "${batchallelemap}" \
         --make-bed \
         --out "${tmpprefix}_una" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
@@ -341,19 +338,19 @@ for i in ${!batchfiles[@]} ; do
   if [ $parcount -eq 0 ] ; then
     plinkflag="--split-x ${cfg_genomebuild} no-fail" 
   fi
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_una" ${plinkflag} \
         --make-bed \
         --out "${tmpprefix}_out" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi 
-  ${plinkexec} \
+  ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_out" \
         --freq \
         --out "${tmpprefix}_out" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 2
+        2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
@@ -375,7 +372,6 @@ for i in ${!batchfiles[@]} ; do
   unset batchcode
   unset b_inprefix
   unset b_outprefix
-  unset debuglogfn
   unset tmpprefix
 done
 

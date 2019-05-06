@@ -109,27 +109,7 @@ if ( parameters$missfile != '' && parameters$hetfile != '' ) {
         hetrate = ( mydata[, 9] - mydata[, 7] ) / mydata[, 9]
         meanhetrate = mean( hetrate, na.rm=T )
         sdhetrate = sd( hetrate, na.rm=T )
-        meanhetrateq = array( NA, dim=c(length(hetrate), 1) )
-        sdhetrateq = array( NA, dim=c(length(hetrate), 1) )
         missrate = mydata[, 6]
-        mybreaks = unique( c(seq(0, min(max(missrate, na.rm=T), 0.2), by=0.002),
-            max(missrate, na.rm=T)) )
-        if ( length( mybreaks ) == 1 ) {
-            missrateq = rep( as.factor( mybreaks ), length( missrate ) )
-        } else {
-            missrateq = cut( missrate, mybreaks )
-        }
-        for ( q in unique(missrateq) ) {
-            qq = which( unique(missrateq) == q )
-            tmpmean = mean( hetrate[ missrateq == q ], na.rm=T )
-            tmpsd = sd( hetrate[ missrateq == q ], na.rm=T )
-            meanhetrateq[ missrateq == q ] = tmpmean
-            sdhetrateq[ missrateq == q ] = tmpsd
-#             segments( mybreaks[qq], tmpmean - 3*tmpsd, mybreaks[qq+1], tmpmean - 3*tmpsd,
-#                 col='red', lty=2, lwd=2 )
-#             segments( mybreaks[qq], tmpmean + 3*tmpsd, mybreaks[qq+1], tmpmean + 3*tmpsd,
-#                 col='red', lty=2, lwd=2 )
-        }
         missratethreshmax = 0.2
         missratethresh = min(mean(missrate, na.rm=T) + 5*sd(missrate, na.rm=T), 0.1)
         plot( missrate, hetrate, ylim=c(
@@ -143,7 +123,7 @@ if ( parameters$missfile != '' && parameters$hetfile != '' ) {
         missratevec = seq( 0.0, 0.2, 0.001 )
         lines( missratevec, meanhetrate - 2*sqrt( 0.2^2 - missratevec^2 ), col='blue', lty=2 )
         lines( missratevec, meanhetrate + 2*sqrt( 0.2^2 - missratevec^2 ), col='blue', lty=2 )
-        myset = hetrate <= meanhetrate + 5*sdhetrate & hetrate >= meanhetrate - 5*sdhetrate |
+        myset = hetrate <= meanhetrate + 5*sdhetrate & hetrate >= meanhetrate - 5*sdhetrate & missrate <= missratethresh |
             missrate >= missratethresh & missrate^2 + ( (hetrate - meanhetrate)/2 )^2 <= missratethreshmax^2
         inliers = mydata[ myset, 1:2 ]
         cat( 'retaining', sum( myset ), 'individuals..\n', file=logfile )

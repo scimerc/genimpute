@@ -26,7 +26,7 @@ cfgvar_init() {
   local -r name=$1
   local -r value="$2"
   if cfgvar_is_defined ${_CFGVAR_PREFIX_NAME_}$name; then
-    printf 'variable %s is already defined.\n' $name >&2
+    printf "variable %s is already defined.\n" $name >&2
     return 1
   fi
   export ${_CFGVAR_PREFIX_NAME_}${name}="${value}"
@@ -49,7 +49,7 @@ export -f cfgvar_init_from_file
 cfgvar_is_defined() {
   local -r name="$1"
   if [ -z "${name}" ] ; then
-    printf 'empty variable name\n' >&2
+    printf "empty variable name\n" >&2
     return 1
   fi
   [ ! -z "${!name+x}" ]
@@ -64,12 +64,12 @@ cfgvar_set() {
   local -r value="$2"
   local -r varname="${_CFGVAR_PREFIX_NAME_}$name"
   if ! cfgvar_is_defined "${varname}" ; then
-    printf 'variable %s is not defined.\n' "${name}" >&2
+    printf "variable %s is not defined.\n" "${name}" >&2
     return 1
   fi
   local -r statusname="${_CFGVAR_PREFIX_STATUS_}${name}"
   if [ "${!statusname}" -eq $_CFGVAR_STATUS_READONLY_ ] ; then
-    printf 'variable %s is read-only.\n' "${name}" >&2
+    printf "variable %s is read-only.\n" "${name}" >&2
     return 1
   fi
   export ${varname}="${value}"
@@ -103,7 +103,7 @@ export -f cfgvar_setall_readonly
 cfgvar_show_config() {
   for name in $( _cfgvar_list_names ); do
     # use internal get() so we do not increaase read counter
-    printf "%s = %s\n" "${name}" "$(_cfgvar_get ${name})"
+    printf "  %s = %s\n" "${name}" "$(_cfgvar_get ${name})"
   done | sort
 }
 export -f cfgvar_show_config
@@ -145,7 +145,7 @@ _cfgvar_get() {
   local -r usrname="$1"
   local -r varname="${_CFGVAR_PREFIX_NAME_}${usrname}"
   if ! cfgvar_is_defined "${varname}"; then
-    printf 'variable %s is not defined.\n' "${usrname}" >&2
+    printf "variable %s is not defined.\n" "${usrname}" >&2
     return 1
   fi
   printf "%s" "${!varname}"
@@ -179,13 +179,13 @@ _cfgvar_read_file() {
     fi
     #TODO if line does not contain a '=' return an error
     # remove spaces at end of name and at beginning of value
-    line="$( printf '%s' "${line}" | sed 's/\ *=\ */=/g;' )"
+    line="$( printf "%s" "${line}" | sed 's/\ *=\ */=/g;' )"
     # split line in name and value
     name=${line%%=*}
     #TODO if name is empty return an error
     value=${line#*=}
     # do stuff with name and value
-    value="$( printf '%s' "${value}" | sed 's/^["'\'']//g;''s/["'\'']$//g;' )"
+    value="$( printf "%s" "${value}" | sed 's/^["'\'']//g;''s/["'\'']$//g;' )"
     ${function} "${name}" "${value}"
     if [ $? -ne 0 ] ; then
       return 1
@@ -201,12 +201,12 @@ _cfgvar_set_status() {
   local -r status="$2"
   local -r varname="${_CFGVAR_PREFIX_NAME_}${name}"
   if ! cfgvar_is_defined "${varname}"; then
-    printf 'variable %s is not defined.\n' "${name}" >&2
+    printf "variable %s is not defined.\n" "${name}" >&2
     return 1
   fi
   local -r statusname="${_CFGVAR_PREFIX_STATUS_}${name}"
   if [ -z "${statusname}" ] ; then
-    printf 'undefined variable status.\n' >&2
+    printf "undefined variable status.\n" >&2
     return 1
   fi
   export ${_CFGVAR_PREFIX_STATUS_}${name}=${status}

@@ -1,5 +1,35 @@
 #!/usr/bin/env bash
 
+function bdy() {
+  cnt=1
+  unset myargs
+  mycmd=$1; shift
+  for carg in $* ; do
+    if [[ -f "${carg}" ]] ; then
+      myargs[${cnt}]="${carg}"
+      cnt=$((cnt + 1)) 
+    else
+      mycmd="${mycmd} ${carg}"
+    fi
+  done
+  cnt=1
+  if (( ${#myargs[*]} > 0 )) ; then
+    if (( cnt == 1 )) ; then
+      head -n 1 ${myargs[${cnt}]}
+      tail -n +2 ${myargs[${cnt}]} | ${mycmd}
+    else
+      ${mycmd} ${myargs[${cnt}]}
+    fi
+    cnt=$((cnt + 1)) 
+  else
+    read myheader
+    printf "%s\n" "${myheader}"
+    ${mycmd} /dev/stdin
+  fi
+}
+
+export -f bdy
+
 extract_sample_ids() {
   local idfile
   idfile="$1"
@@ -33,7 +63,7 @@ get_genotype_file_format() {
 
   # get first 2 bytes of inputfile
   if [ -z "${inputfile}" -o ! -f "${inputfile}" ]; then
-    printf "error: get_genotype_file_format - file '%s' not found\n" "${inputfile}" >&2
+    printf "> error: get_genotype_file_format - file '%s' not found\n" "${inputfile}" >&2
     return 1
   fi
 
@@ -42,13 +72,13 @@ get_genotype_file_format() {
   readonly filehead
   case ${filehead} in
     "${bedhex}" )
-      printf 'bed' ;;
+      printf "bed" ;;
     "${bcfhex}" )
-      printf 'bcf' ;;
+      printf "bcf" ;;
     "${vcfhex}" )
-      printf 'vcf' ;;
+      printf "vcf" ;;
     * )
-      printf "error: unknown file format '%s'\n" "${filehead}" >&2
+      printf "> error: unknown file format '%s'\n" "${filehead}" >&2
       return 1 ;;
   esac
   return 0
@@ -89,7 +119,7 @@ export -f get_variant_info_for_dup_chr_cm_bp_aa_mm
 
 # in: plink bim
 get_xvar_count() {
-  awk '$1 == 23' "$1" | wc -l
+  awk -F $'\t' '$1 == 23' "$1" | wc -l
 }
 
 export -f get_xvar_count
@@ -150,11 +180,10 @@ attach_uids() {
           if ( head == 0 || NR > 1 )
             uid=idclean($1"_"$2)
           printf( "%s", uid )
-          for ( k=3; k<=NF; k++ )
+          for ( k=1; k<=NF; k++ )
             printf( "\t%s", $k )
           printf( "\n" )
-        }' \
-      | sort -t $'\t' -u -k 1,1
+        }'
   fi
 }
 
