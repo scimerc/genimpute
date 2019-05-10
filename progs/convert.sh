@@ -89,7 +89,7 @@ for chr in ${tmp_chromosomes} ; do
   ${bcftoolsexec} annotate --rename-chrs <( echo -e '23 X\n25 X' ) -Ob --threads 3 \
                   ${tmpprefix}_chr${chr}_out.bcf \
                   > ${tmpprefix}_chr${chr}_outx.bcf
-  ${bcftoolsexec} index ${tmpprefix}_chr${chr}_outx.bcf
+  ${bcftoolsexec} index ${tmpprefix}_chr${chr}_outx.bcf --threads 3
   mv ${tmpprefix}_chr${chr}_outx.bcf     ${opt_outprefix}_chr${chr}.bcf
   mv ${tmpprefix}_chr${chr}_outx.bcf.csi ${opt_outprefix}_chr${chr}.bcf.csi
 done

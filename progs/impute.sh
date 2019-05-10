@@ -150,7 +150,7 @@ set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
-"${bcftoolsexec}" view -S "${samplefile}" -Oz \\
+"${bcftoolsexec}" view -S "${samplefile}" -Oz --threads 3 \\
   --force-samples "${tmpprefix}_chr${chr}_phased.vcf.gz" \\
   > "${tmpprefix}_chr${chr}_${sampletag}_phased_draft.vcf.gz"
 mv "${tmpprefix}_chr${chr}_${sampletag}_phased_draft.vcf.gz" \\
@@ -178,7 +178,7 @@ ${timexec} ${minimacexec} \\
 "${bcftoolsexec}" reheader -h "${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch" \\
   "${tmpprefix}_chr${chr}_${sampletag}_imputing.dose.vcf.gz" \\
   > "${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.vcf.gz"
-"${bcftoolsexec}" annotate --set-id %CHROM:%POS:%REF:%ALT -Oz \\
+"${bcftoolsexec}" annotate --set-id %CHROM:%POS:%REF:%ALT -Oz --threads 3 \\
   "${tmpprefix}_chr${chr}_${sampletag}_imputing_hdrpatch.dose.vcf.gz" \\
   > "${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.vcf.gz"
 "${bcftoolsexec}" index -f "${tmpprefix}_chr${chr}_${sampletag}_imputing_std.dose.vcf.gz"
