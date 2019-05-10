@@ -4,7 +4,9 @@ trap 'exit' ERR
 
 [ -d ".git" ] || { printf "error at %d\n" $LINENO >&2; exit 1; }
 
-PRJNAME='tsdtools'
+EXPDIR='/tsd/p33/data/durable/file-export'
+
+PRJNAME='genimpute'
 PRJDIR="$(pwd)"
 
 GITROOT="$(git rev-parse --show-toplevel)"
@@ -26,4 +28,5 @@ mv ${PRJNAME}.git.tar.gz ${OUTFILENAME}
 
 printf "\n%s\n" "${OUTFILENAME}"
 
-cp $OUTFILENAME /tsd/p33/fx/export/$(echo $USER | sed "s/^[^-]*-//")/
+cp $OUTFILENAME ${EXPDIR}/
+
