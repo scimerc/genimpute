@@ -37,9 +37,9 @@ for bfile in "${opt_inprefix}_chr"*.bcf ; do
 done | sort -u | split -d -l ${cfg_igroupsize} /dev/stdin "${sampleprefix}"
 groupsize=${cfg_igroupsize}
 tmplist=$( ls "${sampleprefix}"* )
-total=$( cat "${sampleprefix}"* | wc -l )
-if [ ${total} -lt ${groupsize} ] ; then
-  groupsize=${total}
+Nind=$( cat "${sampleprefix}"* | wc -l )
+if [ ${Nind} -lt ${groupsize} ] ; then
+  groupsize=${Nind}
 fi
 
 #-------------------------------------------------------------------------------
@@ -53,8 +53,9 @@ for chr in ${cfg_chromosomes} ; do
   if [ ${chr} -eq 23 -o ${chr} -eq 25 ] ; then
     chrtag=X
   fi
+  Nvar=$( "${bcftoolsexec}" query -f '%ID\n' "${opt_inprefix}_chr${chr}.bcf" | wc -l )
 #TODO: implement different running time for reference-less phasing (stage ii)
-  runtimehrs=$(( 6 * ( total / 10000 + 1 ) ))
+  runtimehrs=$(( 1 + Nind / 10000 + Nvar / 2000 ))
   phasescriptfn="${scriptprefix}1_phase_chr${chr}.sh"
   cat > "${phasescriptfn}" << EOI
 #!/usr/bin/env bash

@@ -21,8 +21,8 @@ printf "\
   * Compute final individual coverage statistics
 \n" | printlog 1
 
-if [ -f "${opt_hqprefix}.eigenvec" -a -f "${opt_hqprefix}.eigenvec.var" ] ; then
-  printf "> '%s' found. skipping PCA..\n" "${opt_hqprefix}.eigenvec"
+if [ -f "${opt_outprefix}.eigenvec" -a -f "${opt_outprefix}.eigenvec.var" ] ; then
+  printf "> '%s' found. skipping PCA..\n" "${opt_outprefix}.eigenvec"
   exit 0
 fi
 
