@@ -44,7 +44,7 @@ fi
 #-------------------------------------------------------------------------------
 
 declare plinkflag=''
-# run 'het_VS_miss.Rscript' to find potential mixups?
+# find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
   printf "> computing individual heterozygosity and missing rates..\n"
   ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
