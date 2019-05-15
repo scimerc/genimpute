@@ -62,14 +62,38 @@ mv ${tmpprefix}_draft.lmiss ${opt_outprefix}.lmiss
     printf "%s\t" ${cfg_uid}
     head -n 1 "${opt_outprefix}.eigenvec" | tabulate | cut -f 3-
   } | join -t $'\t'     "${opt_biofile}" - \
-    | tee "${tmpprefix}.0.bio"
+    | tee "${tmpprefix}.bio.head"
   # count number of fields in the merged file
-  TNF=$( cat "${tmpprefix}.0.bio" | wc -w )
+  TNF=$( cat "${tmpprefix}.bio.head" | wc -w )
   # merge information for existing individuals
   attach_uids "${opt_outprefix}.eigenvec" \
     | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 | join -t $'\t'     "${opt_biofile}" - \
   # add non-existing individuals and pad the extra fields with NAs
   attach_uids "${opt_outprefix}.eigenvec" \
+    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 | join -t $'\t' -v1 "${opt_biofile}" - \
+    | awk -F $'\t' -v TNF=${TNF} '{
+      OFS="\t"
+      printf($0)
+      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
+      printf("\n")
+    }'
+} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.0.bio"
+mv "${tmpprefix}.0.bio" "${opt_biofile}"
+
+# update biography file with missingness statistics
+{
+  {
+    printf "%s\t" ${cfg_uid}
+    head -n 1 "${opt_outprefix}.imiss" | tabulate | cut -f 3-
+  } | join -t $'\t'     "${opt_biofile}" - \
+    | tee "${tmpprefix}.bio.head"
+  # count number of fields in the merged file
+  TNF=$( cat "${tmpprefix}.bio.head" | wc -w )
+  # merge information for existing individuals
+  attach_uids "${opt_outprefix}.imiss" \
+    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 | join -t $'\t'     "${opt_biofile}" - \
+  # add non-existing individuals and pad the extra fields with NAs
+  attach_uids "${opt_outprefix}.imiss" \
     | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 | join -t $'\t' -v1 "${opt_biofile}" - \
     | awk -F $'\t' -v TNF=${TNF} '{
       OFS="\t"
@@ -79,30 +103,6 @@ mv ${tmpprefix}_draft.lmiss ${opt_outprefix}.lmiss
     }'
 } | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.1.bio"
 mv "${tmpprefix}.1.bio" "${opt_biofile}"
-
-# update biography file with missingness statistics
-{
-  {
-    printf "%s\t" ${cfg_uid}
-    head -n 1 "${opt_outprefix}.imiss" | tabulate | cut -f 3-
-  } | join -t $'\t'     "${opt_biofile}" - \
-    | tee "${tmpprefix}.0.bio"
-  # count number of fields in the merged file
-  TNF=$( cat "${tmpprefix}.0.bio" | wc -w )
-  # merge information for existing individuals
-  attach_uids "${opt_outprefix}.imiss" \
-    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 | join -t $'\t'     "${opt_biofile}" - \
-  # add non-existing individuals and pad the extra fields with NAs
-  attach_uids "${opt_outprefix}.imiss" \
-    | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 | join -t $'\t' -v1 "${opt_biofile}" - \
-    | awk -F $'\t' -v TNF=${TNF} '{
-      OFS="\t"
-      printf($0)
-      for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
-      printf("\n")
-    }'
-} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.3.bio"
-mv "${tmpprefix}.3.bio" "${opt_biofile}"
 
 rm "${tmpprefix}"*
 
