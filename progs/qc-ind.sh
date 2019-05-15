@@ -50,13 +50,6 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
                --set-hh-missing \
                --het \
-               --out "${tmpprefix}_sq" \
-               2> >( tee "${tmpprefix}.err" ) | printlog 3
-  if [ $? -ne 0 ] ; then
-    cat "${tmpprefix}.err"
-  fi
-  ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
-               --set-hh-missing \
                --missing \
                --out "${tmpprefix}_sq" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -114,10 +107,12 @@ if [ $M -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
 printf "> extracting high coverage variants..\n"
 echo "  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} ${plinkflag}
              --geno ${tmp_varmiss}
+             --set-hh-missing
              --make-just-bim
              --out ${tmpprefix}_hcv" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
              --geno ${tmp_varmiss} \
+             --set-hh-missing \
              --make-just-bim \
              --out "${tmpprefix}_hcv" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -133,11 +128,13 @@ printf "> extracting high coverage individuals..\n"
 echo "  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} ${plinkflag}
              --extract ${tmpprefix}_hcv.mrk
              --mind ${tmp_samplemiss}
+             --set-hh-missing
              --make-just-fam
              --out ${tmpprefix}_hci" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
              --extract "${tmpprefix}_hcv.mrk" \
              --mind ${tmp_samplemiss} \
+             --set-hh-missing \
              --make-just-fam \
              --out "${tmpprefix}_hci" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
