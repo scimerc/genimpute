@@ -28,14 +28,18 @@ fi
 
 printf "> computing genetic principal components..\n"
 
-${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
-             --genome gz \
-             --out "${tmpprefix}_draft" \
-             2> >( tee "${tmpprefix}.err" ) | printlog 3
-if [ $? -ne 0 ] ; then
-  cat "${tmpprefix}.err"
+if [ -s "${opt_outprefix}.genome.gz" ] ; then
+  printf "> '%s' founc. skipping GRM calculation..\n" "${opt_outprefix}.genome.gz"
+else
+  ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
+               --genome gz \
+               --out "${tmpprefix}_draft" \
+               2> >( tee "${tmpprefix}.err" ) | printlog 3
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
+  mv "${tmpprefix}_draft.genome.gz" "${opt_outprefix}.genome.gz"
 fi
-mv "${tmpprefix}_draft.genome.gz" "${opt_outprefix}.genome.gz"
 ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
              --cluster \
              --read-genome "${opt_outprefix}.genome.gz" \
