@@ -63,8 +63,8 @@ for chr in ${cfg_chromosomes} ; do
 #SBATCH --mem-per-cpu=1G
 #SBATCH --time=${runtimehrs}:00:00
 
-# Eagle's parallelization is very efficient. colossus machines seem to have
-# 20 cpus but 40 hyperthreading cores. Therefore we use num_cpus*2 threads.
+# Eagle's parallelization is very efficient. The original colossus machines had
+# 20 cpus but 40 hyperthreading cores. Therefore, we used num_cpus*2 threads.
 # Running time: 10c-2G-20t From 18min to 3h for batch3 (~9k individuals)
 
 set -Eeou pipefail
