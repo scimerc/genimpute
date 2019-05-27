@@ -15,7 +15,7 @@ export BASEDIR
 
 source "${BASEDIR}/progs/cfgmgr.sh"
 
-cfgvar_init_from_file "${BASEDIR}/lib/genimpute_default.cfg"
+cfgvar_init_from_file "${BASEDIR}/lib/config/genimpute_default.cfg"
 
 #---------------------------------------------------------------------------------------------------
 
@@ -157,19 +157,21 @@ export -f printlog
 declare jobdepflag=""
 declare joblist=""
 
-#TODO: find the time executable in the cluster and restore the time commands
-# declare -r timeformat="ResStats\tRealSec:\t%e\tMaxMemKB:\t%M\tUserSec:\t%U\tSysSec:\t%S"
+#TODO: find the time executable in the cluster and restore the original time commands
+declare -r timeformat="ResStats\nMaxMem(KB)\t%M\nRealTime(s)\t%e\nUserTime(s)\t%U\nSysTime(s)\t%S"
+declare -r timexec="${BASEDIR}/lib/3rd/time -o /dev/stdout -f ${timeformat}"
 # declare -r timexec="/usr/bin/env time -o /dev/stdout -f ${timeformat}"
-
-export timexec=''
+export timexec
 
 declare -r cfg_plinkctime=$( cfgvar_get plinkctime )
 declare -r cfg_plinkmem=$( cfgvar_get plinkmem )
+declare -r cfg_snodecores=$( cfgvar_get snodecores )
+declare -r cfg_snodemem=$( cfgvar_get snodemem )
 
 run() {
   local cmd="$*"
-  local plinkflag="--memory 100"
-  local sbatchflag="--mem-per-cpu=120MB"
+  local plinkflag="--memory 200 --threads 2"
+  local sbatchflag="--mem-per-cpu=120MB --cpus-per-task=2"
   if [ "${cmd}" != "" ] ; then
     declare -r cfg_execommand=$( cfgvar_get execommand )
     case ${cfg_execommand} in
@@ -180,9 +182,12 @@ run() {
         ;;
       *sbatch*)
         echo "submitting '$( basename ${cmd} )'.."
-        if [ "${cfg_plinkmem}" != "" ] ; then
-          plinkflag="--memory ${cfg_plinkmem}"
-          sbatchflag="--mem-per-cpu=$((cfg_plinkmem + cfg_plinkmem/10))MB"
+        if [ "${cfg_plinkmem}" != "" -a "${cfg_snodemem}" != "" ] ; then
+          njobs=$(( cfg_snodemem / cfg_plinkmem ))
+          ncpus=$(( cfg_snodecores / njobs ))
+          mempercpu=$(( ( cfg_plinkmem + cfg_plinkmem/10 ) / ncpus ))
+          plinkflag="--memory ${cfg_plinkmem} --threads ${ncpus}"
+          sbatchflag="--mem-per-cpu=${mempercpu}MB --cpus-per-task=${ncpus}"
         fi
         export plinkexec="${BASEDIR}/lib/3rd/plink ${plinkflag}"
         jobnum=$( ${cfg_execommand} ${sbatchflag} --time=${cfg_plinkctime} ${jobdepflag} \
@@ -236,12 +241,12 @@ source "${BASEDIR}/progs/qc-tools.sh"
 declare  cfg_uid
          cfg_uid="$( cfgvar_get uid )"
 readonly cfg_uid
-export cfg_uid
+export   cfg_uid
 
 declare  cfg_refprefix
          cfg_refprefix="$( cfgvar_get refprefix )"
 readonly cfg_refprefix
-export cfg_refprefix
+export   cfg_refprefix
 
 export opt_dryimpute
 export opt_varwhitelist="${opt_outprefixbase}/.i/qc/a_vwlist.mrk"
