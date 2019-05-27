@@ -103,7 +103,7 @@ export -f cfgvar_setall_readonly
 cfgvar_show_config() {
   for name in $( _cfgvar_list_names ); do
     # use internal get() so we do not increaase read counter
-    printf "  %s = %s\n" "${name}" "$(_cfgvar_get ${name})"
+    printf "  %s=%s\n" "${name}" "$(_cfgvar_get ${name})"
   done | sort
 }
 export -f cfgvar_show_config

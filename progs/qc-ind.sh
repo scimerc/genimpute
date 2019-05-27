@@ -18,6 +18,8 @@ declare -r cfg_samplemiss=$( cfgvar_get samplemiss )
 declare -r cfg_varmiss=$( cfgvar_get varmiss )
 declare -r cfg_uid=$( cfgvar_get uid )
 
+declare -r kingexec="${BASEDIR}/lib/3rd/king"
+
 #-------------------------------------------------------------------------------
 
 # input: merged plink set and hq plink set
@@ -43,14 +45,13 @@ fi
 
 #-------------------------------------------------------------------------------
 
-declare plinkflag=''
+declare keepflag=''
 # find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
   printf "> computing individual heterozygosity and missing rates..\n"
-  ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
-               --set-hh-missing \
-               --het \
-               --missing \
+  ${plinkexec} --allow-extra-chr \
+               --bfile "${opt_hqprefix}i" \
+               --het --missing \
                --out "${tmpprefix}_sq" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
@@ -95,66 +96,108 @@ if [ ${cfg_hvm} -eq 1 ] ; then
     exit 1;
   }
   # write plink flag for non-mixup info later
-  plinkflag="--keep ${tmpprefix}_out.clean.id"
+  keepflag="--keep ${tmpprefix}_out.clean.id"
 else
-  # write a dummy clean.id file including everyone
-  cut -f 1,2 "${opt_hqprefix}.fam" | sort -u > "${tmpprefix}_out.clean.id"
+  # write a dummy clean.id file including everyone from the original file
+  cut -f 1,2 "${opt_inprefix}.fam" | sort -u > "${tmpprefix}_out.clean.id"
 fi
-# extract high coverage variants
-tmp_varmiss=${cfg_varmiss}
-M=$( wc -l "${opt_inprefix}.fam" | cut -d ' ' -f 1 )
-if [ $M -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
-printf "> extracting high coverage variants..\n"
-echo "  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} ${plinkflag}
-             --geno ${tmp_varmiss}
-             --set-hh-missing
-             --make-just-bim
-             --out ${tmpprefix}_hcv" | printlog 2
-${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
-             --geno ${tmp_varmiss} \
-             --set-hh-missing \
-             --make-just-bim \
-             --out "${tmpprefix}_hcv" \
+# extract clean, high coverage individuals
+printf "> extracting high coverage individuals..\n"
+tmp_samplemiss=${cfg_samplemiss}
+N=$( wc -l "${opt_hqprefix}.bim" | cut -d ' ' -f 1 )
+if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
+echo "  ${plinkexec} --allow-extra-chr \
+             --bfile ${opt_hqprefix} ${keepflag}
+             --mind ${tmp_samplemiss}
+             --make-just-fam
+             --out ${tmpprefix}_hc" | printlog 2
+${plinkexec} --allow-extra-chr \
+             --bfile "${opt_hqprefix}" ${keepflag} \
+             --mind ${tmp_samplemiss} \
+             --make-bed \
+             --out "${tmpprefix}_hc" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
-cut -d ' ' -f 2 "${tmpprefix}_hcv.bim" > "${tmpprefix}_hcv.mrk"
-# extract high coverage individuals
 tmp_samplemiss=${cfg_samplemiss}
-N=$( wc -l "${opt_inprefix}.bim" | cut -d ' ' -f 1 )
+N=$( wc -l "${opt_hqprefix}i.bim" | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
-printf "> extracting high coverage individuals..\n"
-echo "  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} ${plinkflag}
-             --extract ${tmpprefix}_hcv.mrk
+echo "  ${plinkexec} --allow-extra-chr \
+             --bfile ${opt_hqprefix}i ${keepflag}
              --mind ${tmp_samplemiss}
-             --set-hh-missing
              --make-just-fam
              --out ${tmpprefix}_hci" | printlog 2
-${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
-             --extract "${tmpprefix}_hcv.mrk" \
+${plinkexec} --allow-extra-chr \
+             --bfile "${opt_hqprefix}i" ${keepflag} \
              --mind ${tmp_samplemiss} \
-             --set-hh-missing \
              --make-just-fam \
              --out "${tmpprefix}_hci" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
+# reconstruct pedigrees using king
+# initialize expected king output files
+awk '{ print( $1, $2, $1, $2 ); }' ${tmpprefix}_hc.fam > ${tmpprefix}_out_updateids.txt
+awk '{ print( $1, $2, $3, $4 ); }' ${tmpprefix}_hc.fam > ${tmpprefix}_out_updateparents.txt
+${kingexec}  -b ${tmpprefix}_hc.bed \
+             --build --degree 2 --prefix ${tmpprefix}_out_ \
+              2> >( tee "${tmpprefix}.err" ) | printlog 3
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
+${plinkexec} --allow-extra-chr \
+             --fam ${tmpprefix}_hc.fam \
+             --update-ids ${tmpprefix}_out_updateids.txt \
+             --make-just-fam \
+             --out ${tmpprefix}_kingids \
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
+${plinkexec} --allow-extra-chr \
+             --fam ${tmpprefix}_kingids.fam \
+             --update-parents ${tmpprefix}_out_updateparents.txt \
+             --make-just-fam \
+             --out ${tmpprefix}_kingpeds \
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
+# reannotate eventual dysfunctional family information
+cut -f 1 "${tmpprefix}_kingpeds.fam" | sort | uniq -c | tabulate \
+  | awk -F $'\t' '{ OFS="\t"; if ( $1 > 1 ) print( $2 ); }' \
+  | join -t $'\t' - <( sort -k 1,1 "${tmpprefix}_kingpeds.fam" ) \
+  | awk '{
+      OFS="\t"
+      dad[$1,$2] = $1 SUBSEP $3
+      mom[$1,$2] = $1 SUBSEP $4
+      sex[$1,$2] = $5
+    } END{
+      for ( sid in sex ) {
+        parsex = sex[dad[sid]] != 0 && sex[mom[sid]] != 0
+        dysfam = parsex && sex[dad[sid]] == sex[mom[sid]]
+        split( sid, ovid, SUBSEP )
+        split( mom[sid], mvid, SUBSEP )
+        split( dad[sid], dvid, SUBSEP )
+        if ( dysfam ) print( ovid[1], ovid[2], 0, 0 )
+        else print( ovid[1], ovid[2], dvid[2], mvid[2] )
+      }
+    }' \
+  > "${tmpprefix}_out_updateparents.txt"
 # identify related individuals
 printf "> identifying related individuals..\n"
-${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
+${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
              --keep "${tmpprefix}_hci.fam" \
-             --set-hh-missing \
              --genome gz \
              --out "${tmpprefix}_sq" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
-${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
+${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
              --keep "${tmpprefix}_hci.fam" \
-             --set-hh-missing \
              --cluster \
              --read-genome "${tmpprefix}_sq.genome.gz" \
              --rel-cutoff ${cfg_pihatrel} \
@@ -163,32 +206,12 @@ ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
-# rename list of clean unrelated individuals for later use
+# rename list of clean, unrelated individuals for later use
 mv "${tmpprefix}_sq.rel.id" "${opt_outprefixbase}.ids"
-# erase eventual dysfunctional family information
-cut -f 1 "${opt_hqprefix}.fam" | sort | uniq -c | tabulate \
-  | awk -F $'\t' '{ OFS="\t"; if ( $1 > 2 ) print( $2 ); }' \
-  | join -t $'\t' - <( sort -k 1,1 "${opt_hqprefix}.fam" ) \
-  | awk '{
-      OFS="\t"
-      dad[$1,$2] = $1 SUBSEP $3
-      mom[$1,$2] = $1 SUBSEP $4
-      sex[$1,$2] = $5
-    } END{
-      for ( sid in dad ) {
-        dysfamvec = sex[dad[sid]] == 0 || sex[mom[sid]] == 0
-        dysfamvec = dysfamvec || sex[dad[sid]] == sex[mom[sid]]
-        if ( dysfamvec ) {
-          split( sid, vid, SUBSEP )
-          print( vid[1], vid[2], 0, 0 )
-        }
-      }
-    }' \
-  > "${tmpprefix}_dysfam.tri"
-# remove mixups and update sex and parents in input set
-${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
-             --update-parents "${tmpprefix}_dysfam.tri" \
+# remove mixups and update sex in input set
+${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${keepflag} \
              --update-sex "${opt_hqprefix}.fam" 3 \
+             --set-hh-missing \
              --make-bed \
              --out "${tmpprefix}_out" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -197,7 +220,7 @@ if [ $? -ne 0 ] ; then
 fi
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
-unset plinkflag
+unset keepflag
 
 extract_related_lists_from_grm_file() {
   local -r infile="$1"
@@ -237,17 +260,17 @@ extract_related_lists_from_grm_file() {
 {
   {
     printf "%s\t" ${cfg_uid}
-    head -n 1 "${opt_hqprefix}.sexcheck" | tabulate | cut -f 3-
+    cat "${opt_hqprefix}"*.sexcheck | head -n 1 | tabulate | cut -f 3-
   } | join -t $'\t'     "${opt_biofile}" - \
     | tee "${tmpprefix}.bio.head"
   # count number of fields in the merged file
   TNF=$( cat "${tmpprefix}.bio.head" | wc -w )
   # merge information for existing individuals
-  attach_uids "${opt_hqprefix}.sexcheck" \
+  attach_uids "${opt_hqprefix}"*.sexcheck \
     | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 \
     | join -t $'\t'     "${opt_biofile}" - \
   # add non-existing individuals and pad the extra fields with NAs
-  attach_uids "${opt_hqprefix}.sexcheck" \
+  attach_uids "${opt_hqprefix}"*.sexcheck \
     | tail -n +2 | cut -f 1,4- | sort -u -k 1,1 \
     | join -t $'\t' -v1 "${opt_biofile}" - \
     | awk -F $'\t' -v TNF=${TNF} '{
@@ -309,7 +332,7 @@ mv "${tmpprefix}.1.bio" "${opt_biofile}"
 } | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.2.bio"
 mv "${tmpprefix}.2.bio" "${opt_biofile}"
 
-# update biography file with sample relationship
+# update biography file with sample relationships
 {
   extract_related_lists_from_grm_file "${tmpprefix}_sq.genome.gz" \
     | join -t $'\t'     "${opt_biofile}" -

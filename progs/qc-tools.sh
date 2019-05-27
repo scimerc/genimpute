@@ -119,7 +119,7 @@ export -f get_variant_info_for_dup_chr_cm_bp_aa_mm
 
 # in: plink bim
 get_xvar_count() {
-  awk -F $'\t' '$1 == 23' "$1" | wc -l
+  awk -F $'\t' '$1 == 23' "${@:-/dev/stdin}" | wc -l
 }
 
 export -f get_xvar_count
@@ -192,7 +192,7 @@ export -f attach_uids
 #-------------------------------------------------------------------------------
 
 tabulate() {
-  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' "${*:-/dev/stdin}"
+  sed -r 's/[ \t]+/\t/g; s/^[ \t]+//g;' "${@:-/dev/stdin}"
 }
 
 export -f tabulate
