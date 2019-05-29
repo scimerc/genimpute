@@ -45,12 +45,30 @@ if ls "${tmpprefix}"* > /dev/null 2>&1; then
 fi
 
 printf "> removing mendel errors..\n"
-echo "  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix}
+${plinkexec} --allow-extra-chr \
+             --bfile "${opt_inprefix}" \
+             --update-ids "${opt_inprefix}_updateids.txt" \
+             --make-bed \
+             --out "${tmpprefix}_kingids" \
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
+${plinkexec} --allow-extra-chr \
+             --bfile "${tmpprefix}_kingids" \
+             --update-parents "${opt_inprefix}_updateparents.txt" \
+             --make-bed \
+             --out "${tmpprefix}_kingpeds" \
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
+if [ $? -ne 0 ] ; then
+  cat "${tmpprefix}.err"
+fi
+echo "  ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_kingpeds
              --me ${cfg_metrios} ${cfg_mevars}
              --set-me-missing
              --make-bed
              --out ${tmpprefix}_nome" | printlog 2
-${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" \
+${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_kingpeds" \
              --me ${cfg_metrios} ${cfg_mevars} \
              --set-me-missing \
              --make-bed \
@@ -62,8 +80,8 @@ fi
 
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
-if [ -f "${opt_outprefixbase}.ids" ] ; then
-  keepflag="--keep ${opt_outprefixbase}.ids"
+if [ -f "${opt_outprefixbase}/.i/qc/e_indqc.ids" ] ; then
+  keepflag="--keep ${opt_outprefixbase}/.i/qc/e_indqc.ids"
 fi
 
 # set Hardy-Weinberg test p-value threshold in case of no phenotypic information
@@ -92,10 +110,10 @@ if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 declare nosexflag=''
-awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' "${opt_hqprefix}.fam" \
-  > "${opt_hqprefix}.nosex"
-if [ -s "${opt_hqprefix}.nosex" ] ; then
-  nosexflag="--remove ${opt_hqprefix}.nosex"
+awk '{ OFS="\t"; if ( NR > 1 && $5 == 0 ) print( $1, $2 ); }' "${opt_inprefix}.fam" \
+  > "${tmpprefix}.nosex"
+if [ -s "${tmpprefix}.nosex" ] ; then
+  nosexflag="--remove ${tmpprefix}.nosex"
 fi
 sex_hweneglogp=$(( cfg_hweneglogp*2 ))
 if [ $sex_hweneglogp -gt 12 ] ; then

@@ -102,15 +102,17 @@ printf "\
 
 if [ -z "${cfg_refprefix}" ] ; then
   varreffile="${opt_outprefix}.gpa"
-  for i in ${!batchfiles[@]} ; do
-    declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
-    declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
-    cut -f 2 "${b_inprefix}.bim" | tr "${cfg_infosep}" "\t"
-  done \
-    | sort -u -k 1,1n -k 2,2n \
-    > "${varreffile}"
-  unset batchcode
-  unset b_inprefix
+  [ -s "${varreffile}" ] || {
+    for i in ${!batchfiles[@]} ; do
+      declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
+      declare b_inprefix="${opt_inprefix}_batch_${batchcode}"
+      cut -f 2 "${b_inprefix}.bim" | tr "${cfg_infosep}" "\t"
+      unset batchcode
+      unset b_inprefix
+    done \
+      | sort -u -k 1,1n -k 2,2n > "${opt_outprefix}_tmp.gpa"
+    mv "${opt_outprefix}_tmp.gpa" "${varreffile}"
+  }
 fi
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )

@@ -207,7 +207,7 @@ if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 # rename list of clean, unrelated individuals for later use
-mv "${tmpprefix}_sq.rel.id" "${opt_outprefixbase}.ids"
+mv "${tmpprefix}_sq.rel.id" "${opt_outprefixbase}/.i/qc/e_indqc.ids"
 # remove mixups and update sex in input set
 ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${keepflag} \
              --update-sex "${opt_hqprefix}.fam" 3 \
@@ -342,7 +342,7 @@ mv "${tmpprefix}.2.bio" "${opt_biofile}"
 } | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.3.bio"
 mv "${tmpprefix}.3.bio" "${opt_biofile}"
 
-rename "${tmpprefix}_out" "${opt_outprefix}" "${tmpprefix}_out".*
+rename "${tmpprefix}_out" "${opt_outprefix}" "${tmpprefix}_out"*
 
 rm "${tmpprefix}"*
 

@@ -38,8 +38,8 @@ fi
 declare keepfile=''
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
-if [ -f "${opt_outprefixbase}.ids" ] ; then
-  keepfile="${opt_outprefixbase}.ids"
+if [ -f "${opt_outprefixbase}/.i/qc/e_indqc.ids" ] ; then
+  keepfile="${opt_outprefixbase}/.i/qc/e_indqc.ids"
   keepflag="--keep ${keepfile}"
 fi
 

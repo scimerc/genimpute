@@ -177,6 +177,9 @@ run() {
     case ${cfg_execommand} in
       *bash*)
         echo "running '$( basename ${cmd} )'.."
+        export plink_num_jobs=1
+        export plink_num_cpus=1
+        export plink_mem_per_cpu=${cfg_plinkmem}
         export plinkexec="${BASEDIR}/lib/3rd/plink"
         ${timexec} ${cfg_execommand} ${cmd}
         ;;
@@ -355,7 +358,6 @@ unset opt_biofile
 # perform standard variant-level QC
 
 # export vars
-export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 export opt_inprefix="${opt_outprefixbase}/.i/qc/e_indqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 
@@ -363,7 +365,6 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-var.sh"
 
 # cleanup
-unset opt_hqprefix
 unset opt_inprefix
 unset opt_outprefix
 

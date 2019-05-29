@@ -46,8 +46,8 @@ fi
 
 declare keepflag=''
 # set keep flag if a list of unrelated individuals exists
-if [ -f "${opt_outprefixbase}.ids" ] ; then
-  keepflag="--keep ${opt_outprefixbase}.ids"
+if [ -f "${opt_outprefixbase}/.i/qc/e_indqc.ids" ] ; then
+  keepflag="--keep ${opt_outprefixbase}/.i/qc/e_indqc.ids"
 fi
 declare extractflag=''
 # set extract flag if a previous list of variants exists
