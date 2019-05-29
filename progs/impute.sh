@@ -59,8 +59,8 @@ for chr in ${cfg_chromosomes} ; do
   phasescriptfn="${scriptprefix}1_phase_chr${chr}.sh"
   cat > "${phasescriptfn}" << EOI
 #!/usr/bin/env bash
-#SBATCH --cpus-per-task=20
-#SBATCH --mem-per-cpu=1G
+#SBATCH --cpus-per-task=40
+#SBATCH --mem-per-cpu=512MB
 #SBATCH --time=${runtimehrs}:00:00
 
 # Eagle's parallelization is very efficient. The original colossus machines had
@@ -77,7 +77,7 @@ ${timexec} "${eaglexec}" \\
   --vcfRef "${cfg_refprefix}.chr${chr}.haplotypes.bcf" \\
   --vcfTarget "${opt_inprefix}_chr${chr}.bcf" \\
   --outPrefix "${tmpprefix}_chr${chr}_phasing" \\
-  --numThreads \$(( num_cpus * 2))
+  --numThreads \${num_cpus}
 mv "${tmpprefix}_chr${chr}_phasing.vcf.gz" "${tmpprefix}_chr${chr}_phased.vcf.gz"
 EOI
   chmod u+x ${phasescriptfn}
@@ -100,8 +100,8 @@ echo "==== MaCH${minimac_version} imputation ====" | printlog 1
 # write impute scripts
 printf "> writing imputation scripts..\n"
 SBATCH_CONF_MM3="
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=14G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem-per-cpu=20GB
 #SBATCH --time=$(( 12 * ( groupsize / 500 + 1 ) )):00:00
 
 # results for batch3; n=9200 individuals total, 14 samples with n=650 each; hrc-32k reference
@@ -113,8 +113,8 @@ SBATCH_CONF_MM3="
 #   1) sbatch: cpus-per-task=2; mem-per-cpu=16 mm3: lowMem; cpus=2  -> 21h; 46jobs; chr2 max.mem=23/32G
 "
 SBATCH_CONF_MM4="
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=3G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem-per-cpu=3GB
 #SBATCH --time=$(( 4 * ( groupsize / 500 + 1 ) )):00:00
 
 # results for batch3; n=9200 individuals total, 14 samples with n=650 each; hrc-32k reference
@@ -157,7 +157,7 @@ num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
 mv "${tmpprefix}_chr${chr}_${sampletag}_phased_draft.vcf.gz" \\
   "${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz"
 ${timexec} ${minimacexec} \\
-  --cpus \$(( num_cpus * 2 )) \\
+  --cpus \${num_cpus} \\
   --format GT,GP,DS \\
   --haps "${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz" \\
   --refHaps "${cfg_refprefix}.chr${chr}.m3vcf.gz" \\
@@ -209,8 +209,8 @@ for chr in ${cfg_chromosomes} ; do
   cat > "${scriptfn}" << EOI
 #!/usr/bin/env bash
 #SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=4G
-#SBATCH --time=06:00:00
+#SBATCH --mem-per-cpu=4GB
+#SBATCH --time=$(( 6*( Nind / 10000 + 1 ) )):00:00
 
 set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
@@ -221,13 +221,44 @@ elif [ \${Ns} -gt 1 ] ; then
   "${bcftoolsexec}" merge "${tmpprefix}_chr${chr}"_*_imputed.dose.vcf.gz --threads 3 -Oz \\
     > "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"
 fi
-bcftools index "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"
-rename "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz" "${opt_outprefixbase}/bcf/chr${chr}.vcf.gz" \\
+"${bcftoolsexec}" index "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"
+rename "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz" \\
+       "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" \\
        "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"*
 EOI
   chmod u+x "${scriptfn}"
-  if [ -e "${opt_outprefixbase}/bcf/chr${chr}.vcf.gz" ]; then
+  if [ -e "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" ]; then
     printf "> merged vcf files present. nothing to do.\n"
+    continue
+  fi
+  printf "> adding ${scriptfn} to jobs stack..\n"
+  jobscripts+=( "${scriptfn}" )
+done
+
+#-------------------------------------------------------------------------------
+
+# write post-imputation qc scripts
+printf "> writing post-imputation qc scripts..\n"
+for chr in ${cfg_chromosomes} ; do
+  scriptfn="${scriptprefix}4_pimp_chr${chr}.sh"
+  cat > "${scriptfn}" << EOI
+#!/usr/bin/env bash
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=4GB
+#SBATCH --time=$(( 6*( Nind / 10000 + 1 ) )):00:00
+
+set -Eeou pipefail
+[ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
+"${bcftoolsexec}" filter -e "R2 < 0.8 || MAF < 0.01" \\
+  "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" --threads 3 -Oz \\
+  > "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"
+rename "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz" \\
+       "${opt_outprefixbase}/bcf/qc1/chr${chr}.vcf.gz" \\
+       "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"*
+EOI
+  chmod u+x "${scriptfn}"
+  if [ -e "${opt_outprefixbase}/bcf/qc1/chr${chr}.vcf.gz" ]; then
+    printf "> qc'd vcf files present. nothing to do.\n"
     continue
   fi
   printf "> adding ${scriptfn} to jobs stack..\n"
@@ -239,17 +270,17 @@ done
 # write recode scripts
 printf "> writing recode scripts..\n"
 for chr in ${cfg_chromosomes} ; do
-  scriptfn="${scriptprefix}4_recode_chr${chr}.sh"
+  scriptfn="${scriptprefix}5_recode_chr${chr}.sh"
   cat > "${scriptfn}" << EOI
 #!/usr/bin/env bash
-#SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=4G
-#SBATCH --time=06:00:00
+#SBATCH --cpus-per-task=${plink_num_cpus}
+#SBATCH --mem-per-cpu=${plink_mem_per_cpu}MB
+#SBATCH --time=$(( 6*( Nind / 10000 + 1 ) )):00:00
 
 set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
 ${plinkexec} --allow-extra-chr \\
-  --vcf "${opt_outprefixbase}/bcf/chr${chr}.vcf.gz" \\
+  --vcf "${opt_outprefixbase}/bcf/qc1/chr${chr}.vcf.gz" \\
   --vcf-min-gp 0.75 \\
   --double-id \\
   --make-bed \\
@@ -259,7 +290,8 @@ ${plinkexec} --allow-extra-chr \\
   --indiv-sort f "${tmpprefix}_ordered.fam" \\
   --make-bed \\
   --out "${tmpprefix}_chr${chr}_plink_reordered"
-rename "${tmpprefix}_chr${chr}_plink_reordered" "${opt_outprefixbase}/bed/chr${chr}.bed" \\
+rename "${tmpprefix}_chr${chr}_plink_reordered" \\
+       "${opt_outprefixbase}/bed/chr${chr}.bed" \\
        "${tmpprefix}_chr${chr}_plink_reordered"* \\
 EOI
   chmod u+x "${scriptfn}"

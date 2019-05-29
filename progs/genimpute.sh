@@ -123,7 +123,7 @@ export opt_inputfiles
 export opt_outprefixbase
 
 # prepare output containers
-mkdir -p "${opt_outprefixbase}/bcf" "${opt_outprefixbase}/bed" \
+mkdir -p "${opt_outprefixbase}/bcf/qc0" "${opt_outprefixbase}/bcf/qc1" "${opt_outprefixbase}/bed" \
          "${opt_outprefixbase}/.i/.s" "${opt_outprefixbase}/.i/qc" "${opt_outprefixbase}/.i/im"
 
 #---------------------------------------------------------------------------------------------------
@@ -183,11 +183,11 @@ run() {
       *sbatch*)
         echo "submitting '$( basename ${cmd} )'.."
         if [ "${cfg_plinkmem}" != "" -a "${cfg_snodemem}" != "" ] ; then
-          njobs=$(( cfg_snodemem / cfg_plinkmem ))
-          ncpus=$(( cfg_snodecores / njobs ))
-          mempercpu=$(( ( cfg_plinkmem + cfg_plinkmem/10 ) / ncpus ))
-          plinkflag="--memory ${cfg_plinkmem} --threads ${ncpus}"
-          sbatchflag="--mem-per-cpu=${mempercpu}MB --cpus-per-task=${ncpus}"
+          export plink_num_jobs=$(( cfg_snodemem / cfg_plinkmem ))
+          export plink_num_cpus=$(( cfg_snodecores / plink_num_njobs ))
+          export plink_mem_per_cpu=$(( ( cfg_plinkmem + cfg_plinkmem/10 ) / plink_num_cpus ))
+          plinkflag="--memory ${cfg_plinkmem} --threads ${plink_num_cpus}"
+          sbatchflag="--mem-per-cpu=${plink_mem_per_cpu}MB --cpus-per-task=${plink_num_cpus}"
         fi
         export plinkexec="${BASEDIR}/lib/3rd/plink ${plinkflag}"
         jobnum=$( ${cfg_execommand} ${sbatchflag} --time=${cfg_plinkctime} ${jobdepflag} \
