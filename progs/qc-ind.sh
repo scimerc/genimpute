@@ -139,28 +139,28 @@ if [ $? -ne 0 ] ; then
 fi
 # reconstruct pedigrees using king
 # initialize expected king output files
-awk '{ print( $1, $2, $1, $2 ); }' ${tmpprefix}_hc.fam > ${tmpprefix}_out_updateids.txt
-awk '{ print( $1, $2, $3, $4 ); }' ${tmpprefix}_hc.fam > ${tmpprefix}_out_updateparents.txt
-${kingexec}  -b ${tmpprefix}_hc.bed \
-             --build --degree 2 --prefix ${tmpprefix}_out_ \
+awk '{ print( $1, $2, $1, $2 ); }' "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateids.txt"
+awk '{ print( $1, $2, $3, $4 ); }' "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateparents.txt"
+${kingexec}  -b "${tmpprefix}_hc.bed" \
+             --build --degree 2 --prefix "${tmpprefix}_out_" \
               2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 ${plinkexec} --allow-extra-chr \
-             --fam ${tmpprefix}_hc.fam \
-             --update-ids ${tmpprefix}_out_updateids.txt \
+             --fam "${tmpprefix}_hc.fam" \
+             --update-ids "${tmpprefix}_out_updateids.txt" \
              --make-just-fam \
-             --out ${tmpprefix}_kingids \
+             --out "${tmpprefix}_kingids" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 ${plinkexec} --allow-extra-chr \
-             --fam ${tmpprefix}_kingids.fam \
-             --update-parents ${tmpprefix}_out_updateparents.txt \
+             --fam "${tmpprefix}_kingids.fam" \
+             --update-parents "${tmpprefix}_out_updateparents.txt" \
              --make-just-fam \
-             --out ${tmpprefix}_kingpeds \
+             --out "${tmpprefix}_kingpeds" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"

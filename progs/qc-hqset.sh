@@ -116,7 +116,7 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
                --make-just-bim
                --out ${tmpprefix}_sex" | printlog 2
   ${plinkexec} --allow-extra-chr --chr 23,24 \
-               --bfile ${tmpprefix}_draft ${keepflag} ${extractflag} ${regexcludeflag} \
+               --bfile "${tmpprefix}_draft" ${keepflag} ${extractflag} ${regexcludeflag} \
                --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag} \
                --make-just-bim \
                --out "${tmpprefix}_sex" \
@@ -132,7 +132,7 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
                --make-just-bim
                --out ${tmpprefix}_nonsex" | printlog 2
   ${plinkexec} --allow-extra-chr --not-chr 23,24 \
-               --bfile ${tmpprefix}_draft ${keepflag} ${extractflag} ${regexcludeflag} \
+               --bfile "${tmpprefix}_draft" ${keepflag} ${extractflag} ${regexcludeflag} \
                --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag} \
                --make-just-bim \
                --out "${tmpprefix}_nonsex" \
