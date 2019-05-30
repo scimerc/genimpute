@@ -291,7 +291,7 @@ ${plinkexec} --allow-extra-chr \\
   --make-bed \\
   --out "${tmpprefix}_chr${chr}_plink_reordered"
 rename "${tmpprefix}_chr${chr}_plink_reordered" \\
-       "${opt_outprefixbase}/bed/chr${chr}.bed" \\
+       "${opt_outprefixbase}/bed/chr${chr}" \\
        "${tmpprefix}_chr${chr}_plink_reordered"* \\
 EOI
   chmod u+x "${scriptfn}"
