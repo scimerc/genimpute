@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-set -Eeou pipefail
+set -ETeuo pipefail
 
 source "${BASEDIR}/progs/checkdep.sh"
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # exit on error
-set -Eeou pipefail
+set -ETeuo pipefail
 
 source "${BASEDIR}/progs/checkdep.sh"
 
@@ -139,6 +139,7 @@ if [ $? -ne 0 ] ; then
 fi
 # reconstruct pedigrees using king
 # initialize expected king output files
+printf "> reconstructing eventual families (second degree)..\n"
 awk '{ print( $1, $2, $1, $2 ); }' "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateids.txt"
 awk '{ print( $1, $2, $3, $4 ); }' "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateparents.txt"
 ${kingexec}  -b "${tmpprefix}_hc.bed" \
@@ -166,6 +167,7 @@ if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 # reannotate eventual dysfunctional family information
+printf "> reannotating eventual dysfunctional families..\n"
 cut -f 1 "${tmpprefix}_kingpeds.fam" | sort | uniq -c | tabulate \
   | awk -F $'\t' '{ OFS="\t"; if ( $1 > 1 ) print( $2 ); }' \
   | join -t $'\t' - <( sort -k 1,1 "${tmpprefix}_kingpeds.fam" ) \
@@ -257,10 +259,12 @@ extract_related_lists_from_grm_file() {
 }
 
 # update biography file with sex information
+printf "> updating biography file with sex information..\n"
 {
   {
     printf "%s\t" ${cfg_uid}
-    cat "${opt_hqprefix}"*.sexcheck | head -n 1 | tabulate | cut -f 3-
+    cat "${opt_hqprefix}"*.sexcheck > "${tmpprefix}.sexcheck"
+    head -n 1 "${tmpprefix}.sexcheck" | tabulate | cut -f 3-
   } | join -t $'\t'     "${opt_biofile}" - \
     | tee "${tmpprefix}.bio.head"
   # count number of fields in the merged file
@@ -283,6 +287,7 @@ extract_related_lists_from_grm_file() {
 mv "${tmpprefix}.0.bio" "${opt_biofile}"
 
 # update biography file with heterozygosity information
+printf "> updating biography file with heterozygosity information..\n"
 {
   {
     printf "%s\t" ${cfg_uid}
@@ -309,6 +314,7 @@ mv "${tmpprefix}.0.bio" "${opt_biofile}"
 mv "${tmpprefix}.1.bio" "${opt_biofile}"
 
 # update biography file with potential mixup information
+printf "> updating biography file with contamination potentials..\n"
 {
   attach_uids "${tmpprefix}_out.clean.id" \
     | cut -f 1,4- | sort -u -k 1,1 \
@@ -333,6 +339,7 @@ mv "${tmpprefix}.1.bio" "${opt_biofile}"
 mv "${tmpprefix}.2.bio" "${opt_biofile}"
 
 # update biography file with sample relationships
+printf "> updating biography file with relatedness information..\n"
 {
   extract_related_lists_from_grm_file "${tmpprefix}_sq.genome.gz" \
     | join -t $'\t'     "${opt_biofile}" -

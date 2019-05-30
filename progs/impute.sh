@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -Eeou pipefail
+set -ETeuo pipefail
 
 source "${BASEDIR}/progs/checkdep.sh"
 
@@ -8,15 +8,19 @@ bcftoolsexec="${BASEDIR}/lib/3rd/bcftools"
 eaglexec="${BASEDIR}/lib/3rd/eagle"
 minimac_version=3
 
-declare -r tmpprefix="${opt_outprefix}_tmp"
-declare -r sampleprefix="${opt_outprefixbase}/.i/.s/samples/sample"
-declare -r scriptprefix="${opt_outprefixbase}/.i/.s/scripts/script"
-declare -r scriptlogprefix="${opt_outprefixbase}/.i/.s/logs/script"
 declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 declare -r cfg_execommand=$( cfgvar_get execommand )
-declare -r cfg_igroupsize=$( cfgvar_get igroupsize )
 declare -r cfg_genomemap=$( cfgvar_get genomemap )
+declare -r cfg_igroupsize=$( cfgvar_get igroupsize )
+declare -r cfg_impmaf=$( cfgvar_get impmaf )
+declare -r cfg_impbasersq=$( cfgvar_get impbasersq )
+declare -r cfg_impqcrsq=$( cfgvar_get impqcrsq )
+declare -r cfg_impmingp=$( cfgvar_get impmingp )
 declare -r genmap="${BASEDIR}/lib/data/${cfg_genomemap}"
+declare -r scriptlogprefix="${opt_outprefixbase}/.i/.s/logs/script"
+declare -r scriptprefix="${opt_outprefixbase}/.i/.s/scripts/script"
+declare -r sampleprefix="${opt_outprefixbase}/.i/.s/samples/sample"
+declare -r tmpprefix="${opt_outprefix}_tmp"
 declare -a jobscripts
 
 mkdir -p "$( dirname "${sampleprefix}" )"
@@ -221,10 +225,13 @@ elif [ \${Ns} -gt 1 ] ; then
   "${bcftoolsexec}" merge "${tmpprefix}_chr${chr}"_*_imputed.dose.vcf.gz --threads 3 -Oz \\
     > "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"
 fi
-"${bcftoolsexec}" index "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"
-rename "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz" \\
+"${bcftoolsexec}" filter -e "R2 < ${cfg_impbasersq}" \\
+  "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz" --threads 3 -Oz \\
+  > "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"
+"${bcftoolsexec}" index "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"
+rename "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz" \\
        "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" \\
-       "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"*
+       "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"*
 EOI
   chmod u+x "${scriptfn}"
   if [ -e "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" ]; then
@@ -249,9 +256,10 @@ for chr in ${cfg_chromosomes} ; do
 
 set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
-"${bcftoolsexec}" filter -e "R2 < 0.8 || MAF < 0.01" \\
+"${bcftoolsexec}" filter -e "R2 < ${cfg_impqcrsq} || MAF < ${cfg_impmaf}" \\
   "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" --threads 3 -Oz \\
   > "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"
+"${bcftoolsexec}" index "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"
 rename "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz" \\
        "${opt_outprefixbase}/bcf/qc1/chr${chr}.vcf.gz" \\
        "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"*
@@ -281,7 +289,7 @@ set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
 ${plinkexec} --allow-extra-chr \\
   --vcf "${opt_outprefixbase}/bcf/qc1/chr${chr}.vcf.gz" \\
-  --vcf-min-gp 0.75 \\
+  --vcf-min-gp ${cfg_impmingp} \\
   --double-id \\
   --make-bed \\
   --out "${tmpprefix}_chr${chr}_plink"
