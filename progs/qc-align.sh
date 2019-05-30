@@ -203,7 +203,8 @@ for i in ${!batchfiles[@]} ; do
           printf( "" ) >batchfliplist
           printf( "" ) >batchidmap
         } {
-          if ( $5 == "-" || $6 == "-" ) {
+          # any reference alleles missing?
+          if ( $5 == "-" || $6 == "-" || $5 <= 0 || $6 <= 0 ) {
             print( $4 ) >batchblacklist
             blackcatalog[$4] = 1
             total_miss++
