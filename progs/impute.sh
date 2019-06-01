@@ -13,10 +13,10 @@ declare -r cfg_execommand=$( cfgvar_get execommand )
 declare -r cfg_genomemap=$( cfgvar_get genomemap )
 declare -r cfg_igroupsize=$( cfgvar_get igroupsize )
 declare -r cfg_impmaf=$( cfgvar_get impmaf )
-declare -r cfg_impbasersq=$( cfgvar_get impbasersq )
-declare -r cfg_impqcrsq=$( cfgvar_get impqcrsq )
 declare -r cfg_impmingp=$( cfgvar_get impmingp )
-declare -r genmap="${BASEDIR}/lib/data/${cfg_genomemap}"
+declare -r cfg_imprsqbase=$( cfgvar_get imprsqbase )
+declare -r cfg_imprsqhigh=$( cfgvar_get imprsqhigh )
+declare -r genmapfile="${BASEDIR}/lib/data/${cfg_genomemap}"
 declare -r scriptlogprefix="${opt_outprefixbase}/.i/.s/logs/script"
 declare -r scriptprefix="${opt_outprefixbase}/.i/.s/scripts/script"
 declare -r sampleprefix="${opt_outprefixbase}/.i/.s/samples/sample"
@@ -77,7 +77,7 @@ num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
 ${timexec} "${eaglexec}" \\
   --chrom ${chrtag} \\
-  --geneticMapFile "${genmap}" \\
+  --geneticMapFile "${genmapfile}" \\
   --vcfRef "${cfg_refprefix}.chr${chr}.haplotypes.bcf" \\
   --vcfTarget "${opt_inprefix}_chr${chr}.bcf" \\
   --outPrefix "${tmpprefix}_chr${chr}_phasing" \\
@@ -225,7 +225,7 @@ elif [ \${Ns} -gt 1 ] ; then
   "${bcftoolsexec}" merge "${tmpprefix}_chr${chr}"_*_imputed.dose.vcf.gz --threads 3 -Oz \\
     > "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz"
 fi
-"${bcftoolsexec}" filter -e "R2 < ${cfg_impbasersq}" \\
+"${bcftoolsexec}" filter -e "R2 < ${cfg_imprsqbase}" \\
   "${tmpprefix}_chr${chr}_imputed.dose.vcf.gz" --threads 3 -Oz \\
   > "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"
 "${bcftoolsexec}" index "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"
@@ -256,7 +256,7 @@ for chr in ${cfg_chromosomes} ; do
 
 set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
-"${bcftoolsexec}" filter -e "R2 < ${cfg_impqcrsq} || MAF < ${cfg_impmaf}" \\
+"${bcftoolsexec}" filter -e "R2 < ${cfg_imprsqhigh} || MAF < ${cfg_impmaf}" \\
   "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" --threads 3 -Oz \\
   > "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"
 "${bcftoolsexec}" index "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"
