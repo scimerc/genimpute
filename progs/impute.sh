@@ -300,7 +300,7 @@ ${plinkexec} --allow-extra-chr \\
   --out "${tmpprefix}_chr${chr}_plink_reordered"
 rename "${tmpprefix}_chr${chr}_plink_reordered" \\
        "${opt_outprefixbase}/bed/chr${chr}" \\
-       "${tmpprefix}_chr${chr}_plink_reordered"* \\
+       "${tmpprefix}_chr${chr}_plink_reordered"*
 EOI
   chmod u+x "${scriptfn}"
   if [ -s "${opt_outprefixbase}/bed/chr${chr}.bed" ]; then
@@ -310,6 +310,35 @@ EOI
   printf "> adding ${scriptfn} to jobs stack..\n"
   jobscripts+=( "${scriptfn}" )
 done
+
+#-------------------------------------------------------------------------------
+
+# write plink merge scripts
+printf "> writing plink merge script..\n"
+scriptfn="${scriptprefix}6_chrcat.sh"
+cat > "${scriptfn}" << EOI
+#!/usr/bin/env bash
+#SBATCH --cpus-per-task=${plink_num_cpus}
+#SBATCH --mem-per-cpu=${plink_mem_per_cpu}MB
+#SBATCH --time=$(( 6*( Nind / 10000 + 1 ) )):00:00
+
+set -Eeou pipefail
+[ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
+ls -1 "${opt_outprefixbase}/bed/chr*.bed" > ${tmpprefix}.list
+${plinkexec} --allow-extra-chr \\
+  --merge-list "${tmpprefix}.list" \\
+  --out "${tmpprefix}_all"
+rename "${tmpprefix}_all" \\
+       "${opt_outprefixbase}/bed/all" \\
+       "${tmpprefix}_all"*
+EOI
+chmod u+x "${scriptfn}"
+if [ -s "${opt_outprefixbase}/bed/all.bed" ]; then
+  printf "> plink-merged file present. nothing to do.\n"
+  continue
+fi
+printf "> adding ${scriptfn} to jobs stack..\n"
+jobscripts+=( "${scriptfn}" )
 
 #-------------------------------------------------------------------------------
 
