@@ -324,7 +324,7 @@ cat > "${scriptfn}" << EOI
 
 set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
-ls -1 "${opt_outprefixbase}/bed/chr*.bed" > ${tmpprefix}.list
+ls -1 "${opt_outprefixbase}/bed/chr"*.bed | sed 's/\.bed$//g;' > ${tmpprefix}.list
 ${plinkexec} --allow-extra-chr \\
   --merge-list "${tmpprefix}.list" \\
   --out "${tmpprefix}_all"
