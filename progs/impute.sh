@@ -192,7 +192,7 @@ rename imputing_std.dose.vcf.gz imputed.dose.vcf.gz \\
 EOI
     chmod u+x "${imputescriptfn}"
     if [ -e "${tmpprefix}_chr${chr}_${sampletag}_imputed.dose.vcf.gz" ]; then
-      printf " > final vcf files present. nothing to do.\n"
+      printf "> final vcf files present. nothing to do.\n"
       continue
     fi
     if [ ! -e "${cfg_refprefix}.chr${chr}.m3vcf.gz" ] ; then
@@ -259,7 +259,7 @@ set -Eeou pipefail
 "${bcftoolsexec}" filter -e "R2 < ${cfg_imprsqhigh} || MAF < ${cfg_impmaf}" \\
   "${opt_outprefixbase}/bcf/qc0/chr${chr}.vcf.gz" --threads 3 -Oz \\
   > "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"
-"${bcftoolsexec}" index "${tmpprefix}_chr${chr}_qc0_imputed.dose.vcf.gz"
+"${bcftoolsexec}" index "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"
 rename "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz" \\
        "${opt_outprefixbase}/bcf/qc1/chr${chr}.vcf.gz" \\
        "${tmpprefix}_chr${chr}_qc_imputed.dose.vcf.gz"*
