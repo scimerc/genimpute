@@ -138,16 +138,18 @@ if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 # reconstruct pedigrees using king
-# initialize expected king output files
 printf "> reconstructing eventual families (second degree)..\n"
-awk '{ print( $1, $2, $1, $2 ); }' "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateids.txt"
-awk '{ print( $1, $2, $3, $4 ); }' "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateparents.txt"
 ${kingexec}  -b "${tmpprefix}_hc.bed" \
              --build --degree 2 --prefix "${tmpprefix}_out_" \
               2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
+# write expected king output files if missing or empty
+[ -s "${tmpprefix}_out_updateids.txt" ] || awk '{ print( $1, $2, $1, $2 ); }' \
+  "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateids.txt"
+[ -s "${tmpprefix}_out_updateids.txt" ] || awk '{ print( $1, $2, $3, $4 ); }' \
+  "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateparents.txt"
 ${plinkexec} --allow-extra-chr \
              --fam "${tmpprefix}_hc.fam" \
              --update-ids "${tmpprefix}_out_updateids.txt" \
@@ -210,7 +212,7 @@ if [ $? -ne 0 ] ; then
 fi
 # rename list of clean, unrelated individuals for later use
 mv "${tmpprefix}_sq.rel.id" "${opt_outprefixbase}/.i/qc/e_indqc.ids"
-# remove mixups and update sex in input set
+# remove mixups, update sex and set heterozygous haploid genotypes to missing in input set
 ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${keepflag} \
              --update-sex "${opt_hqprefix}.fam" 3 \
              --set-hh-missing \

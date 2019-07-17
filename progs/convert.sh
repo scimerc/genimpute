@@ -43,17 +43,44 @@ if ls ${tmpprefix}* > /dev/null 2>&1; then
 fi
 
 # purge fam file ids of any unwanted characters
-awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk --source '{
-  OFS="\t"
-  fid=idclean($1)
-  iid=idclean($2)
-  gsub( "_+$", "", fid )
-  gsub( "^_+", "", iid )
-  print( $1, $2, fid, iid )
-}' ${opt_inprefix}.fam > ${tmpprefix}.idmap
+touch ${tmpprefix}_updateids.txt
+touch ${tmpprefix}_updateparents.txt
+awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk \
+  -v idmapfile=${tmpprefix}.idmap \
+  -v idsupfile=${tmpprefix}_updateids.txt \
+  -v parupfile=${tmpprefix}_updateparents.txt \
+  --source 'BEGIN{
+    OFS="\t"
+    fn=0
+  } {
+    if ( FNR==1 ) fn++
+    fid=idclean($1)
+    iid=idclean($2)
+    gid=idclean($3)
+    jid=idclean($4)
+    uid=idclean($1"_"$2)
+    gsub( "_+$", "", fid )
+    gsub( "^_+", "", fid )
+    gsub( "_+$", "", iid )
+    gsub( "^_+", "", iid )
+    gsub( "_+$", "", gid )
+    gsub( "^_+", "", gid )
+    gsub( "_+$", "", jid )
+    gsub( "^_+", "", jid )
+    gsub( "_+$", "", uid )
+    gsub( "^_+", "", uid )
+    if ( fn==1 ) print( $1, $2, fid, iid ) > idmapfile
+    if ( fn==2 ) print( uid, uid, gid, jid ) > idsupfile
+    if ( fn==3 ) print( fid, iid, gid, jid ) > parupfile
+  }' \
+    ${opt_inprefix}.fam \
+    ${opt_sqprefix}_updateids.txt \
+    ${opt_sqprefix}_updateparents.txt
 Nold=$( sort -u -k 1,2 ${tmpprefix}.idmap | wc -l )
 Nnew=$( sort -u -k 3,4 ${tmpprefix}.idmap | wc -l )
 if [ $Nold -eq $Nnew ] ; then
+  mv ${tmpprefix}_updateids.txt ${opt_outprefix}_updateids.txt
+  mv ${tmpprefix}_updateparents.txt ${opt_outprefix}_updateparents.txt
   ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} \
                --update-ids ${tmpprefix}.idmap \
                --make-bed --out ${tmpprefix}_idfix \
@@ -63,12 +90,17 @@ if [ $Nold -eq $Nnew ] ; then
   fi
 else
   printf "====> warning: could not purge IDs due to ensuing conflicts.\n"
+  awk '{ OFS=FS="\t"; uid=$1"_"$2; print( uid, uid, $3, $4 ); }' \
+    ${opt_sqprefix}_updateids.txt > ${opt_outprefix}_updateids.txt
+  cp ${opt_sqprefix}_updateparents.txt ${opt_outprefix}_updateparents.txt
   cp ${opt_inprefix}.bed ${tmpprefix}_idfix.bed
   cp ${opt_inprefix}.bim ${tmpprefix}_idfix.bim
   cp ${opt_inprefix}.fam ${tmpprefix}_idfix.fam
 fi
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_idfix.bim
 sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_idfix.fam
+awk '{ OFS=FS="\t"; print( $1"_"$2, $1"_"$2, $5 ); }' \
+  ${tmpprefix}_idfix.fam > ${opt_outprefix}_updatesex.txt
 # convert input files to vcf formats
 for chr in ${tmp_chromosomes} ; do
   if [ -e ${opt_outprefix}_chr${chr}.bcf ] ; then

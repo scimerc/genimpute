@@ -119,6 +119,7 @@ sex_hweneglogp=$(( cfg_hweneglogp*2 ))
 if [ $sex_hweneglogp -gt 12 ] ; then
   sex_hweneglogp=12
 fi
+# if there aren't enough sex chromosome variants do not even bother.
 if [ $( get_xvar_count "${opt_inprefix}.bim" ) -ge ${cfg_minvarcount} ] ; then
   printf "> qc'ing sex chromosomes variants..\n"
   echo "  ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_nome ${keepflag} ${nosexflag}

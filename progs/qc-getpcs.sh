@@ -29,7 +29,7 @@ fi
 printf "> computing genetic principal components..\n"
 
 if [ -s "${opt_outprefix}.genome.gz" ] ; then
-  printf "> '%s' founc. skipping GRM calculation..\n" "${opt_outprefix}.genome.gz"
+  printf "> '%s' found. skipping GRM calculation..\n" "${opt_outprefix}.genome.gz"
 else
   ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
                --genome gz \

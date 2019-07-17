@@ -138,7 +138,7 @@ printlog() {
   lvl_max="$( cfgvar_get log_lvl )"
   readonly lvl_max
   local logfn
-  logfn="${opt_outprefixbase}.log"
+  logfn="${opt_outprefixbase}/log.txt"
   readonly logfn
   # print stuff to log
   IFS=$'\n'
@@ -158,7 +158,7 @@ declare jobdepflag=""
 declare joblist=""
 
 #TODO: find the time executable in the cluster and restore the original time commands
-declare -r timeformat="ResStats\nMaxMem(KB)\t%M\nRealTime(s)\t%e\nUserTime(s)\t%U\nSysTime(s)\t%S"
+declare -r timeformat="ResStats\nMaxMem_KB\t%M\nRealTime_s\t%e\nUserTime_s\t%U\nSysTime_s\t%S"
 declare -r timexec="${BASEDIR}/lib/3rd/time -o /dev/stdout -f ${timeformat}"
 # declare -r timexec="/usr/bin/env time -o /dev/stdout -f ${timeformat}"
 export timexec
@@ -177,17 +177,19 @@ run() {
     case ${cfg_execommand} in
       *bash*)
         echo "running '$( basename ${cmd} )'.."
-        export plink_num_jobs=1
         export plink_num_cpus=1
         export plink_mem_per_cpu=${cfg_plinkmem}
         export plinkexec="${BASEDIR}/lib/3rd/plink"
         ${timexec} ${cfg_execommand} ${cmd}
         ;;
       *sbatch*)
-        echo "submitting '$( basename ${cmd} )'.."
+        echo -e -n "submitting '$( basename ${cmd} )'..\t"
         if [ "${cfg_plinkmem}" != "" -a "${cfg_snodemem}" != "" ] ; then
-          export plink_num_jobs=$(( cfg_snodemem / cfg_plinkmem ))
-          export plink_num_cpus=$(( cfg_snodecores / plink_num_njobs ))
+          export plink_max_jobs=$(( cfg_snodemem / ( cfg_plinkmem + 1 ) ))
+          export plink_num_cpus=$(( cfg_snodecores / ( plink_max_jobs + 1 ) ))
+          if [ ${plink_num_cpus} -eq 0 ] ; then
+            export plink_num_cpus=1
+          fi
           export plink_mem_per_cpu=$(( ( cfg_plinkmem + cfg_plinkmem/10 ) / plink_num_cpus ))
           plinkflag="--memory ${cfg_plinkmem} --threads ${plink_num_cpus}"
           sbatchflag="--mem-per-cpu=${plink_mem_per_cpu}MB --cpus-per-task=${plink_num_cpus}"
@@ -211,7 +213,7 @@ run() {
 
 # initialize log file
 
-> "${opt_outprefixbase}.log"
+> "${opt_outprefixbase}/log.txt"
 
 { 
   echo
@@ -425,11 +427,12 @@ ${opt_qconly} && { echo "done."; exit 0; }
 
 #---------------------------------------------------------------------------------------------------
 
-# convert
+# convert to chromosome-wise vcf format
 
 # export vars
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/i_pre"
+export opt_sqprefix="${opt_outprefixbase}/.i/qc/e_indqc"
 
 # call convert
 ${opt_imputeonly} || run "${BASEDIR}/progs/convert.sh"
@@ -437,6 +440,7 @@ ${opt_imputeonly} || run "${BASEDIR}/progs/convert.sh"
 # cleanup
 unset opt_inprefix
 unset opt_outprefix
+unset opt_sqprefix
 
 #---------------------------------------------------------------------------------------------------
 

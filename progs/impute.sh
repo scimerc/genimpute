@@ -11,11 +11,16 @@ minimac_version=3
 declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 declare -r cfg_execommand=$( cfgvar_get execommand )
 declare -r cfg_genomemap=$( cfgvar_get genomemap )
+declare -r cfg_hweflag=$( cfgvar_get hweflag )
+declare -r cfg_hweneglogp=$( cfgvar_get hweneglogp )
 declare -r cfg_igroupsize=$( cfgvar_get igroupsize )
 declare -r cfg_impmaf=$( cfgvar_get impmaf )
 declare -r cfg_impmingp=$( cfgvar_get impmingp )
 declare -r cfg_imprsqbase=$( cfgvar_get imprsqbase )
 declare -r cfg_imprsqhigh=$( cfgvar_get imprsqhigh )
+declare -r cfg_impvarmiss=$( cfgvar_get impvarmiss )
+declare -r cfg_metrios=$( cfgvar_get metrios )
+declare -r cfg_mevars=$( cfgvar_get mevars )
 declare -r genmapfile="${BASEDIR}/lib/data/${cfg_genomemap}"
 declare -r scriptlogprefix="${opt_outprefixbase}/.i/.s/logs/script"
 declare -r scriptprefix="${opt_outprefixbase}/.i/.s/scripts/script"
@@ -293,8 +298,44 @@ ${plinkexec} --allow-extra-chr \\
   --double-id \\
   --make-bed \\
   --out "${tmpprefix}_chr${chr}_plink"
+declare nosexflag=''
+awk '{ OFS="\t"; if ( NR > 1 && \$3 == 0 ) print( \$1, \$2 ); }' "${opt_inprefix}_updatesex.txt" \
+  > "${tmpprefix}.nosex"
+if [ -s "${tmpprefix}.nosex" -a ${chr} -ge 23 -a ${chr} -lt 25 ] ; then
+  nosexflag="--remove ${tmpprefix}.nosex"
+fi
 ${plinkexec} --allow-extra-chr \\
-  --bfile "${tmpprefix}_chr${chr}_plink" \\
+             --bfile "${tmpprefix}_chr${chr}_plink" \\
+             --update-sex "${opt_inprefix}_updatesex.txt" \\
+             --make-bed \\
+             --out "${tmpprefix}_chr${chr}_sup"
+${plinkexec} --allow-extra-chr \\
+             --bfile "${tmpprefix}_chr${chr}_sup" \\
+             --update-ids "${opt_inprefix}_updateids.txt" \\
+             --make-bed \\
+             --out "${tmpprefix}_chr${chr}_kingids"
+${plinkexec} --allow-extra-chr \\
+             --bfile "${tmpprefix}_chr${chr}_kingids" \\
+             --update-parents "${opt_inprefix}_updateparents.txt" \\
+             --make-bed \\
+             --out "${tmpprefix}_chr${chr}_kingpeds"
+${plinkexec} --allow-extra-chr \\
+             --bfile "${tmpprefix}_chr${chr}_kingpeds" \\
+             --me ${cfg_metrios} ${cfg_mevars} \\
+             --set-me-missing \\
+             --make-bed \\
+             --out "${tmpprefix}_chr${chr}_nome"
+${plinkexec} --allow-extra-chr \${nosexflag} \\
+             --bfile "${tmpprefix}_chr${chr}_nome" \\
+             --geno ${cfg_impvarmiss} \\
+             --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag} \\
+             --make-bed \\
+             --out "${tmpprefix}_chr${chr}_out"
+unset nosexflag
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_chr${chr}_out.bim"
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_chr${chr}_out.fam"
+${plinkexec} --allow-extra-chr \\
+  --bfile "${tmpprefix}_chr${chr}_out" \\
   --indiv-sort f "${tmpprefix}_ordered.fam" \\
   --make-bed \\
   --out "${tmpprefix}_chr${chr}_plink_reordered"

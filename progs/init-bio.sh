@@ -14,7 +14,12 @@ if [ ! -s "${opt_biofile}" ] ; then
         BEGIN{
           OFS="\t";
           print( uid, "FID", "IID", "P1ID", "P2ID" )
-        } { print( idclean( $1"_"$2 ), $0 ) } \
+        } {
+          uid=idclean( $1"_"$2 )
+          gsub( "_+$", "", uid )
+          gsub( "^_+", "", uid )
+          print( uid, $0 )
+        }
       ' \
     | sort -u -k 1,1 > "${opt_biofile}"
   Norg=$( cat "${opt_outprefix}.fam" | wc -l )
