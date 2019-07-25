@@ -238,10 +238,8 @@ echo -e "\n=====================================================================
 source "${BASEDIR}/progs/qc-tools.sh"
 
 #---------------------------------------------------------------------------------------------------
-# pre-processing
-#---------------------------------------------------------------------------------------------------
 
-# export vars
+# export global variables
 
 declare  cfg_uid
          cfg_uid="$( cfgvar_get uid )"
@@ -258,6 +256,10 @@ export opt_varwhitelist="${opt_outprefixbase}/.i/qc/a_vwlist.mrk"
 export opt_refprefix="${opt_outprefixbase}/.i/qc/a_refset"
 
 #---------------------------------------------------------------------------------------------------
+# pre-processing
+#---------------------------------------------------------------------------------------------------
+
+# compile variant white list
 
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_vwlist"
 
@@ -269,6 +271,8 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
+# recode into plink binary format
+
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_recode"
 
 # call recode
@@ -279,6 +283,8 @@ unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
+# align to reference
+
 export opt_inprefix="${opt_outprefixbase}/.i/qc/a_recode"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/b_align"
 
@@ -288,6 +294,27 @@ ${opt_imputeonly} || run "${BASEDIR}/progs/qc-align.sh"
 # cleanup
 unset opt_inprefix
 unset opt_outprefix
+
+#---------------------------------------------------------------------------------------------------
+
+# initialize qc iteration counter
+# TODO: implement actual QC loop (possibly only affecting steps hqset and following)
+declare qciter=0
+
+# biography
+
+# export vars
+export opt_inprefix="${opt_outprefixbase}/.i/qc/b_align"
+export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
+export opt_biofile="${opt_outprefixbase}/bio.txt"
+
+# call init-bio
+${opt_imputeonly} || run "${BASEDIR}/progs/init-bio.sh"
+
+# cleanup
+unset opt_inprefix
+unset opt_outprefix
+unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 
@@ -302,24 +329,6 @@ ${opt_imputeonly} || run "${BASEDIR}/progs/qc-merge.sh"
 # cleanup
 unset opt_inprefix
 unset opt_outprefix
-
-#---------------------------------------------------------------------------------------------------
-
-# initialize qc iteration counter TODO: implement actual QC loop
-declare qciter=0
-
-# biography
-
-# export vars
-export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
-export opt_biofile="${opt_outprefixbase}/bio.txt"
-
-# call init-bio
-${opt_imputeonly} || run "${BASEDIR}/progs/init-bio.sh"
-
-# cleanup
-unset opt_outprefix
-unset opt_biofile
 
 #---------------------------------------------------------------------------------------------------
 

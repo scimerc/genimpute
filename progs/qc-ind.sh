@@ -59,10 +59,8 @@ if [ ${cfg_hvm} -eq 1 ] ; then
   fi
   printf "> removing mixups and low-coverage individuals..\n"
   join --header -t $'\t' \
-    <( attach_uids -h "${tmpprefix}_sq.imiss" \
-      | tail -n +2               | sort -t $'\t' -u -k 1,1 ) \
-    <( attach_uids -h "${tmpprefix}_sq.het" \
-      | tail -n +2 | cut -f 1,4- | sort -t $'\t' -u -k 1,1 ) \
+    <( attach_uids -h "${tmpprefix}_sq.imiss" | sort -t $'\t' -u -k 1,1 ) \
+    <( attach_uids -h "${tmpprefix}_sq.het" | cut -f 1,4- | sort -t $'\t' -u -k 1,1 ) \
     | awk -F $'\t' \
       -f "${BASEDIR}/lib/awk/stats.awk" \
       -v maxmis=${cfg_hvmmax} \
@@ -285,7 +283,14 @@ printf "> updating biography file with sex information..\n"
       for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
       printf("\n")
     }'
-} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.0.bio"
+} | awk -F $'\t' '{
+    OFS="\t"
+    if ( NR==1 ) {
+      for ( k=1; k<=NF; k++ )
+        if ( $k ~ "^F$" ) $k = "F_SEX"
+    }
+    print
+  }' | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.0.bio"
 mv "${tmpprefix}.0.bio" "${opt_biofile}"
 
 # update biography file with heterozygosity information
@@ -312,11 +317,18 @@ printf "> updating biography file with heterozygosity information..\n"
       for ( k=NF; k<TNF; k++ ) printf("\t__NA__")
       printf("\n")
     }'
-} | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.1.bio"
+} | awk -F $'\t' '{
+    OFS="\t"
+    if ( NR==1 ) {
+      for ( k=1; k<=NF; k++ )
+        if ( $k ~ "^F$" ) $k = "F_HET"
+    }
+    print
+  }' | sort -t $'\t' -u -k 1,1 > "${tmpprefix}.1.bio"
 mv "${tmpprefix}.1.bio" "${opt_biofile}"
 
 # update biography file with potential mixup information
-printf "> updating biography file with contamination potentials..\n"
+printf "> updating biography file with potential contaminations..\n"
 {
   attach_uids "${tmpprefix}_out.clean.id" \
     | cut -f 1,4- | sort -u -k 1,1 \

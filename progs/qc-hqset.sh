@@ -14,6 +14,7 @@ declare -r cfg_hweflag=$( cfgvar_get hweflag )
 declare -r cfg_minindcount=$( cfgvar_get minindcount )
 declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_pruneflags=$( cfgvar_get pruneflags )
+declare -r cfg_samplemiss=$( cfgvar_get samplemiss )
 declare -r cfg_uid=$( cfgvar_get uid )
 
 #-------------------------------------------------------------------------------
@@ -103,37 +104,44 @@ if [ ${indcount} -lt ${cfg_minindcount} ] ; then
     imputesex=false
   }
 fi
-declare qcdiff='qcdiff' # just some non-empty initialization string
+declare qcdiff='qcdiff' # just some non-empty initialization string to start the while clause
 
 while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   printf "> round $k..\n"
   # hq sex chromosomes
-  xindcount=$( awk '$5 == 1 || $5 == 2' "${tmpprefix}_draft.fam" | wc -l )
-  [ ${xindcount} -le ${cfg_minindcount} ] && hwetmpflag=''
-  echo "  ${plinkexec} --allow-extra-chr --chr 23,24
-               --bfile ${tmpprefix}_draft ${keepflag} ${extractflag} ${regexcludeflag}
-               --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag}
-               --make-just-bim
-               --out ${tmpprefix}_sex" | printlog 2
-  ${plinkexec} --allow-extra-chr --chr 23,24 \
-               --bfile "${tmpprefix}_draft" ${keepflag} ${extractflag} ${regexcludeflag} \
-               --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag} \
-               --make-just-bim \
-               --out "${tmpprefix}_sex" \
-               2> >( tee "${tmpprefix}.err" ) | printlog 3
-  if [ $? -ne 0 ] ; then
-    cat "${tmpprefix}.err"
+  Nsexind=$( awk '$5 == 1 || $5 == 2' "${tmpprefix}_draft.fam" | wc -l )
+  Nsexvar=$( awk '$1 == 23 || $1 == 24' "${tmpprefix}_draft.bim" | wc -l )
+  [ ${Nsexind} -le ${cfg_minindcount} ] && hwetmpflag=''
+  if [ ${Nsexvar} -gt 0 ] ; then
+    echo "  ${plinkexec} --allow-extra-chr --chr 23,24
+                 --bfile ${tmpprefix}_draft ${keepflag} ${extractflag} ${regexcludeflag}
+                 --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag}
+                 --mind ${cfg_samplemiss}
+                 --make-just-bim
+                 --out ${tmpprefix}_sex" | printlog 2
+    ${plinkexec} --allow-extra-chr --chr 23,24 \
+                 --bfile "${tmpprefix}_draft" ${keepflag} ${extractflag} ${regexcludeflag} \
+                 --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag} \
+                 --mind ${cfg_samplemiss} \
+                 --make-just-bim \
+                 --out "${tmpprefix}_sex" \
+                 2> >( tee "${tmpprefix}.err" ) | printlog 3
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
   fi
   # hq non-sex chromosomes
   hwetmpflag="--hwe 1.E-${cfg_hweneglogp_ctrl} ${cfg_hweflag}"
   echo "  ${plinkexec} --allow-extra-chr --not-chr 23,24
                --bfile ${tmpprefix}_draft ${keepflag} ${extractflag} ${regexcludeflag}
                --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag}
+               --mind ${cfg_samplemiss}
                --make-just-bim
                --out ${tmpprefix}_nonsex" | printlog 2
   ${plinkexec} --allow-extra-chr --not-chr 23,24 \
                --bfile "${tmpprefix}_draft" ${keepflag} ${extractflag} ${regexcludeflag} \
                --geno ${tmp_varmiss[${tmpindex}]} ${hwetmpflag} --maf ${cfg_freq} ${freqflag} \
+               --mind ${cfg_samplemiss} \
                --make-just-bim \
                --out "${tmpprefix}_nonsex" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -206,11 +214,14 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   qcdiff=$( {
     cmp <( sort -u "${tmpprefix}_out.fam" ) <( sort -u "${tmpprefix}_draft.fam" ) 2>&1
     cmp <( sort -u "${tmpprefix}.mrk" ) <( sort -u "${opt_outprefix}.mrk" ) 2>&1
-    } || true 
-  )
+    } || true )
+  # reset draft set to newly created out set
   rename "${tmpprefix}_out" "${tmpprefix}_draft" "${tmpprefix}_out."*
   sort -u "${tmpprefix}.mrk" > "${opt_outprefix}.mrk"
+  # if there aren't any changes increase tmpindex for an eventual additional round, otherwise
+  # re-run with the same parameters, re-impute sex and re-check back here for new changes
   [ "${qcdiff}" == "" ] && tmpindex=$((tmpindex+1))
+  # increase round counter
   k=$((k+1))
 done
 [ $Nhqi -gt $cfg_minvarcount ] || {

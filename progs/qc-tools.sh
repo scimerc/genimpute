@@ -177,6 +177,7 @@ attach_uids() {
         -v head=${header} \
         -v uid=${locuid} \
         --source '{
+          # if the file has no header begin processing from the first line
           if ( head == 0 || NR > 1 )
             uid=idclean($1"_"$2)
           printf( "%s", uid )
