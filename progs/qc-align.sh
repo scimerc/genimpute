@@ -166,23 +166,27 @@ for i in ${!batchfiles[@]} ; do
     exit 1;
   }
   # get chr:bp strings from bim file and join with the corresponding field of varreffile
-  awk -F $'\t' -v infosep="${cfg_infosep}" '{
-    OFS="\t"
-    $7 = $1 infosep $4
-    print
-  }' "${tmpprefix}_nb.bim" \
-    | sort -t $'\t' -k 7,7 \
-    | join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' <( \
-      awk -v infosep="${cfg_infosep}" '{
+  join -t $'\t' -a2 -2 7 -o '0 2.5 2.6 2.2 1.2 1.3' -e '-' \
+    <( \
+      awk -F $'\t' -v infosep="${cfg_infosep}" '{
         OFS="\t"
         chr = $1
         if ( chr == "MT" ) chr = 26
         if ( chr == "X" || chr == "XY" ) chr = 23
         if ( chr == "Y" ) chr = 24
-        print( chr infosep $2, $3, $4 )
+        print chr infosep $2, $3, $4
       }' "${varreffile}" \
       | sort -t $'\t' -k 1,1 \
-    ) - | awk -F $'\t' \
+    ) \
+    <( \
+      awk -F $'\t' -v infosep="${cfg_infosep}" '{
+        OFS="\t"
+        $7 = $1 infosep $4
+        print
+      }' "${tmpprefix}_nb.bim" \
+      | sort -t $'\t' -k 7,7 \
+    ) \
+    | awk -F $'\t' \
       -f "${BASEDIR}/lib/awk/nucleocode.awk" \
       -f "${BASEDIR}/lib/awk/genotype.awk" \
       -f "${BASEDIR}/lib/awk/gflip.awk" \
@@ -203,42 +207,54 @@ for i in ${!batchfiles[@]} ; do
           printf( "" ) >batchfliplist
           printf( "" ) >batchidmap
         } {
-          # any reference alleles missing?
+          # $1 is the join field, i.e. the genomic position "chr:bp"
+          # $2,$3 are the internal alleles
+          # $4 is the internal variant name (should be chr:bp:a0:a1)
+          # $5,$6 are the reference alleles
+          #
+          # are any reference alleles missing?
           if ( $5 == "-" || $6 == "-" || $5 <= 0 || $6 <= 0 ) {
             print( $4 ) >batchblacklist
             blackcatalog[$4] = 1
             total_miss++
           }
           else {
+            # mark self-complementary (i.e. ambiguous) variants for removal
             if ( nucleocode($2) == comp_nucleocode($3) ) {
               print( $4 ) >batchblacklist
               blackcatalog[$4] = 1
               total_ambi++
             }
             else {
+              # mark mismatching variants (also genuine multi-allelic ones!) for removal(*)
               if ( !gmatchx( $2, $3, $5, $6 ) ) {
                 print( $4 ) >batchblacklist
                 blackcatalog[$4] = 1
                 total_mism++
               }
               else {
+                # mark strand-complementary variants for flip
                 if ( gflipx( $2, $3, $5, $6 ) ) {
                   print( $4 ) >batchfliplist
                   flipcatalog[$4] = 1
                   total_flip++
                 }
+                # delete any homonymous variants and mark them for removal
                 if ( $4 in idmapcatalog ) {
                   print( $4 ) >batchblacklist
                   delete idmapcatalog[$4]
                   blackcatalog[$4] = 1
                 }
                 else {
+                  # add variant to catalog
+                  # (*) variant in the catalog will be preserved even if marked for removal
                   newid = $1 infosep $5 infosep $6
                   if ( newid in idcatalog ) {
                     idcatalog[newid]++
                     newid = newid infosep idcatalog[newid]
                   } else idcatalog[newid] = 1
                   idmapcatalog[$4] = newid
+                  # if any alleles are missing, use the reference
                   if ( $2 == 0 || $3 == 0 ) {
                     if ( $2 == 0 ) nref = 3
                     if ( $3 == 0 ) nref = 2
@@ -274,11 +290,11 @@ for i in ${!batchfiles[@]} ; do
   # update idmap
   sort -t $'\t' -k 1,1 "${batchidmap}" > "${tmpvarctrl}"
   mv "${tmpvarctrl}" "${batchidmap}"
-  # list unique
+  # list unique variants to be flipped
   sort -t $'\t' -u "${batchfliplist}" > "${tmpvarctrl}"
   mv "${tmpvarctrl}" "${batchfliplist}"
   printf "> $( wc -l "${batchfliplist}" ) variants to be flipped.\n" | printlog 1
-  # list unique
+  # list unique variants to be excluded after cross-cheking against idmap
   sort -t $'\t' -u "${batchblacklist}" | join -v1 -t $'\t' - "${batchidmap}" > "${tmpvarctrl}"
   mv "${tmpvarctrl}" "${batchblacklist}"
   printf "> $( wc -l "${batchblacklist}" ) variants to be excluded.\n" | printlog 1
