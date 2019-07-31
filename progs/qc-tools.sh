@@ -137,7 +137,7 @@ standardize_bim_file() {
     if ( a[2] <= 0 ) a[2] = 0
     #asort(a) # turns out sorting alleles is not a good idea
     if ( $1 ~ "^X" )  $1 == 23
-    if ( $1 ~ "^XY" ) $1 == 25
+    if ( $1 ~ "^XY" ) $1 == 23
     if ( $1 ~ "^Y" )  $1 == 24
     if ( $1 ~ "^MT" ) $1 == 26
     $2 = $1":"$4":"a[1]":"a[2]
