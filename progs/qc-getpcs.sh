@@ -7,6 +7,7 @@ source "${BASEDIR}/progs/checkdep.sh"
 
 declare -r tmpprefix="${opt_outprefix}_tmp"
 
+declare -r cfg_rndnseed=$( cfgvar_get rndnseed )
 declare -r cfg_uid=$( cfgvar_get uid )
 
 #-------------------------------------------------------------------------------
@@ -40,10 +41,17 @@ else
   fi
   mv "${tmpprefix}_draft.genome.gz" "${opt_outprefix}.genome.gz"
 fi
+pcaflag=''
+[ -n "${cfg_refprefix}" ] && [ -s "${cfg_refprefix}.all.unrel.ids" ] && {
+  pcaflag="--within ${tmpprefix}.refset --pca-cluster-names refset"
+  awk -F $'\t' '{ print( $0, "refset" ); }' "${cfg_refprefix}.all.unrel.ids" \
+    > "${tmpprefix}.refset"
+}
 ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
              --cluster \
              --read-genome "${opt_outprefix}.genome.gz" \
-             --pca header tabs var-wts \
+             --seed ${cfg_rndnseed} \
+             --pca header tabs var-wts ${pcaflag} \
              --out "${tmpprefix}_draft" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
