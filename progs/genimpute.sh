@@ -184,8 +184,10 @@ run() {
         ;;
       *sbatch*)
         echo -e -n "submitting '$( basename ${cmd} )'..\t"
-        if [ "${cfg_plinkmem}" != "" -a "${cfg_snodemem}" != "" ] ; then
-          export plink_max_jobs=$(( cfg_snodemem / ( cfg_plinkmem + 1 ) ))
+        if [ "${cfg_plinkmem}" != "" ] ; then
+          declare tmp_snodemem="${cfg_snodemem}"
+          [ -z "${tmp_snodemem}" ] && tmp_snodemem=${cfg_plinkmem}
+          export plink_max_jobs=$(( tmp_snodemem / cfg_plinkmem ))
           export plink_num_cpus=$(( cfg_snodecores / ( plink_max_jobs + 1 ) ))
           if [ ${plink_num_cpus} -eq 0 ] ; then
             export plink_num_cpus=1
@@ -210,10 +212,6 @@ run() {
 }
 
 #---------------------------------------------------------------------------------------------------
-
-# initialize log file
-
-> "${opt_outprefixbase}/log.txt"
 
 { 
   echo
