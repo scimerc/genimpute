@@ -114,8 +114,7 @@ cfgvar_setall_readonly
 
 # append configuration tag to output prefix
 opt_outprefixbase="${opt_outprefixbase}_$(
-  cfgvar_show_config | egrep -v 'execommand|plink' \
-    | md5sum | head -c6
+  cfgvar_show_config | egrep -v 'execommand|plink' | md5sum | head -c6
 )"
 
 # export input and output names
