@@ -41,12 +41,11 @@ else
   fi
   mv "${tmpprefix}_draft.genome.gz" "${opt_outprefix}.genome.gz"
 fi
-pcaflag=''
-[ -n "${cfg_refprefix}" ] && [ -s "${cfg_refprefix}.all.unrel.ids" ] && {
-  pcaflag="--within ${tmpprefix}.refset --pca-cluster-names refset"
-  awk -F $'\t' '{ print( $0, "refset" ); }' "${cfg_refprefix}.all.unrel.ids" \
-    > "${tmpprefix}.refset"
-}
+pcabase="${opt_outprefixbase}/.i/qc/e_indqc.ids"
+[ -n "${cfg_refprefix}" ] && pcabase="${cfg_refprefix}.all.unrel.ids"
+[ -s "${pcabase}" ] || { printf "empty PCA base '%s'. aborting..\n" "${pcabase}"; exit 1; }
+awk '{ print( $0, "refset" ); }' "${pcabase}" > "${tmpprefix}.refset"
+pcaflag="--within ${tmpprefix}.refset --pca-cluster-names refset"
 ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
              --cluster \
              --read-genome "${opt_outprefix}.genome.gz" \
