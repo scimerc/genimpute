@@ -110,7 +110,7 @@ if [ -z "${cfg_refprefix}" ] ; then
       unset batchcode
       unset b_inprefix
     done \
-      | sort -u -k 1,1n -k 2,2n > "${opt_outprefix}_tmp.gpa"
+      | sort -u -k 1,2 > "${opt_outprefix}_tmp.gpa"
     mv "${opt_outprefix}_tmp.gpa" "${varreffile}"
   }
 fi
