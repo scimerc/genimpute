@@ -22,6 +22,32 @@ declare -r kingexec="${BASEDIR}/lib/3rd/king"
 
 #-------------------------------------------------------------------------------
 
+break_dysfunc_fam() {
+  # in: plink fam file
+  # out: plink update-parents file
+  cut -f 1 "$@" | sort | uniq -c | tabulate \
+    | awk -F $'\t' '{ OFS="\t"; if ( $1 > 1 ) print( $2 ); }' \
+    | join -t $'\t' - <( sort -k 1,1 "$@" ) \
+    | awk '{
+        OFS="\t"
+        dad[$1,$2] = $1 SUBSEP $3
+        mom[$1,$2] = $1 SUBSEP $4
+        sex[$1,$2] = $5
+      } END{
+        for ( sid in sex ) {
+          parsex = sex[dad[sid]] == 0 || sex[mom[sid]] == 0
+          dysfam = parsex || sex[dad[sid]] == sex[mom[sid]]
+          split( sid, ovid, SUBSEP )
+          split( mom[sid], mvid, SUBSEP )
+          split( dad[sid], dvid, SUBSEP )
+          if ( dysfam ) print( ovid[1], ovid[2], 0, 0 )
+          else print( ovid[1], ovid[2], dvid[2], mvid[2] )
+        }
+      }'
+}
+
+#-------------------------------------------------------------------------------
+
 # input: merged plink set and hq plink set
 # output: clean plink set (with imputed sex from hq set and no mixups)
 
@@ -101,17 +127,20 @@ else
 fi
 # extract clean, high coverage individuals
 printf "> extracting high coverage individuals..\n"
+break_dysfunc_fam "${opt_hqprefix}.fam" > "${tmpprefix}_out_updateparents.txt"
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l "${opt_hqprefix}.bim" | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
 echo "  ${plinkexec} --allow-extra-chr \
              --bfile ${opt_hqprefix} ${keepflag}
              --mind ${tmp_samplemiss}
-             --make-just-fam
+             --update-parents ${tmpprefix}_out_updateparents.txt
+             --make-bed
              --out ${tmpprefix}_hc" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${opt_hqprefix}" ${keepflag} \
              --mind ${tmp_samplemiss} \
+             --update-parents "${tmpprefix}_out_updateparents.txt" \
              --make-bed \
              --out "${tmpprefix}_hc" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -124,11 +153,13 @@ if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
 echo "  ${plinkexec} --allow-extra-chr \
              --bfile ${opt_hqprefix}i ${keepflag}
              --mind ${tmp_samplemiss}
+             --update-parents ${tmpprefix}_out_updateparents.txt
              --make-just-fam
              --out ${tmpprefix}_hci" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${opt_hqprefix}i" ${keepflag} \
              --mind ${tmp_samplemiss} \
+             --update-parents "${tmpprefix}_out_updateparents.txt" \
              --make-just-fam \
              --out "${tmpprefix}_hci" \
              2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -139,14 +170,14 @@ fi
 printf "> reconstructing eventual families (second degree)..\n"
 ${kingexec}  -b "${tmpprefix}_hc.bed" \
              --build --degree 2 --prefix "${tmpprefix}_out_" \
-              2> >( tee "${tmpprefix}.err" ) | printlog 3
+             2> >( tee "${tmpprefix}.err" ) | printlog 3
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
-# write expected king output files if missing or empty
+# write expected king output files if these are missing or empty
 [ -s "${tmpprefix}_out_updateids.txt" ] || awk '{ print( $1, $2, $1, $2 ); }' \
   "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateids.txt"
-[ -s "${tmpprefix}_out_updateids.txt" ] || awk '{ print( $1, $2, $3, $4 ); }' \
+[ -s "${tmpprefix}_out_updateparents.txt" ] || awk '{ print( $1, $2, $3, $4 ); }' \
   "${tmpprefix}_hc.fam" > "${tmpprefix}_out_updateparents.txt"
 ${plinkexec} --allow-extra-chr \
              --fam "${tmpprefix}_hc.fam" \
@@ -166,28 +197,10 @@ ${plinkexec} --allow-extra-chr \
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
+sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_king"*.fam
 # reannotate eventual dysfunctional family information
 printf "> reannotating eventual dysfunctional families..\n"
-cut -f 1 "${tmpprefix}_kingpeds.fam" | sort | uniq -c | tabulate \
-  | awk -F $'\t' '{ OFS="\t"; if ( $1 > 1 ) print( $2 ); }' \
-  | join -t $'\t' - <( sort -k 1,1 "${tmpprefix}_kingpeds.fam" ) \
-  | awk '{
-      OFS="\t"
-      dad[$1,$2] = $1 SUBSEP $3
-      mom[$1,$2] = $1 SUBSEP $4
-      sex[$1,$2] = $5
-    } END{
-      for ( sid in sex ) {
-        parsex = sex[dad[sid]] != 0 && sex[mom[sid]] != 0
-        dysfam = parsex && sex[dad[sid]] == sex[mom[sid]]
-        split( sid, ovid, SUBSEP )
-        split( mom[sid], mvid, SUBSEP )
-        split( dad[sid], dvid, SUBSEP )
-        if ( dysfam ) print( ovid[1], ovid[2], 0, 0 )
-        else print( ovid[1], ovid[2], dvid[2], mvid[2] )
-      }
-    }' \
-  > "${tmpprefix}_out_updateparents.txt"
+break_dysfunc_fam "${tmpprefix}_kingpeds.fam" > "${tmpprefix}_out_updateparents.txt"
 # identify related individuals
 printf "> identifying related individuals..\n"
 ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
