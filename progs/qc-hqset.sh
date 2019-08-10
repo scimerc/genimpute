@@ -7,6 +7,8 @@ source "${BASEDIR}/progs/checkdep.sh"
 
 declare -r tmpprefix="${opt_outprefix}_tmp"
 
+declare -r cfg_fmax=$( cfgvar_get fmax )
+declare -r cfg_fmin=$( cfgvar_get fmin )
 declare -r cfg_freq=$( cfgvar_get freqhq )
 declare -r cfg_genomeblacklist=$( cfgvar_get genomeblacklist )
 declare -r cfg_hweneglogp_ctrl=$( cfgvar_get hweneglogp_ctrl )
@@ -72,10 +74,18 @@ cp "${opt_inprefix}.fam" "${tmpprefix}_draft.fam"
 # initialize hq variant set
 > "${opt_outprefix}.mrk"
 
+# if requested, merge with reference
 if [ ! -z "${1:+x}" ] ; then
-  # if requested merge with reference
+  ${plinkexec} --allow-extra-chr --bfile "${opt_refprefix}" \
+               --extract <( cut -f 2 "${opt_inprefix}.bim" ) \
+               --make-bed \
+               --out "${tmpprefix}_ref" \
+               2> >( tee "${tmpprefix}.err" ) | printlog 3
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
   ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" \
-               --bmerge "${opt_refprefix}" \
+               --bmerge "${tmpprefix}_ref" \
                --out "${tmpprefix}_draft" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
@@ -166,13 +176,19 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   sort -u -t $'\t' -k 2,2 "${tmpprefix}_"*sex.bim \
     | join -t $'\t' -2 2 "${tmpprefix}.imrk" - \
     > "${tmpprefix}_ldp.bim"
+  tmpfflag=''
   tmpvarfile=''
   Nhq=$( sort -u "${tmpprefix}"*.mrk | wc -l )
   Nhqi=$( sort -u "${tmpprefix}"*.imrk | wc -l )
   NhqX=$( get_xvar_count "${tmpprefix}_"*sex.bim )
   NhqiX=$( get_xvar_count "${tmpprefix}_ldp.bim" )
-  [ ${NhqX} -gt ${cfg_minvarcount} ] && tmpvarfile="${tmpprefix}.mrk"
-  [ ${NhqiX} -gt ${cfg_minvarcount} ] && tmpvarfile="${tmpprefix}.imrk"
+  if [ ${NhqX} -gt ${cfg_minvarcount} ] ; then
+    tmpvarfile="${tmpprefix}.mrk"
+  fi
+  if [ ${NhqiX} -gt ${cfg_minvarcount} ] ; then
+    tmpfflag="${cfg_fmax} ${cfg_fmin}"
+    tmpvarfile="${tmpprefix}.imrk"
+  fi
   # initialize sexcheck file
   awk 'BEGIN{
     OFS="\t"
@@ -184,14 +200,14 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   echo "  ${plinkexec} --allow-extra-chr
                --bfile ${tmpprefix}_draft ${freqflag}
                --extract "${tmpvarfile}"
-               --impute-sex ycount
+               --impute-sex ycount ${tmpfflag}
                --set-hh-missing
                --make-bed
                --out ${tmpprefix}_isex" | printlog 2
   ${plinkexec} --allow-extra-chr \
                --bfile "${tmpprefix}_draft" ${freqflag} \
                --extract "${tmpvarfile}" \
-               --impute-sex ycount \
+               --impute-sex ycount ${tmpfflag} \
                --set-hh-missing \
                --make-bed \
                --out "${tmpprefix}_isex" \
