@@ -4,7 +4,9 @@ trap 'exit' ERR
 
 [ -d ".git" ] || { printf "error at %d\n" $LINENO >&2; exit 1; }
 
-EXPDIR='/tsd/p33/data/durable/file-export'
+[ "$*" != "" ] || { printf "usage: %s <dir>\n" $0; exit 0; }
+
+EXPDIR="$1"
 
 PRJNAME='genimpute'
 PRJDIR="$(pwd)"
@@ -13,7 +15,7 @@ GITROOT="$(git rev-parse --show-toplevel)"
 MD5=$(find ${GITROOT}/.git -type f | xargs cat | md5sum)
 MD5=${MD5:0:7}
 
-cd /tmp && rm -rf ${PRJNAME}.git
+cd ${TMPDIR} && rm -rf ${PRJNAME}.git
 git clone ${PRJDIR} ${PRJNAME}.git
 
 # calculate md5, but only use first 6 chars
