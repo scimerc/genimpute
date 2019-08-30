@@ -114,7 +114,7 @@ cfgvar_setall_readonly
 
 # append configuration tag to output prefix
 opt_outprefixbase="${opt_outprefixbase}_$(
-  cfgvar_show_config | egrep -v 'execommand|plink' | md5sum | head -c6
+  cfgvar_show_config | egrep -v 'execommand|plink|snode' | md5sum | head -c6
 )"
 
 # export input and output names
@@ -169,38 +169,46 @@ declare -r cfg_snodemem=$( cfgvar_get snodemem )
 
 run() {
   local cmd="$*"
-  local plinkflag="--memory 200 --threads 2"
-  local sbatchflag="--mem-per-cpu=120MB --cpus-per-task=2"
+  local plinkflag="--memory ${opt_memory} --threads 2"
+  local sbatchflag="--mem-per-cpu=${opt_memory}MB --cpus-per-task=2"
   if [ "${cmd}" != "" ] ; then
     declare -r cfg_execommand=$( cfgvar_get execommand )
     case ${cfg_execommand} in
       *bash*)
         echo "running '$( basename ${cmd} )'.."
         export plink_num_cpus=1
-        export plink_mem_per_cpu=${cfg_plinkmem}
+        export plink_mem_per_cpu=${opt_memory}
         export plinkexec="${BASEDIR}/lib/3rd/plink"
         ${timexec} ${cfg_execommand} ${cmd}
         ;;
       *sbatch*)
-        echo -e -n "submitting '$( basename ${cmd} )'..\t"
-        if [ "${cfg_plinkmem}" != "" ] ; then
-          declare tmp_snodemem="${cfg_snodemem}"
-          [ -z "${tmp_snodemem}" ] && tmp_snodemem=${cfg_plinkmem}
-          export plink_max_jobs=$(( tmp_snodemem / cfg_plinkmem ))
-          export plink_num_cpus=$(( cfg_snodecores / ( plink_max_jobs + 1 ) ))
-          if [ ${plink_num_cpus} -eq 0 ] ; then
-            export plink_num_cpus=1
-          fi
-          export plink_mem_per_cpu=$(( ( cfg_plinkmem + cfg_plinkmem/10 ) / plink_num_cpus ))
-          plinkflag="--memory ${cfg_plinkmem} --threads ${plink_num_cpus}"
-          sbatchflag="--mem-per-cpu=${plink_mem_per_cpu}MB --cpus-per-task=${plink_num_cpus}"
+        echo "submitting '$( basename ${cmd} )'.."
+        declare eff_snodemem="${cfg_snodemem}"
+        [ -z "${eff_snodemem}" ] && eff_snodemem=${opt_memory}
+        # maximum number of jobs permitted to run on the same node
+        export plink_max_jobs=$(( eff_snodemem / opt_memory ))
+        # number of cores assignable to each single job
+        export plink_num_cpus=$(( cfg_snodecores / ( plink_max_jobs + 1 ) ))
+        if [ ${plink_num_cpus} -eq 0 ] ; then
+          export plink_num_cpus=1
         fi
+        # memory/cpu required by each single job
+        export plink_mem_per_cpu=$(( ( opt_memory + opt_memory/5 ) / plink_num_cpus ))
+        plinkflag="--memory ${opt_memory} --threads ${plink_num_cpus}"
+        sbatchflag="--mem-per-cpu=${plink_mem_per_cpu}MB --cpus-per-task=${plink_num_cpus}"
+        echo "expected accessible memory(MB)/node: ${eff_snodemem}"
+        echo "maximum number of jobs/node permitted: ${plink_max_jobs}"
+        echo "number of cores assignable to a job: ${plink_num_cpus}"
+        echo "memory(MB) required for each core: ${plink_mem_per_cpu}"
         export plinkexec="${BASEDIR}/lib/3rd/plink ${plinkflag}"
+        jobcmd="${cfg_execommand} ${sbatchflag} --time=${cfg_plinkctime} ${jobdepflag} \
+                  --output=${opt_outprefix}_slurm_%x_%j.out --parsable ${cmd} )"
         jobnum=$( ${cfg_execommand} ${sbatchflag} --time=${cfg_plinkctime} ${jobdepflag} \
                   --output=${opt_outprefix}_slurm_%x_%j.out --parsable ${cmd} )
         joblist=${joblist}:${jobnum}
         jobdepflag="--dependency=afterok${joblist}"
-        echo submitted job ${jobnum}.
+        echo "submitted job ${jobnum}."
+        echo "${jobcmd}" | printlog 3
         ;;
       *)
         echo "error: unknown execution command '${cfg_execommand}'" >&2
@@ -258,30 +266,38 @@ export opt_refprefix="${opt_outprefixbase}/.i/qc/a_refset"
 
 # compile variant white list
 
+# export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_vwlist"
 
 # call wlist
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-wlist.sh"
 
 # cleanup
+unset opt_memory
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # recode into plink binary format
 
+# export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_recode"
 
 # call recode
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-recode.sh"
 
 # cleanup
+unset opt_memory
 unset opt_outprefix
 
 #---------------------------------------------------------------------------------------------------
 
 # align to reference
 
+# export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/a_recode"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/b_align"
 
@@ -289,6 +305,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/b_align"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-align.sh"
 
 # cleanup
+unset opt_memory
 unset opt_inprefix
 unset opt_outprefix
 
@@ -301,6 +318,7 @@ declare qciter=0
 # biography
 
 # export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/b_align"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 export opt_biofile="${opt_outprefixbase}/bio.txt"
@@ -309,6 +327,7 @@ export opt_biofile="${opt_outprefixbase}/bio.txt"
 ${opt_imputeonly} || run "${BASEDIR}/progs/init-bio.sh"
 
 # cleanup
+unset opt_memory
 unset opt_inprefix
 unset opt_outprefix
 unset opt_biofile
@@ -317,6 +336,8 @@ unset opt_biofile
 
 # merge batches (if more than a single one present)
 
+# export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/b_align"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 
@@ -324,6 +345,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-merge.sh"
 
 # cleanup
+unset opt_memory
 unset opt_inprefix
 unset opt_outprefix
 
@@ -332,6 +354,7 @@ unset opt_outprefix
 # get high quality set
 
 # export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/c_proc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 
@@ -339,6 +362,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-hqset.sh"
 
 # cleanup
+unset opt_memory
 unset opt_outprefix
 unset opt_inprefix
 
@@ -347,6 +371,7 @@ unset opt_inprefix
 # identify duplicate, mixup and related individuals
 
 # export vars
+export opt_memory=$(( (cfg_plinkmem*cfg_plinkmem)/1000 ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/c_proc"
 export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/e_indqc"
@@ -356,6 +381,7 @@ export opt_biofile="${opt_outprefixbase}/bio.txt"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-ind.sh"
 
 # cleanup
+unset opt_memory
 unset opt_hqprefix
 unset opt_inprefix
 unset opt_outprefix
@@ -366,6 +392,7 @@ unset opt_biofile
 # perform standard variant-level QC
 
 # export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/e_indqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 
@@ -373,6 +400,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-var.sh"
 
 # cleanup
+unset opt_memory
 unset opt_inprefix
 unset opt_outprefix
 
@@ -381,6 +409,7 @@ unset opt_outprefix
 # perform final QC (control-HWE? batch effects?)
 
 # export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 export opt_inprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/g_finqc"
@@ -390,6 +419,7 @@ export opt_batchoutprefix="${opt_outprefixbase}/.i/qc/c_proc_batch"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-final.sh"
 
 # cleanup
+unset opt_memory
 unset opt_hqprefix
 unset opt_inprefix
 unset opt_outprefix
@@ -400,6 +430,7 @@ unset opt_batchoutprefix
 # get high quality set
 
 # export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/h_hqset"
 
@@ -407,6 +438,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/qc/h_hqset"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-hqset.sh" "${cfg_refprefix}"
 
 # cleanup
+unset opt_memory
 unset opt_outprefix
 unset opt_inprefix
 
@@ -415,6 +447,7 @@ unset opt_inprefix
 # compute genetic PCs
 
 # export vars
+export opt_memory=$(( (cfg_plinkmem*cfg_plinkmem)/1000 ))
 export opt_hqprefix="${opt_outprefixbase}/.i/qc/h_hqset"
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/g_finqc"
@@ -424,6 +457,7 @@ export opt_biofile="${opt_outprefixbase}/bio.txt"
 ${opt_imputeonly} || run "${BASEDIR}/progs/qc-getpcs.sh"
 
 # cleanup
+unset opt_memory
 unset opt_hqprefix
 unset opt_inprefix
 unset opt_outprefix
@@ -436,6 +470,7 @@ ${opt_qconly} && { echo "done."; exit 0; }
 # convert to chromosome-wise vcf format
 
 # export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/i_pre"
 export opt_sqprefix="${opt_outprefixbase}/.i/qc/e_indqc"
@@ -444,6 +479,7 @@ export opt_sqprefix="${opt_outprefixbase}/.i/qc/e_indqc"
 ${opt_imputeonly} || run "${BASEDIR}/progs/convert.sh"
 
 # cleanup
+unset opt_memory
 unset opt_inprefix
 unset opt_outprefix
 unset opt_sqprefix
@@ -453,6 +489,7 @@ unset opt_sqprefix
 # impute
 
 # export vars
+export opt_memory=$(( cfg_plinkmem  ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/i_pre"
 export opt_outprefix="${opt_outprefixbase}/.i/im/i_imp"
 
@@ -460,6 +497,7 @@ export opt_outprefix="${opt_outprefixbase}/.i/im/i_imp"
 run "${BASEDIR}/progs/impute.sh"
 
 # cleanup
+unset opt_memory
 unset opt_inprefix
 unset opt_outprefix
 
