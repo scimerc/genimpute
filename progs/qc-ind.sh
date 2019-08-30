@@ -170,7 +170,7 @@ fi
 printf "> reconstructing eventual families (second degree)..\n"
 ${kingexec}  -b "${tmpprefix}_hc.bed" \
              --build --degree 2 --prefix "${tmpprefix}_out_" \
-             2> >( tee "${tmpprefix}.err" ) | printlog 3
+             2> >( tee "${tmpprefix}.err" ) 1> "${tmpprefix}_out_king.log"
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
