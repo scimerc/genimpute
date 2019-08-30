@@ -54,8 +54,8 @@ if [ -f "${opt_outprefixbase}/.i/qc/e_indqc.ids" ] ; then
 fi
 declare extractflag=''
 # set extract flag if a previous list of variants exists
-if [ -f "${opt_outprefixbase}.mrk" ] ; then
-  extractflag="--extract ${opt_outprefixbase}.mrk"
+if [ -f "${opt_outprefixbase}/.i/qc/g_finqc.mrk" ] ; then
+  extractflag="--extract ${opt_outprefixbase}/.i/qc/g_finqc.mrk"
 fi
 
 declare -r genblacklist="${BASEDIR}/lib/data/${cfg_genomeblacklist}"
@@ -72,7 +72,7 @@ cp "${opt_inprefix}.bim" "${tmpprefix}_draft.bim"
 cp "${opt_inprefix}.fam" "${tmpprefix}_draft.fam"
 
 # initialize hq variant set
-> "${opt_outprefix}.mrk"
+> "${tmpprefix}_draft.mrk"
 
 # if requested, merge with reference
 if [ ! -z "${1:+x}" ] ; then
@@ -158,23 +158,23 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  cut -f 2 "${tmpprefix}_"*sex.bim | sort -u > "${tmpprefix}.mrk"
+  cut -f 2 "${tmpprefix}_"*sex.bim | sort -u > "${tmpprefix}_out.mrk"
   # LD-prune hq variants
   echo "  ${plinkexec} --allow-extra-chr
                --bfile ${tmpprefix}_draft ${cfg_pruneflags}
-               --extract "${tmpprefix}.mrk"
+               --extract "${tmpprefix}_out.mrk"
                --out ${tmpprefix}_ldp" | printlog 2
   ${plinkexec} --allow-extra-chr \
                --bfile "${tmpprefix}_draft" ${cfg_pruneflags} \
-               --extract "${tmpprefix}.mrk" \
+               --extract "${tmpprefix}_out.mrk" \
                --out "${tmpprefix}_ldp" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  sort -u "${tmpprefix}_ldp.prune.in" > "${tmpprefix}.imrk"
+  sort -u "${tmpprefix}_ldp.prune.in" > "${tmpprefix}_out.imrk"
   sort -u -t $'\t' -k 2,2 "${tmpprefix}_"*sex.bim \
-    | join -t $'\t' -2 2 "${tmpprefix}.imrk" - \
+    | join -t $'\t' -2 2 "${tmpprefix}_out.imrk" - \
     > "${tmpprefix}_ldp.bim"
   tmpfflag=''
   tmpvarfile=''
@@ -183,17 +183,17 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   NhqX=$( get_xvar_count "${tmpprefix}_"*sex.bim )
   NhqiX=$( get_xvar_count "${tmpprefix}_ldp.bim" )
   if [ ${NhqX} -gt ${cfg_minvarcount} ] ; then
-    tmpvarfile="${tmpprefix}.mrk"
+    tmpvarfile="${tmpprefix}_out.mrk"
   fi
   if [ ${NhqiX} -gt ${cfg_minvarcount} ] ; then
     tmpfflag="${cfg_fmax} ${cfg_fmin}"
-    tmpvarfile="${tmpprefix}.imrk"
+    tmpvarfile="${tmpprefix}_out.imrk"
   fi
   # initialize sexcheck file
   awk 'BEGIN{
     OFS="\t"
-    print( "FID", "IID", "SEXCHECK" )
-  } { print( $1, $2, "__NA__" ) }' \
+    print( "FID", "IID", "PEDSEX", "SNPSEX", "STATUS", "F_SEX" )
+  } { print( $1, $2, "__NA__", "__NA__", "__NA__", "__NA__" ) }' \
     "${tmpprefix}_draft.fam" > "${tmpprefix}_isex.sexcheck"
   # if there are enough X chromosome variants impute sex
   ${imputesex} && [ "${tmpvarfile}" != "" ] || break
@@ -229,11 +229,10 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
   qcdiff=$( {
     cmp <( sort -u "${tmpprefix}_out.fam" ) <( sort -u "${tmpprefix}_draft.fam" ) 2>&1
-    cmp <( sort -u "${tmpprefix}.mrk" ) <( sort -u "${opt_outprefix}.mrk" ) 2>&1
+    cmp <( sort -u "${tmpprefix}_out.mrk" ) <( sort -u "${tmpprefix}_draft.mrk" ) 2>&1
     } || true )
   # reset draft set to newly created out set
   rename "${tmpprefix}_out" "${tmpprefix}_draft" "${tmpprefix}_out."*
-  sort -u "${tmpprefix}.mrk" > "${opt_outprefix}.mrk"
   # if there aren't any changes increase tmpindex for an eventual additional round, otherwise
   # re-run with the same parameters, re-impute sex and re-check back here for new changes
   [ "${qcdiff}" == "" ] && tmpindex=$((tmpindex+1))
@@ -247,7 +246,7 @@ done
 # extract hq variants
 ${plinkexec} --allow-extra-chr \
              --bfile "${tmpprefix}_draft" \
-             --extract "${tmpprefix}.mrk" \
+             --extract "${tmpprefix}_out.mrk" \
              --set-hh-missing \
              --make-bed \
              --out "${tmpprefix}_out" \
@@ -258,7 +257,7 @@ fi
 # extract LD-pruned hq variants
 ${plinkexec} --allow-extra-chr \
              --bfile "${tmpprefix}_draft" \
-             --extract "${tmpprefix}.imrk" \
+             --extract "${tmpprefix}_out.imrk" \
              --set-hh-missing \
              --make-bed \
              --out "${tmpprefix}_outi" \
