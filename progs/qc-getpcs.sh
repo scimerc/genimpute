@@ -32,7 +32,7 @@ printf "> computing genetic principal components..\n"
 if [ -s "${opt_outprefix}.genome.gz" ] ; then
   printf "> '%s' found. skipping GRM calculation..\n" "${opt_outprefix}.genome.gz"
 else
-  ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
+  ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
                --genome gz \
                --out "${tmpprefix}_draft" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -46,8 +46,8 @@ pcabase="${opt_outprefixbase}/.i/qc/e_indqc.ids"
 [ -s "${pcabase}" ] || { printf "empty PCA base '%s'. aborting..\n" "${pcabase}"; exit 1; }
 awk '{ print( $0, "refset" ); }' "${pcabase}" > "${tmpprefix}.refset"
 pcaflag="--within ${tmpprefix}.refset --pca-cluster-names refset"
-${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}" \
-             --cluster \
+${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
+             --neighbour 1 5 \
              --read-genome "${opt_outprefix}.genome.gz" \
              --seed ${cfg_rndnseed} \
              --pca header tabs var-wts ${pcaflag} \
