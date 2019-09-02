@@ -332,8 +332,6 @@ ${plinkexec} --allow-extra-chr \${nosexflag} \\
              --make-bed \\
              --out "${tmpprefix}_chr${chr}_out"
 unset nosexflag
-sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_chr${chr}_out.bim"
-sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_chr${chr}_out.fam"
 ${plinkexec} --allow-extra-chr \\
   --bfile "${tmpprefix}_chr${chr}_out" \\
   --indiv-sort f "${tmpprefix}_ordered.fam" \\
