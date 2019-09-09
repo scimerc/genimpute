@@ -23,8 +23,9 @@ cd ${TMPDIR} && rm -rf ${PRJNAME}
 git clone ${PRJDIR} ${PRJNAME}
 
 printf "compressing.. "
-tar czf ${PRJNAME}.git.tar.gz ${PRJNAME}
-printf "done\n"
+#NOTE: tar fails saying some files change while read, hence the true
+tar czf ${PRJNAME}.git.tar.gz ${PRJNAME} || true
+printf "done.\n"
 
 declare -r OUTFILENAME=${PRJNAME}_"$(date +"%y%m%d-%H")"_${MD5}.git.tar.gz
 mv ${PRJNAME}.git.tar.gz ${OUTFILENAME}
