@@ -1,2 +1,1 @@
 lib/data/genetic_map_b37_withX.txt.gz filter=lfs diff=lfs merge=lfs -text
-/home/franbe/src/genimpute/lib/data/genetic_map_b37_withX.txt.gz filter=lfs diff=lfs merge=lfs -text
