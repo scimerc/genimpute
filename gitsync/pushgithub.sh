@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-if [ "$1" != "" ] ; then
+if [ "$1" == "" ] ; then
   echo "no public repository specified."
   echo "usage: $( basename $0 ) <path_to_repository>"
   echo " e.g.: $( basename $0 ) https://github.com/scimerc/genimpute.git"
+  exit 0
 fi
 
 PUBREP="$1"
