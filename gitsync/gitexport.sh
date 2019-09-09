@@ -28,9 +28,5 @@ tar czf ${PRJNAME}.git.tar.gz ${PRJNAME} || true
 printf "done.\n"
 
 declare -r OUTFILENAME=${PRJNAME}_"$(date +"%y%m%d-%H")"_${MD5}.git.tar.gz
-mv ${PRJNAME}.git.tar.gz ${OUTFILENAME}
-
-printf "\n%s\n" "${OUTFILENAME}"
-
-cp $OUTFILENAME ${EXPDIR}/
+mv ${PRJNAME}.git.tar.gz "${EXPDIR}/${OUTFILENAME}"
 
