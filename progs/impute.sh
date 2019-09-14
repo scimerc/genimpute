@@ -40,6 +40,7 @@ for bfile in "${opt_inprefix}_chr"*.bcf ; do
 done | sort -u | awk '{ print( $1, $1 ) }' > "${tmpprefix}_ordered.fam"
 
 # split individuals in groups
+#TODO: enable sex-specific subdivisions
 printf "> splitting individuals into groups..\n"
 for bfile in "${opt_inprefix}_chr"*.bcf ; do
   "${bcftoolsexec}" query -l "${bfile}"

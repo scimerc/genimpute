@@ -23,7 +23,7 @@ cd ${TMPDIR} && rm -rf ${PRJNAME}
 git clone ${PRJDIR} ${PRJNAME}
 
 printf "compressing.. "
-#NOTE: tar fails saying some files change while read, hence the true
+#NOTE: tar fails saying some files change while read, hence the true alternative statement
 tar czf ${PRJNAME}.git.tar.gz ${PRJNAME} || true
 printf "done.\n"
 
