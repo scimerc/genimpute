@@ -25,5 +25,6 @@ git commit -m 'lfs'
 
 git remote add origin_gh_norm ${PUBREP}
 git pull origin_gh_norm master
+git commit -m 'merge with remote'
 git push origin_gh_norm
 
