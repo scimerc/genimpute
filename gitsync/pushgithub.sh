@@ -25,7 +25,7 @@ echo 'adding large files support..'
 git lfs track lib/data/genetic_map_b37_withX.txt.gz
 git add lib/data/genetic_map_b37_withX.txt.gz
 git add .gitattributes
-git commit -m 'lfs'
+git commit -m 'lfs' || true
 
 echo 'pushing changes to remote..'
 
