@@ -3,7 +3,7 @@
 # exit on error
 set -ETeuo pipefail
 
-if [ "$1" == "" ] ; then
+if [ "$*" == "" ] ; then
   echo "no public repository specified."
   echo "usage: $( basename $0 ) <path_to_repository>"
   echo " e.g.: $( basename $0 ) https://github.com/scimerc/genimpute.git"
