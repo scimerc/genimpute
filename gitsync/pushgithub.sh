@@ -3,7 +3,7 @@
 # exit on error
 set -ETeuo pipefail
 
-if [ "$1" == "" ] ; then
+if [ "$*" == "" ] ; then
   echo "no public repository specified."
   echo "usage: $( basename $0 ) <path_to_repository>"
   echo " e.g.: $( basename $0 ) https://github.com/scimerc/genimpute.git"
@@ -15,13 +15,19 @@ PRJDIR="$( cd $( dirname $( readlink -f "$0" ) )/../ ; pwd )"
 
 cd ${PRJDIR}
 
+echo 'committing changes..'
+
 git add .
 git commit -m 'repository export'
+
+echo 'adding large files support..'
 
 git lfs track lib/data/genetic_map_b37_withX.txt.gz
 git add lib/data/genetic_map_b37_withX.txt.gz
 git add .gitattributes
-git commit -m 'lfs'
+git commit -m 'lfs' || true
+
+echo 'pushing changes to remote..'
 
 git remote add origin_gh_norm ${PUBREP}
 git pull origin_gh_norm master
