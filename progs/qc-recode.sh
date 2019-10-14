@@ -19,7 +19,7 @@ readonly batchfiles
 # input: original genotype file(s)
 # output: plink bed and eventual tped file sets
 
-echo -e "==== Recoding ====\n" | printlog 1
+echo -e "==== Recode ====\n" | printlog 1
 
 printf "\
   * For every batch:
@@ -48,7 +48,6 @@ for i in ${!batchfiles[@]} ; do
   declare flagkeep=''
   declare flagformat='--bfile'
   declare plinkinputfn="${batchfiles[$i]}"
-  #get_genotype_file_format "${batchfiles[$i]}"
   [ -f "${batchfiles[$i]}" ] || { printf "file '%s' not found." "${batchfiles[$i]}"; exit 1; }
   fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
   case "${fformat}" in
@@ -78,28 +77,16 @@ for i in ${!batchfiles[@]} ; do
   fi
   # convert to plink binary format and merge X chromosome variants
   ${plinkexec} --allow-extra-chr $flagformat "${plinkinputfn}" ${flagkeep} \
-    --merge-x no-fail \
+    --merge-x no-fail ${bedflag} \
     --make-bed \
-    --out "${tmpprefix}_mx" \
+    --out "${tmpprefix}_out" \
     2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
+  mv "${tmpprefix}_out.log" "${b_outprefix}.1.log"
   # re-write variant info in universal format
-  standardize_bim_file "${tmpprefix}_mx.bim"
-  if [ ! -z "${bedflag}" ] ; then
-    ${plinkexec} --allow-extra-chr \
-      --bfile "${tmpprefix}_mx" ${bedflag} \
-      --make-bed \
-      --out "${tmpprefix}_out" \
-      2> >( tee "${tmpprefix}.err" ) | printlog 3
-    if [ $? -ne 0 ] ; then
-      cat "${tmpprefix}.err"
-    fi
-    mv "${tmpprefix}_out.log" "${b_outprefix}.1.log"
-  else
-    rename "${tmpprefix}_mx" "${tmpprefix}_out" "${tmpprefix}_mx".*
-  fi
+  standardize_bim_file "${tmpprefix}_out.bim"
   # extract colocalized variant positions from gp file and make a tped file set from them
   awk '{ print( $2, $1, 0, $4 ); }' "${tmpprefix}_out.bim" | sort -k 1,1 > "${tmpprefix}.gp"
   get_variant_info_for_dup_chr_cm_bp_aa_mm "${tmpprefix}.gp" \

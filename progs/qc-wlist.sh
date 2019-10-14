@@ -83,8 +83,9 @@ for i in ${!batchfiles[@]} ; do
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  sed -i -r 's/[ \t]+/\t/g; s/^chr//g;' "${tmpprefix}_ex.bim"
-  sed -i -r 's/^XY/X/g; s/^X/23/g; s/^Y/24/g; s/^25/23/g;' "${tmpprefix}_ex.bim"
+  # re-write variant info in universal format
+  standardize_bim_file "${tmpprefix}_ex.bim"
+  # initialize (i=0) or intersect (i>0) variants positions
   if [ -s "${tmpprefix}_ex.bim" ] ; then
     if [ $i -eq 0 ] ; then
       bimtogprs "${tmpprefix}_ex.bim" \
@@ -97,13 +98,16 @@ for i in ${!batchfiles[@]} ; do
         > "${tmpprefix}_ex.0.gprs"
     fi
     mv "${tmpprefix}_ex.0.gprs" "${tmpprefix}_ex.1.gprs"
-    rm -f "${tmpprefix}_ex.bim"
   fi
   awk -F $'\t' -v infosep="${cfg_infosep}" '{
     OFS="\t"
     split( $1, gpvec, infosep )
-    print( gpvec[1], gpvec[2] - 1, gpvec[2], $2 )
-  }' "${tmpprefix}_ex.1.gprs" > "${opt_varwhitelist}"
+    pos1=gpvec[2]
+    pos0=gpvec[2] - 1
+    if ( pos0 < 0 ) pos0 = 0;
+    print( gpvec[1], pos0, pos1, $2 )
+  }' "${tmpprefix}_ex.1.gprs" > "${tmpprefix}_ex.0.gprs"
+  mv "${tmpprefix}_ex.0.gprs" "${opt_varwhitelist}"
   unset plinkflag
 done
 

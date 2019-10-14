@@ -89,7 +89,7 @@ get_plink_varinfo_blacklist() {
 # input: plink bed and eventual tped file sets
 # output: purged and [reference] strand-aligned plink file sets
 
-echo -e "==== Alignment ====\n" | printlog 1
+echo -e "==== Align ====\n" | printlog 1
 
 printf "\
   * For every batch:

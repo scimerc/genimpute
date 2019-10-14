@@ -94,7 +94,7 @@ get_unique_filename_from_path() {
   local    md5
            md5=$(echo "${path}" | md5sum)
   readonly md5
-  printf "%s_%s" "$(basename "${path}" )" "${md5:0:$numchars}"
+  printf "%s_%s" "$(basename "${path%.bed}" .gz)" "${md5:0:$numchars}"
 }
 
 export -f get_unique_filename_from_path
@@ -126,21 +126,21 @@ export -f get_xvar_count
 
 #-------------------------------------------------------------------------------
 
-# in: tab-separated plink bim; out: same
+# in: plink bim; out: same
 standardize_bim_file() {
   local -r fn="$1"
-  awk -F $'\t' '{
+  awk '{
     OFS="\t"
     a[1] = toupper($5)
     a[2] = toupper($6)
     if ( a[1] <= 0 ) a[1] = 0
     if ( a[2] <= 0 ) a[2] = 0
-    #asort(a) # turns out sorting alleles is not a good idea
-    if ( $1 ~ "^X" )  $1 == 23
-    if ( $1 ~ "^XY" ) $1 == 23
-    if ( $1 ~ "^Y" )  $1 == 24
-    if ( $1 ~ "^MT" ) $1 == 26
-    $2 = $1":"$4":"a[1]":"a[2]
+    gsub( "^[Cc]([Hh][Rr]*)*", "", $1 )
+    if ( $1 ~ "^X" ) $1 == 23
+    if ( $1 ~ "^Y" ) $1 == 24
+    if ( $1 ~ "^M" ) $1 == 26
+    if ( $1 != 0 && $4 != 0 )
+      $2 = $1":"$4":"a[1]":"a[2]
     if ( $2 in catalog ) {
       catalog[$2]++
       $2 = $2"_"catalog[$2]
@@ -199,3 +199,4 @@ tabulate() {
 export -f tabulate
 
 #-------------------------------------------------------------------------------
+
