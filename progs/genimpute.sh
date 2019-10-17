@@ -14,6 +14,7 @@ declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 export BASEDIR
 
 source "${BASEDIR}/progs/cfgmgr.sh"
+source "${BASEDIR}/progs/hlprfuncs.sh"
 
 cfgvar_init_from_file "${BASEDIR}/lib/config/genimpute_default.cfg"
 
@@ -235,12 +236,6 @@ cfgvar_show_config | printlog 1
 
 echo -e "\n================================================================================\n" \
   | printlog 1
-
-#---------------------------------------------------------------------------------------------------
-
-# source utility functions
-
-source "${BASEDIR}/progs/qc-tools.sh"
 
 #---------------------------------------------------------------------------------------------------
 
