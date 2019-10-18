@@ -135,7 +135,7 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   fi
   unset nosexflag
   [ -s "${tmpprefix}_ctrlhwe_nonsex.bim" -o -s "${tmpprefix}_ctrlhwe_sex.bim" ] || {
-    printf "error: no variants left after HWE.\n" >&2;
+    printf "no variants left after HWE tests: aborting..\n" >&2;
     exit 1;
   }
   # list the variants passing stricter Hardy-Weiberg equilibrium tests on controls

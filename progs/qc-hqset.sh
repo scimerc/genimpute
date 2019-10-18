@@ -172,6 +172,8 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
+  # ensure a prune.in file exists
+  touch "${tmpprefix}_ldp.prune.in"
   sort -u "${tmpprefix}_ldp.prune.in" > "${tmpprefix}_out.imrk"
   sort -u -t $'\t' -k 2,2 "${tmpprefix}_"*sex.bim \
     | join -t $'\t' -2 2 "${tmpprefix}_out.imrk" - \
@@ -240,7 +242,7 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le 2 -a "${qcdiff}" != "" ] ; do
   k=$((k+1))
 done
 [ $Nhqi -gt $cfg_minvarcount ] || {
-  printf "> error: not enough variants (%d) left in high quality set." $Nhqi >&2;
+  printf "> not enough variants (%d) left in high quality set: aborting.." $Nhqi >&2;
   exit 1;
 }
 # extract hq variants
