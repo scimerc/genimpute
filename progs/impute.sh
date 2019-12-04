@@ -21,7 +21,7 @@ declare -r cfg_imprsqhigh=$( cfgvar_get imprsqhigh )
 declare -r cfg_impvarmiss=$( cfgvar_get impvarmiss )
 declare -r cfg_metrios=$( cfgvar_get metrios )
 declare -r cfg_mevars=$( cfgvar_get mevars )
-declare -r genmapfile="${BASEDIR}/lib/data/${cfg_genomemap}"
+declare -r genmapprefix="${BASEDIR}/lib/data/${cfg_genomemap}"
 declare -r scriptlogprefix="${opt_outprefixbase}/.i/.s/logs/script"
 declare -r scriptprefix="${opt_outprefixbase}/.i/.s/scripts/script"
 declare -r sampleprefix="${opt_outprefixbase}/.i/.s/samples/sample"
@@ -83,7 +83,7 @@ num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
 ${timexec} "${eaglexec}" \\
   --chrom ${chrtag} \\
-  --geneticMapFile "${genmapfile}" \\
+  --geneticMapFile "${genmapprefix}_chr${chr}.txt.gz" \\
   --vcfRef "${cfg_refprefix}.chr${chr}.haplotypes.bcf" \\
   --vcfTarget "${opt_inprefix}_chr${chr}.bcf" \\
   --outPrefix "${tmpprefix}_chr${chr}_phasing" \\
