@@ -21,7 +21,11 @@ declare -r cfg_imprsqhigh=$( cfgvar_get imprsqhigh )
 declare -r cfg_impvarmiss=$( cfgvar_get impvarmiss )
 declare -r cfg_metrios=$( cfgvar_get metrios )
 declare -r cfg_mevars=$( cfgvar_get mevars )
-declare -r genmapprefix="${BASEDIR}/lib/data/${cfg_genomemap}"
+if [[ "${cfg_genomemap}" == /* ]] ; then
+  declare -r genmapprefix="${cfg_genomemap}"
+else
+  declare -r genmapprefix="${BASEDIR}/lib/data/${cfg_genomemap}"
+fi
 declare -r scriptlogprefix="${opt_outprefixbase}/.i/.s/logs/script"
 declare -r scriptprefix="${opt_outprefixbase}/.i/.s/scripts/script"
 declare -r sampleprefix="${opt_outprefixbase}/.i/.s/samples/sample"

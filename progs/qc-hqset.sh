@@ -58,7 +58,11 @@ if [ -f "${opt_outprefixbase}/.i/qc/g_finqc.mrk" ] ; then
   extractflag="--extract ${opt_outprefixbase}/.i/qc/g_finqc.mrk"
 fi
 
-declare -r genblacklist="${BASEDIR}/lib/data/${cfg_genomeblacklist}"
+if [[ "${cfg_genomeblacklist}" == /* ]] ; then
+  declare -r genblacklist="${cfg_genomeblacklist}"
+else
+  declare -r genblacklist="${BASEDIR}/lib/data/${cfg_genomeblacklist}"
+fi
 # check if exclude file exists and is not empty
 [ -s "${genblacklist}" ] && declare -r regexcludeflag="--exclude range ${genblacklist}" || {
   printf "> error: file '%s' empty or not found.\n" "${genblacklist}" >&2;
