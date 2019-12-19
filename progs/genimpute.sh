@@ -170,6 +170,9 @@ declare -r cfg_snodemem=$( cfgvar_get snodemem )
 
 run() {
   local cmd="$*"
+  local eff_snodemem="${cfg_snodemem}"
+  [ -z "${eff_snodemem}" ] && eff_snodemem=${opt_memory}
+  [ ${eff_snodemem} -lt ${opt_memory} ] && export opt_memory=$(( eff_snodemem - eff_snodemem/5 ))
   local plinkflag="--memory ${opt_memory} --threads 2"
   local sbatchflag="--mem-per-cpu=${opt_memory}MB --cpus-per-task=2"
   if [ "${cmd}" != "" ] ; then
@@ -184,15 +187,12 @@ run() {
         ;;
       *sbatch*)
         echo "submitting '$( basename ${cmd} )'.."
-        declare eff_snodemem="${cfg_snodemem}"
-        [ -z "${eff_snodemem}" ] && eff_snodemem=${opt_memory}
         # maximum number of jobs permitted to run on the same node
         export plink_max_jobs=$(( eff_snodemem / opt_memory ))
+        [ ${plink_max_jobs} -eq 0 ] && export plink_max_jobs=1
         # number of cores assignable to each single job
-        export plink_num_cpus=$(( cfg_snodecores / ( plink_max_jobs + 1 ) ))
-        if [ ${plink_num_cpus} -eq 0 ] ; then
-          export plink_num_cpus=1
-        fi
+        export plink_num_cpus=$(( cfg_snodecores / plink_max_jobs ))
+        [ ${plink_num_cpus} -eq 0 ] && export plink_num_cpus=1
         # memory/cpu required by each single job
         export plink_mem_per_cpu=$(( ( opt_memory + opt_memory/5 ) / plink_num_cpus ))
         plinkflag="--memory ${opt_memory} --threads ${plink_num_cpus}"
@@ -262,7 +262,7 @@ export opt_refprefix="${opt_outprefixbase}/.i/qc/a_refset"
 # compile variant white list
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_vwlist"
 
 # call wlist
@@ -277,7 +277,7 @@ unset opt_outprefix
 # recode into plink binary format
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_outprefix="${opt_outprefixbase}/.i/qc/a_recode"
 
 # call recode
@@ -292,7 +292,7 @@ unset opt_outprefix
 # align to reference
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/a_recode"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/b_align"
 
@@ -313,7 +313,7 @@ declare qciter=0
 # biography
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/b_align"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 export opt_biofile="${opt_outprefixbase}/bio.txt"
@@ -332,7 +332,7 @@ unset opt_biofile
 # merge batches (if more than a single one present)
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/b_align"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/c_proc"
 
@@ -349,7 +349,7 @@ unset opt_outprefix
 # get high quality set
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/c_proc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 
@@ -387,7 +387,7 @@ unset opt_biofile
 # perform standard variant-level QC
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/e_indqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 
@@ -404,7 +404,7 @@ unset opt_outprefix
 # perform final QC (control-HWE? batch effects?)
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_hqprefix="${opt_outprefixbase}/.i/qc/d_hqset"
 export opt_inprefix="${opt_outprefixbase}/.i/qc/f_varqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/g_finqc"
@@ -425,7 +425,7 @@ unset opt_batchoutprefix
 # get high quality set
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/h_hqset"
 
@@ -465,7 +465,7 @@ ${opt_qconly} && { echo "done."; exit 0; }
 # convert to chromosome-wise vcf format
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/g_finqc"
 export opt_outprefix="${opt_outprefixbase}/.i/qc/i_pre"
 export opt_sqprefix="${opt_outprefixbase}/.i/qc/e_indqc"
@@ -484,7 +484,7 @@ unset opt_sqprefix
 # impute
 
 # export vars
-export opt_memory=$(( cfg_plinkmem  ))
+export opt_memory=$(( cfg_plinkmem ))
 export opt_inprefix="${opt_outprefixbase}/.i/qc/i_pre"
 export opt_outprefix="${opt_outprefixbase}/.i/im/i_imp"
 
