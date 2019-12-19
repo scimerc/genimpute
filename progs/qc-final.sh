@@ -74,7 +74,7 @@ elif [ $( grep -c '1$' "${opt_inprefix}.fam" ) -ge $cfg_minindcount ] ; then
     > "${tmpprefix}_ctrl.txt"
   declare -r Nctrl=$( cat "${tmpprefix}_ctrl.txt" | wc -l )
   # rename temporary plink set
-  rename _out _pheno "${tmpprefix}_out".*
+  rename "${tmpprefix}_out" "${tmpprefix}_pheno" "${tmpprefix}_out".*
 else
   # else, use the whole list but leave Nctrl=0 to suppress control-HWE tests
   printf "> no controls available. using everyone..\n"
