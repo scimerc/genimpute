@@ -5,6 +5,10 @@ set -ETeuo pipefail
 
 source "${BASEDIR}/progs/checkdep.sh"
 
+declare  cfg_genomebuild
+         cfg_genomebuild="$( cfgvar_get genomebuild )"
+readonly cfg_genomebuild
+
 declare -r cfg_samplewhitelist=$( cfgvar_get samplewhitelist )
 
 if [ ! -z "${cfg_refprefix}" ] ; then
@@ -75,9 +79,31 @@ for i in ${!batchfiles[@]} ; do
   if [ -s "${opt_varwhitelist}" ] ; then
     bedflag="--extract range ${opt_varwhitelist}"
   fi
-  # convert to plink binary format and merge X chromosome variants
+  # convert to plink binary format
   ${plinkexec} --allow-extra-chr $flagformat "${plinkinputfn}" ${flagkeep} \
-    --merge-x no-fail ${bedflag} \
+    --make-bed \
+    --out "${tmpprefix}_ex" \
+    2> >( tee "${tmpprefix}.err" ) | printlog 3
+  if [ $? -ne 0 ] ; then
+    cat "${tmpprefix}.err"
+  fi
+  # re-write variant info in universal format
+  standardize_bim_file "${tmpprefix}_ex.bim"
+  parcount=$( awk '$1 == 25' "${tmpprefix}_ex.bim" | wc -l )
+  # split X chromosome variants if necessary
+  if [ $parcount -eq 0 ] ; then
+    ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_ex" \
+                 --split-x ${cfg_genomebuild} no-fail \
+                 --make-bed \
+                 --out "${tmpprefix}_draftex" \
+                 2> >( tee "${tmpprefix}.err" ) | printlog 3
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
+    rename "${tmpprefix}_draftex" "${tmpprefix}_ex" "${tmpprefix}_draftex".*
+  fi
+  # extract region whitelist
+  ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_ex" ${bedflag} \
     --make-bed \
     --out "${tmpprefix}_out" \
     2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -85,8 +111,6 @@ for i in ${!batchfiles[@]} ; do
     cat "${tmpprefix}.err"
   fi
   mv "${tmpprefix}_out.log" "${b_outprefix}.1.log"
-  # re-write variant info in universal format
-  standardize_bim_file "${tmpprefix}_out.bim"
   # extract colocalized variant positions from gp file and make a tped file set from them
   awk '{ print( $2, $1, 0, $4 ); }' "${tmpprefix}_out.bim" | sort -k 1,1 > "${tmpprefix}.gp"
   get_variant_info_for_dup_chr_cm_bp_aa_mm "${tmpprefix}.gp" \

@@ -5,6 +5,10 @@ set -ETeuo pipefail
 
 source "${BASEDIR}/progs/checkdep.sh"
 
+declare  cfg_genomebuild
+         cfg_genomebuild="$( cfgvar_get genomebuild )"
+readonly cfg_genomebuild
+
 declare  cfg_infosep
          cfg_infosep="$( cfgvar_get infosep )"
 readonly cfg_infosep
@@ -77,7 +81,7 @@ for i in ${!batchfiles[@]} ; do
   # whatever format the input file is - make a bim file
   printf "* Recode variants set into bim format" | printlog 1
   ${plinkexec} --allow-extra-chr ${plinkflag} "${batchfiles[$i]/%.bed/.bim}" \
-               --make-just-bim \
+               --make-bed \
                --out "${tmpprefix}_ex" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
@@ -85,7 +89,20 @@ for i in ${!batchfiles[@]} ; do
   fi
   # re-write variant info in universal format
   standardize_bim_file "${tmpprefix}_ex.bim"
-  # initialize (i=0) or intersect (i>0) variants positions
+  parcount=$( awk '$1 == 25' "${tmpprefix}_ex.bim" | wc -l )
+  # split X chromosome variants if necessary
+  if [ $parcount -eq 0 ] ; then
+    ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_ex" \
+                 --split-x ${cfg_genomebuild} no-fail \
+                 --make-bed \
+                 --out "${tmpprefix}_draftex" \
+                 2> >( tee "${tmpprefix}.err" ) | printlog 3
+    if [ $? -ne 0 ] ; then
+      cat "${tmpprefix}.err"
+    fi
+    mv "${tmpprefix}_draftex.bim" "${tmpprefix}_ex.bim"
+  fi
+  # initialize (i=0) and intersect (i>0) variants positions
   if [ -s "${tmpprefix}_ex.bim" ] ; then
     if [ $i -eq 0 ] ; then
       bimtogprs "${tmpprefix}_ex.bim" \

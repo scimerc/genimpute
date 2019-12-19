@@ -5,10 +5,6 @@ set -ETeuo pipefail
 
 source "${BASEDIR}/progs/checkdep.sh"
 
-declare  cfg_genomebuild
-         cfg_genomebuild="$( cfgvar_get genomebuild )"
-readonly cfg_genomebuild
-
 declare  cfg_infosep
          cfg_infosep="$( cfgvar_get infosep )"
 readonly cfg_infosep
@@ -170,18 +166,22 @@ for i in ${!batchfiles[@]} ; do
     <( \
       awk -F $'\t' -v infosep="${cfg_infosep}" '{
         OFS="\t"
-        chr = $1
-        if ( chr == "MT" ) chr = 26
-        if ( chr == "X" || chr == "XY" ) chr = 23
-        if ( chr == "Y" ) chr = 24
-        print chr infosep $2, $3, $4
+        gsub( "^[Cc]([Hh][Rr]*)*", "", $1 )
+        if ( $1 ~ "[Xx][Yy]" ) $1 = 25
+        if ( $1 ~ "^[Xx]"    ) $1 = 23
+        if ( $1 ~ "^[Yy]"    ) $1 = 24
+        if ( $1 ~ "^[Mm]"    ) $1 = 26
+        if ( $1 == "25"      ) $1 = 23
+        print $1 infosep $2, $3, $4
       }' "${varreffile}" \
       | sort -t $'\t' -k 1,1 \
     ) \
     <( \
       awk -F $'\t' -v infosep="${cfg_infosep}" '{
         OFS="\t"
-        $7 = $1 infosep $4
+        chr = $1
+        if ( chr == "25" ) chr = 23
+        $7 = chr infosep $4
         print
       }' "${tmpprefix}_nb.bim" \
       | sort -t $'\t' -k 7,7 \
@@ -207,7 +207,7 @@ for i in ${!batchfiles[@]} ; do
           printf( "" ) >batchfliplist
           printf( "" ) >batchidmap
         } {
-          # $1 is the join field, i.e. the genomic position "chr:bp"
+          # $1 is the join field, i.e. the genomic position "chr*:bp"
           # $2,$3 are the internal alleles
           # $4 is the internal variant name (should be chr:bp:a0:a1)
           # $5,$6 are the reference alleles
@@ -226,7 +226,11 @@ for i in ${!batchfiles[@]} ; do
               total_ambi++
             }
             else {
-              # mark mismatching variants (also genuine multi-allelic ones!) for removal(*)
+              # mark mismatching colocalized variants (also genuine multi-allelic ones!) for
+              # removal. if a matching variant exists in the reference, this will be added to the
+              # catalog of valid variants, which takes precedence over the blacklist. note however
+              # that this only works if multi-allelic variants are encoded as multiple bi-allelic
+              # variants in the reference (which need not be the case for vcf files).(*)
               if ( !gmatchx( $2, $3, $5, $6 ) ) {
                 print( $4 ) >batchblacklist
                 blackcatalog[$4] = 1
@@ -247,7 +251,7 @@ for i in ${!batchfiles[@]} ; do
                 }
                 else {
                   # add variant to catalog
-                  # (*) variant in the catalog will be preserved even if marked for removal
+                  # (*) variants in the catalog will be preserved even if marked for removal
                   newid = $1 infosep $5 infosep $6
                   if ( newid in idcatalog ) {
                     idcatalog[newid]++
@@ -269,10 +273,13 @@ for i in ${!batchfiles[@]} ; do
             }
           }
         } END{
-          print( "> total missing:    ", total_miss )
-          print( "> total mismatch:   ", total_mism )
-          print( "> total flipped:    ", total_flip )
-          print( "> total ambiguous:  ", total_ambi )
+          print( "> total missing:      ", total_miss )
+          print( "> total mismatch(*):  ", total_mism )
+          print( "> total flipped:      ", total_flip )
+          print( "> total ambiguous:    ", total_ambi )
+          print( "> ---------------------------------------------------------------------------" )
+          print( "> (*) if genuine multi-allelic variants among these are encoded as multiple" )
+          print( ">     bi-allelic variants in the reference, they should be preserved." )
           for ( varid in idmapcatalog ) {
             split( varid, avec, infosep )
             if ( avec[2] == 0 ) aref = avec[3]
@@ -351,33 +358,18 @@ for i in ${!batchfiles[@]} ; do
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  declare plinkflag=''
-  parcount=$( awk '$1 == 25' "${tmpprefix}_una.bim" | wc -l )
-  # split X chromosome variants
-  if [ $parcount -eq 0 ] ; then
-    plinkflag="--split-x ${cfg_genomebuild} no-fail" 
-  fi
   ${plinkexec} --allow-extra-chr \
-        --bfile "${tmpprefix}_una" ${plinkflag} \
-        --make-bed \
-        --out "${tmpprefix}_out" \
-        2> >( tee "${tmpprefix}.err" ) | printlog 3
-  if [ $? -ne 0 ] ; then
-    cat "${tmpprefix}.err"
-  fi 
-  ${plinkexec} --allow-extra-chr \
-        --bfile "${tmpprefix}_out" \
+        --bfile "${tmpprefix}_una" \
         --freq \
-        --out "${tmpprefix}_out" \
+        --out "${tmpprefix}_una" \
         2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
-  unset plinkflag
-  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"
-  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.fam"
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_una.bim"
+  sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_una.fam"
 
-  rename "${tmpprefix}_out" "${b_outprefix}" "${tmpprefix}_out".*
+  rename "${tmpprefix}_una" "${b_outprefix}" "${tmpprefix}_una".*
 
   if [ "${batchcode}" == "${opt_refcode}" ] ; then
     cp "${b_outprefix}.bed" "${opt_refprefix}.bed"
