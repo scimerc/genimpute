@@ -22,10 +22,12 @@ MD5=${MD5:0:7}
 cd ${LOCTMPDIR} && rm -rf ${PRJNAME}
 git clone ${PRJDIR} ${PRJNAME}
 
-echo "Compressing to '${PRJNAME}.git.tar.gz'.."
+echo "Compressing into '${PRJNAME}.git.tar.gz'..."
 tar czf ${PRJNAME}.git.tar.gz ${PRJNAME}
 echo "done."
 
 declare -r OUTFILENAME=${PRJNAME}_"$(date +"%y%m%d-%H")"_${MD5}.git.tar.gz
 mv ${PRJNAME}.git.tar.gz "${EXPDIR}/${OUTFILENAME}"
+
+echo "Repository exported to '${EXPDIR}/${OUTFILENAME}'."
 
