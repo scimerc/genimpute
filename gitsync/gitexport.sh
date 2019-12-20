@@ -9,7 +9,7 @@ set -ETeuo pipefail
 
 EXPDIR="$1"
 
-[ -z "${TMPDIR}" ] && TMPDIR=/tmp
+LOCTMPDIR=/tmp
 
 PRJNAME='genimpute'
 PRJDIR="$( cd $( dirname $( readlink -f "$0" ) )/../ ; pwd )"
@@ -19,7 +19,7 @@ GITROOT="$(git rev-parse --show-toplevel)"
 MD5=$(find ${GITROOT}/.git -type f | xargs cat | md5sum)
 MD5=${MD5:0:7}
 
-cd ${TMPDIR} && rm -rf ${PRJNAME}
+cd ${LOCTMPDIR} && rm -rf ${PRJNAME}
 git clone ${PRJDIR} ${PRJNAME}
 
 printf "compressing.. "
