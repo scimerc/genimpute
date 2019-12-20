@@ -4,7 +4,7 @@
 set -ETeuo pipefail
 
 declare -r MAXFILESIZE=50 #MB
-declare -r REMOTEBRANCH='origin_gh_norm'
+declare -r REMOTEREPOS='origin_gh_norm'
 
 if [ "$*" == "" ] ; then
   echo "no public repository specified."
@@ -33,8 +33,8 @@ fi
 echo 'committing and pushing changes to remote..'
 
 git add .
-git remote -v | grep -qw "${REMOTEBRANCH}" || git remote add ${REMOTEBRANCH} ${PUBREP}
-git pull ${REMOTEBRANCH} master
+git remote -v | grep -qw "${REMOTEREPOS}" || git remote add ${REMOTEREPOS} ${PUBREP}
+git pull ${REMOTEREPOS} master
 git commit -m 'merge with remote'
-git push ${REMOTEBRANCH}
+git push ${REMOTEREPOS}
 
