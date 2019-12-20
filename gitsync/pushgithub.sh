@@ -3,6 +3,9 @@
 # exit on error
 set -ETeuo pipefail
 
+declare -r MAXFILESIZE=50 #MB
+declare -r REMOTEBRANCH='origin_gh_norm'
+
 if [ "$*" == "" ] ; then
   echo "no public repository specified."
   echo "usage: $( basename $0 ) <path_to_repository>"
@@ -15,22 +18,23 @@ PRJDIR="$( cd $( dirname $( readlink -f "$0" ) )/../ ; pwd )"
 
 cd ${PRJDIR}
 
-echo 'committing changes..'
+lflist=$( find . -type f -size +${MAXFILESIZE}M -not -path '*.git*'  )
+
+if [ "${lflist}" != "" ] ; then
+
+  echo 'adding large files support..'
+
+  git lfs track ${lflist}
+  git add .gitattributes ${lflist}
+  git commit -m 'lfs' || true
+
+fi
+
+echo 'committing and pushing changes to remote..'
 
 git add .
-git commit -m 'repository export'
-
-echo 'adding large files support..'
-
-git lfs track lib/data/genetic_map_b37_withX.txt.gz
-git add lib/data/genetic_map_b37_withX.txt.gz
-git add .gitattributes
-git commit -m 'lfs' || true
-
-echo 'pushing changes to remote..'
-
-git remote add origin_gh_norm ${PUBREP}
-git pull origin_gh_norm master
+git remote -v | grep -qw "${REMOTEBRANCH}" || git remote add ${REMOTEBRANCH} ${PUBREP}
+git pull ${REMOTEBRANCH} master
 git commit -m 'merge with remote'
-git push origin_gh_norm
+git push ${REMOTEBRANCH}
 
