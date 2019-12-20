@@ -22,10 +22,9 @@ MD5=${MD5:0:7}
 cd ${LOCTMPDIR} && rm -rf ${PRJNAME}
 git clone ${PRJDIR} ${PRJNAME}
 
-printf "compressing.. "
-#NOTE: tar fails saying some files change while read, hence the true alternative statement
-tar czf ${PRJNAME}.git.tar.gz ${PRJNAME} || true
-printf "done.\n"
+echo "Compressing to '${PRJNAME}.git.tar.gz'.."
+tar czf ${PRJNAME}.git.tar.gz ${PRJNAME}
+echo "done."
 
 declare -r OUTFILENAME=${PRJNAME}_"$(date +"%y%m%d-%H")"_${MD5}.git.tar.gz
 mv ${PRJNAME}.git.tar.gz "${EXPDIR}/${OUTFILENAME}"
