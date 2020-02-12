@@ -12,10 +12,8 @@ declare -r cfg_hvmmax=$( cfgvar_get hvmmax )
 declare -r cfg_hvmmin=$( cfgvar_get hvmmin )
 declare -r cfg_hvmsdn=$( cfgvar_get hvmsdn )
 declare -r cfg_pihatrel=$( cfgvar_get pihatrel )
-declare -r cfg_minindcount=$( cfgvar_get minindcount )
 declare -r cfg_minvarcount=$( cfgvar_get minvarcount )
 declare -r cfg_samplemiss=$( cfgvar_get samplemiss )
-declare -r cfg_varmiss=$( cfgvar_get varmiss )
 declare -r cfg_uid=$( cfgvar_get uid )
 
 declare -r kingexec="${BASEDIR}/lib/3rd/king"
@@ -51,21 +49,21 @@ break_dysfunc_fam() {
 # input: merged plink set and hq plink set
 # output: clean plink set (with imputed sex from hq set and no mixups)
 
-echo -e "==== Individual QC ====\n" | printlog 1
+echo -e "==== Individual QC ====\n" | printlog 0
 
 printf "\
   * Exclude possibly contaminated (mean+%dsd heterozygosity) and low-coverage (%.0f%%) individuals
   * Erase parent information for any dysfunctional families
   * Annotate relatedness information
-\n" ${cfg_hvmsdn} "$( echo "(1 - ${cfg_hvmmax})*100" | bc )"  | printlog 1
+\n" ${cfg_hvmsdn} "$( echo "(1 - ${cfg_hvmmax})*100" | bc )"  | printlog 0
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "> '%s' found. skipping individual QC..\n" "${opt_outprefix}.bed"
+  printf "> '%s' found. skipping individual QC..\n\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
 if ls "${tmpprefix}"* > /dev/null 2>&1; then
-  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -75,6 +73,10 @@ declare keepflag=''
 # find potential mixups?
 if [ ${cfg_hvm} -eq 1 ] ; then
   printf "> computing individual heterozygosity and missing rates..\n"
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+               --bfile ${opt_hqprefix}i
+               --het --missing
+               --out ${tmpprefix}_sq\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
                --bfile "${opt_hqprefix}i" \
                --het --missing \
@@ -116,7 +118,7 @@ if [ ${cfg_hvm} -eq 1 ] ; then
       }' | sort -u \
       > "${tmpprefix}_out.clean.id"
   [ -s "${tmpprefix}_out.clean.id" ] || {
-    printf "> error: file '%s' empty or not found.\n" "${tmpprefix}_out.clean.id" >&2;
+    printf "> error: file '%s' empty or not found.\n\n" "${tmpprefix}_out.clean.id" >&2;
     exit 1;
   }
   # write plink flag for non-mixup info later
@@ -131,12 +133,12 @@ break_dysfunc_fam "${opt_hqprefix}.fam" > "${tmpprefix}_out_updateparents.txt"
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l "${opt_hqprefix}.bim" | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
-echo "  ${plinkexec} --allow-extra-chr \
+echo -e "  ${plinkexec##*/} --allow-extra-chr \
              --bfile ${opt_hqprefix} ${keepflag}
              --mind ${tmp_samplemiss}
              --update-parents ${tmpprefix}_out_updateparents.txt
              --make-bed
-             --out ${tmpprefix}_hc" | printlog 2
+             --out ${tmpprefix}_hc\n" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${opt_hqprefix}" ${keepflag} \
              --mind ${tmp_samplemiss} \
@@ -150,12 +152,12 @@ fi
 tmp_samplemiss=${cfg_samplemiss}
 N=$( wc -l "${opt_hqprefix}i.bim" | cut -d ' ' -f 1 )
 if [ $N -lt ${cfg_minvarcount} ] ; then tmp_samplemiss=0.1 ; fi
-echo "  ${plinkexec} --allow-extra-chr \
+echo -e "  ${plinkexec##*/} --allow-extra-chr \
              --bfile ${opt_hqprefix}i ${keepflag}
              --mind ${tmp_samplemiss}
              --update-parents ${tmpprefix}_out_updateparents.txt
              --make-just-fam
-             --out ${tmpprefix}_hci" | printlog 2
+             --out ${tmpprefix}_hci\n" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${opt_hqprefix}i" ${keepflag} \
              --mind ${tmp_samplemiss} \
@@ -203,6 +205,10 @@ printf "> reannotating eventual dysfunctional families..\n"
 break_dysfunc_fam "${tmpprefix}_kingpeds.fam" > "${tmpprefix}_out_updateparents.txt"
 # identify related individuals
 printf "> identifying related individuals..\n"
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_hqprefix}i
+             --keep ${tmpprefix}_hci.fam
+             --genome gz
+             --out ${tmpprefix}_sq\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
              --keep "${tmpprefix}_hci.fam" \
              --genome gz \
@@ -211,6 +217,12 @@ ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_hqprefix}i
+             --keep ${tmpprefix}_hci.fam
+             --cluster
+             --read-genome ${tmpprefix}_sq.genome.gz
+             --rel-cutoff ${cfg_pihatrel}
+             --out ${tmpprefix}_sq\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
              --keep "${tmpprefix}_hci.fam" \
              --cluster \
@@ -224,6 +236,11 @@ fi
 # rename list of clean, unrelated individuals for later use
 mv "${tmpprefix}_sq.rel.id" "${opt_outprefixbase}/.i/qc/e_indqc.ids"
 # remove mixups, update sex and set heterozygous haploid genotypes to missing in input set
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_inprefix} ${keepflag}
+             --update-sex ${opt_hqprefix}.fam 3
+             --set-hh-missing
+             --make-bed
+             --out ${tmpprefix}_out\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${keepflag} \
              --update-sex "${opt_hqprefix}.fam" 3 \
              --set-hh-missing \
@@ -366,7 +383,7 @@ printf "> updating biography file with potential contaminations..\n"
 mv "${tmpprefix}.2.bio" "${opt_biofile}"
 
 # update biography file with sample relationships
-printf "> updating biography file with relatedness information..\n"
+printf "> updating biography file with relatedness information..\n\n"
 {
   extract_related_lists_from_grm_file "${tmpprefix}_sq.genome.gz" \
     | join -t $'\t'     "${opt_biofile}" -

@@ -15,12 +15,12 @@ declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 # input: final QC plink file set
 # output: chromosome-wise eagle VCF input files
 
-echo -e "==== Recoding ====\n" | printlog 1
+echo -e "==== Convert ====\n" | printlog 0
 
 printf "\
   * Purge individual and family IDs
   * Convert plink file set into VCF format
-\n" | printlog 1
+\n" | printlog 0
 
 declare -ra cfg_chromosomes_arr=( $cfg_chromosomes )
 tmp_chromosomes=$( join \
@@ -33,12 +33,12 @@ for chr in ${tmp_chromosomes} ; do
   [ -s ${opt_outprefix}_chr${chr}.bcf ] || cskip=0
 done
 if [ ${cskip} -eq 1 ] ; then
-  printf "> all bcf files present. skipping conversion..\n"
+  printf "> all bcf files present. skipping conversion..\n\n"
   exit 0
 fi
 
 if ls ${tmpprefix}* > /dev/null 2>&1; then
-  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -81,15 +81,18 @@ Nnew=$( sort -u -k 3,4 ${tmpprefix}.idmap | wc -l )
 if [ $Nold -eq $Nnew ] ; then
   mv ${tmpprefix}_updateids.txt ${opt_outprefix}_updateids.txt
   mv ${tmpprefix}_updateparents.txt ${opt_outprefix}_updateparents.txt
-  ${plinkexec} --allow-extra-chr --bfile ${opt_inprefix} \
-               --update-ids ${tmpprefix}.idmap \
-               --make-bed --out ${tmpprefix}_idfix \
+  echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_inprefix}
+               --update-ids ${tmpprefix}.idmap
+               --make-bed --out ${tmpprefix}_idfix\n" | printlog 2
+  ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" \
+               --update-ids "${tmpprefix}.idmap" \
+               --make-bed --out "${tmpprefix}_idfix" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
 else
-  printf "====> warning: could not purge IDs due to ensuing conflicts.\n"
+  printf "====> warning: could not purge IDs due to ensuing conflicts.\n\n"
   awk '{ OFS=FS="\t"; uid=$1"_"$2; print( uid, uid, $3, $4 ); }' \
     ${opt_sqprefix}_updateids.txt > ${opt_outprefix}_updateids.txt
   cp ${opt_sqprefix}_updateparents.txt ${opt_outprefix}_updateparents.txt
@@ -104,7 +107,7 @@ awk '{ OFS=FS="\t"; print( $1"_"$2, $1"_"$2, $5 ); }' \
 # convert input files to vcf formats
 for chr in ${tmp_chromosomes} ; do
   if [ -e ${opt_outprefix}_chr${chr}.bcf ] ; then
-    printf "> bcf file '%s' found. skipping conversion..\\n" ${opt_outprefix}_chr${chr}.bcf
+    printf "> bcf file '%s' found. skipping conversion..\n\n" ${opt_outprefix}_chr${chr}.bcf
     continue
   fi
   ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_idfix \

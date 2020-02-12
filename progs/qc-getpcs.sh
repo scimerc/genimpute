@@ -15,23 +15,26 @@ declare -r cfg_uid=$( cfgvar_get uid )
 # input: high quality plink set
 # output: gzipped GRM and a matrix of eigenvector weights
 
-echo -e "==== PCA etc. ====\n" | printlog 1
+echo -e "==== PCA etc. ====\n" | printlog 0
 
 printf "\
   * Compute genetic principal components
   * Compute final individual coverage statistics
-\n" | printlog 1
+\n" | printlog 0
 
 if [ -f "${opt_outprefix}.eigenvec" -a -f "${opt_outprefix}.eigenvec.var" ] ; then
   printf "> '%s' found. skipping PCA..\n" "${opt_outprefix}.eigenvec"
   exit 0
 fi
 
-printf "> computing genetic principal components..\n"
+printf "> computing genetic principal components..\n\n"
 
 if [ -s "${opt_outprefix}.genome.gz" ] ; then
-  printf "> '%s' found. skipping GRM calculation..\n" "${opt_outprefix}.genome.gz"
+  printf "> '%s' found. skipping GRM calculation..\n\n" "${opt_outprefix}.genome.gz"
 else
+  echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_hqprefix}i
+               --genome gz
+               --out ${tmpprefix}_draft\n" | printlog 2
   ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
                --genome gz \
                --out "${tmpprefix}_draft" \
@@ -46,6 +49,12 @@ pcabase="${opt_outprefixbase}/.i/qc/e_indqc.ids"
 [ -s "${pcabase}" ] || { printf "empty PCA base '%s'. aborting..\n" "${pcabase}"; exit 1; }
 awk '{ print( $0, "refset" ); }' "${pcabase}" > "${tmpprefix}.refset"
 pcaflag="--within ${tmpprefix}.refset --pca-cluster-names refset"
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_hqprefix}i
+             --neighbour 1 5
+             --read-genome ${opt_outprefix}.genome.gz
+             --seed ${cfg_rndnseed}
+             --pca header tabs var-wts ${pcaflag}
+             --out ${tmpprefix}_draft\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_hqprefix}i" \
              --neighbour 1 5 \
              --read-genome "${opt_outprefix}.genome.gz" \
@@ -57,6 +66,9 @@ if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 rename "${tmpprefix}_draft" "${opt_outprefix}" "${tmpprefix}_draft.eigen"*
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_inprefix}
+             --missing \
+             --out ${tmpprefix}_draft\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" \
              --missing \
              --out "${tmpprefix}_draft" \

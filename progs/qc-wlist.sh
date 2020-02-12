@@ -27,21 +27,21 @@ declare -r tmpprefix="${opt_outprefix}_tmp"
 # input: recoded plink sets
 # output: maximum common variant set
 
-echo -e "==== Whitelist ====\n" | printlog 1
+echo -e "==== Whitelist ====\n" | printlog 0
 
 printf "\
   * Compile list of variants common to all batches (and reference)\n
-" | printlog 1
+" | printlog 0
 
 $( cfgvar_get intersect ) || exit 0
 
 if [ -f "${opt_varwhitelist}" ] ; then
-  printf "> variant white list found. skipping compilation..\n"
+  printf "> variant white list found. skipping compilation..\n\n"
   exit 0
 fi
 
 if ls "${tmpprefix}"* > /dev/null 2>&1; then
-  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n\n" "${tmpprefix}" >&2
   exit 1
 fi
 
@@ -65,7 +65,7 @@ for i in ${!batchfiles[@]} ; do
   declare fformat=$( get_genotype_file_format "${batchfiles[$i]}" )
   case "${fformat}" in
     "bed" ) 
-      plinkflag="--bim"
+      plinkflag="--bfile"
       ;;
     "vcf" )
       plinkflag="--vcf"
@@ -74,13 +74,16 @@ for i in ${!batchfiles[@]} ; do
       plinkflag="--bcf"
       ;;
     * ) 
-      printf "> error: unhandled fileformat '%s'.\n" ${fformat} >&2
+      printf "> error: unhandled fileformat '%s'.\n\n" ${fformat} >&2
       exit 1
       ;;
   esac
   # whatever format the input file is - make a bim file
-  printf "* Recode variants set into bim format" | printlog 1
-  ${plinkexec} --allow-extra-chr ${plinkflag} "${batchfiles[$i]/%.bed/.bim}" \
+  printf "* Recode variants set into bim format" | printlog 0
+  echo -e "  ${plinkexec##*/} --allow-extra-chr ${plinkflag} ${batchfiles[$i]%.bed}
+               --make-bed
+               --out ${tmpprefix}_ex\n" | printlog 2
+  ${plinkexec} --allow-extra-chr ${plinkflag} "${batchfiles[$i]%.bed}" \
                --make-bed \
                --out "${tmpprefix}_ex" \
                2> >( tee "${tmpprefix}.err" ) | printlog 3
@@ -92,6 +95,10 @@ for i in ${!batchfiles[@]} ; do
   parcount=$( awk '$1 == 25' "${tmpprefix}_ex.bim" | wc -l )
   # split X chromosome variants if necessary
   if [ $parcount -eq 0 ] ; then
+    echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_ex
+                 --split-x ${cfg_genomebuild} no-fail
+                 --make-bed
+                 --out ${tmpprefix}_draftex\n" | printlog 2
     ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_ex" \
                  --split-x ${cfg_genomebuild} no-fail \
                  --make-bed \

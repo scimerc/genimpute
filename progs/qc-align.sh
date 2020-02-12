@@ -85,7 +85,7 @@ get_plink_varinfo_blacklist() {
 # input: plink bed and eventual tped file sets
 # output: purged and [reference] strand-aligned plink file sets
 
-echo -e "==== Align ====\n" | printlog 1
+echo -e "==== Align ====\n" | printlog 0
 
 printf "\
   * For every batch:
@@ -94,7 +94,7 @@ printf "\
     * Create a fliplist to align strand-flipped variants to reference
     * Purge batch file of blacklist
     * Align fliplist in batch file
-\n" | printlog 1
+\n" | printlog 0
 
 if [ -z "${cfg_refprefix}" ] ; then
   varreffile="${opt_outprefix}.gpa"
@@ -143,6 +143,10 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--exclude ${batchblacklist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+            --bfile ${b_inprefix} ${plinkflag}
+            --make-bed
+            --out ${tmpprefix}_nb\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
         --bfile "${b_inprefix}" ${plinkflag} \
         --make-bed \
@@ -215,14 +219,12 @@ for i in ${!batchfiles[@]} ; do
           # are any reference alleles missing?
           if ( $5 == "-" || $6 == "-" || $5 <= 0 || $6 <= 0 ) {
             print( $4 ) >batchblacklist
-            blackcatalog[$4] = 1
             total_miss++
           }
           else {
             # mark self-complementary (i.e. ambiguous) variants for removal
             if ( nucleocode($2) == comp_nucleocode($3) ) {
               print( $4 ) >batchblacklist
-              blackcatalog[$4] = 1
               total_ambi++
             }
             else {
@@ -233,7 +235,6 @@ for i in ${!batchfiles[@]} ; do
               # variants in the reference (which need not be the case for vcf files).(*)
               if ( !gmatchx( $2, $3, $5, $6 ) ) {
                 print( $4 ) >batchblacklist
-                blackcatalog[$4] = 1
                 total_mism++
               }
               else {
@@ -244,14 +245,14 @@ for i in ${!batchfiles[@]} ; do
                   total_flip++
                 }
                 # delete any homonymous variants and mark them for removal
-                if ( $4 in idmapcatalog ) {
+                if ( $4 in idmapcatalog || $4 in idremovecatalog ) {
                   print( $4 ) >batchblacklist
+                  idremovecatalog[$4] = 1
                   delete idmapcatalog[$4]
-                  blackcatalog[$4] = 1
                 }
                 else {
                   # add variant to catalog
-                  # (*) variants in the catalog will be preserved even if marked for removal
+                  # (*) variants in the catalog will be preserved even if later marked for removal
                   newid = $1 infosep $5 infosep $6
                   if ( newid in idcatalog ) {
                     idcatalog[newid]++
@@ -273,10 +274,10 @@ for i in ${!batchfiles[@]} ; do
             }
           }
         } END{
-          print( "> total missing:      ", total_miss )
-          print( "> total mismatch(*):  ", total_mism )
-          print( "> total flipped:      ", total_flip )
           print( "> total ambiguous:    ", total_ambi )
+          print( "> total flipped:      ", total_flip )
+          print( "> total mismatch(*):  ", total_mism )
+          print( "> total missing:      ", total_miss )
           print( "> ---------------------------------------------------------------------------" )
           print( "> (*) if genuine multi-allelic variants among these are encoded as multiple" )
           print( ">     bi-allelic variants in the reference, they should be preserved." )
@@ -311,6 +312,10 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--exclude ${batchblacklist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+            --bfile ${tmpprefix}_nb ${plinkflag}
+            --make-bed
+            --out ${tmpprefix}_nbb\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_nb" ${plinkflag} \
         --make-bed \
@@ -328,6 +333,10 @@ for i in ${!batchfiles[@]} ; do
     plinkflag="--flip ${batchfliplist}"
   fi
   # NOTE: if plinkflags are empty we could consider "mv $opt_batchinpprefix $opt_batchoutprefix"
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+            --bfile ${tmpprefix}_nbb ${plinkflag}
+            --make-bed
+            --out ${tmpprefix}_nbf\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_nbb" ${plinkflag} \
         --make-bed \
@@ -340,6 +349,11 @@ for i in ${!batchfiles[@]} ; do
   # tab-separate all human-readable plink files
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbf.bim"
   sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_nbf.fam"
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+            --bfile ${tmpprefix}_nbf
+            --update-name ${batchidmap}
+            --make-bed
+            --out ${tmpprefix}_un\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_nbf" \
         --update-name "${batchidmap}" \
@@ -349,6 +363,11 @@ for i in ${!batchfiles[@]} ; do
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+            --bfile ${tmpprefix}_un
+            --update-alleles ${batchallelemap}
+            --make-bed
+            --out ${tmpprefix}_una\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_un" \
         --update-alleles "${batchallelemap}" \
@@ -358,6 +377,10 @@ for i in ${!batchfiles[@]} ; do
   if [ $? -ne 0 ] ; then
     cat "${tmpprefix}.err"
   fi
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+            --bfile ${tmpprefix}_una
+            --freq
+            --out ${tmpprefix}_una\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
         --bfile "${tmpprefix}_una" \
         --freq \

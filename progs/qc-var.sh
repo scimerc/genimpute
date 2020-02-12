@@ -25,26 +25,31 @@ declare -r cfg_varmiss=$( cfgvar_get varmiss )
 #         - HW equilibrium (possibly different for sex and non-sex chromosomes)
 #         - low rate of Mendel errors in trios
 
-echo -e "==== Variant QC ====\n" | printlog 1
+echo -e "==== Variant QC (basic) ====\n" | printlog 0
 
 printf "\
   * Exclude variants with:
     * low coverage
     * Hardy-Weinberg disequilibrium (separating sex and non-sex chromosomes)
     * high rate of Mendel errors in eventual trios
-\n" | printlog 1
+\n" | printlog 0
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "> '%s' found. skipping variant QC..\n" "${opt_outprefix}.bed"
+  printf "> '%s' found. skipping variant QC..\n\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
 if ls "${tmpprefix}"* > /dev/null 2>&1; then
-  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n\n" "${tmpprefix}" >&2
   exit 1
 fi
 
 printf "> removing mendel errors..\n"
+echo -e "  ${plinkexec##*/} --allow-extra-chr
+             --bfile ${opt_inprefix}
+             --update-ids ${opt_inprefix}_updateids.txt
+             --make-bed
+             --out ${tmpprefix}_kingids\n" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${opt_inprefix}" \
              --update-ids "${opt_inprefix}_updateids.txt" \
@@ -54,6 +59,11 @@ ${plinkexec} --allow-extra-chr \
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
+echo -e "  ${plinkexec##*/} --allow-extra-chr
+             --bfile ${tmpprefix}_kingids
+             --update-parents ${opt_inprefix}_updateparents.txt
+             --make-bed
+             --out ${tmpprefix}_kingpeds\n" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${tmpprefix}_kingids" \
              --update-parents "${opt_inprefix}_updateparents.txt" \
@@ -63,11 +73,11 @@ ${plinkexec} --allow-extra-chr \
 if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
-echo "  ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_kingpeds
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_kingpeds
              --me ${cfg_metrios} ${cfg_mevars}
              --set-me-missing
              --make-bed
-             --out ${tmpprefix}_nome" | printlog 2
+             --out ${tmpprefix}_nome\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_kingpeds" \
              --me ${cfg_metrios} ${cfg_mevars} \
              --set-me-missing \
@@ -91,13 +101,13 @@ tmp_varmiss=${cfg_varmiss}
 n=$( wc -l "${opt_inprefix}.fam" | cut -d ' ' -f 1 )
 if [ $n -lt ${cfg_minindcount} ] ; then tmp_varmiss=0.1 ; fi
 printf "> qc'ing non-sex chromosomes variants..\n"
-echo "  ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_nome ${keepflag}
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_nome ${keepflag}
              --not-chr 23,24
              --set-hh-missing
              --geno ${tmp_varmiss}
              --hwe 1.E-${cfg_hweneglogp} ${cfg_hweflag}
              --make-just-bim
-             --out ${tmpprefix}_nonsex" | printlog 2
+             --out ${tmpprefix}_nonsex\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_nome" ${keepflag} \
              --not-chr 23,24 \
              --set-hh-missing \
@@ -121,14 +131,14 @@ if [ $sex_hweneglogp -gt 12 ] ; then
 fi
 # if there aren't enough sex chromosome variants do not even bother.
 if [ $( get_xvar_count "${opt_inprefix}.bim" ) -ge ${cfg_minvarcount} ] ; then
-  printf "> qc'ing sex chromosomes variants..\n"
-  echo "  ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_nome ${keepflag} ${nosexflag}
+  printf "> qc'ing sex chromosomes variants..\n\n"
+  echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_nome ${keepflag} ${nosexflag}
                --chr 23,24
                --set-hh-missing
                --geno ${tmp_varmiss}
                --hwe 1.E-${sex_hweneglogp} ${cfg_hweflag}
                --make-just-bim
-               --out ${tmpprefix}_sex" | printlog 2
+               --out ${tmpprefix}_sex\n" | printlog 2
   ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_nome" ${keepflag} ${nosexflag} \
                --chr 23,24 \
                --set-hh-missing \
@@ -143,10 +153,15 @@ if [ $( get_xvar_count "${opt_inprefix}.bim" ) -ge ${cfg_minvarcount} ] ; then
 fi
 unset nosexflag
 [ -s "${tmpprefix}_nonsex.bim" -o -s "${tmpprefix}_sex.bim" ] || {
-  printf "> error: no variants left after QC.\n" >&2;
+  printf "> error: no variants left after QC.\n\n" >&2;
   exit 1;
 }
 cut -f 2 "${tmpprefix}_"*sex.bim | sort -u > "${tmpprefix}.mrk"
+echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_inprefix}
+             --extract ${tmpprefix}.mrk
+             --set-hh-missing
+             --make-bed
+             --out ${tmpprefix}_out\n" | printlog 2
 ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" \
              --extract "${tmpprefix}.mrk" \
              --set-hh-missing \

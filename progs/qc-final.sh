@@ -19,11 +19,13 @@ declare -r cfg_phenotypes=$( cfgvar_get phenotypes )
 # input: variant qc'd plink set
 # output: plink genotype set for variant passing final QC criteria:
 
+echo -e "==== Variant QC (aux) ====\n" | printlog 0
+
 printf "\
   * Extract variants with:
     * more stringent control Hardy-Weinberg equilibrium
     * eventual batch effects (FDR=${cfg_bfdr}) (if more than a single batch present)
-\n" | printlog 1
+\n" | printlog 0
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
   printf "> '%s' found. skipping final QC..\n" "${opt_outprefix}.bed"
@@ -90,11 +92,11 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   declare plinkflag=''
   # enforce stricter non-sex chromosomes Hardy-Weinberg equilibrium on controls
   printf "> testing non-sex chromosomes control Hardy-Weinberg equilibrium..\n"
-  echo "  ${plinkexec} --allow-extra-chr --bfile ${tmpprefix}_pheno ${keepflag}
+  echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_pheno ${keepflag}
                --not-chr 23,24
                --hwe 1.E-${cfg_hweneglogp_ctrl} midp
                --make-just-bim
-               --out ${tmpprefix}_ctrlhwe_nonsex" | printlog 2
+               --out ${tmpprefix}_ctrlhwe_nonsex\n" | printlog 2
   ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_pheno" ${keepflag} \
                --not-chr 23,24 \
                --hwe 1.E-${cfg_hweneglogp_ctrl} midp \
@@ -118,11 +120,11 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   if [ $( get_xvar_count "${tmpprefix}_pheno.bim" ) -ge ${cfg_minvarcount} ] ; then
     # enforce stricter sex chromosomes Hardy-Weinberg equilibrium on controls
     printf "> testing sex chromosomes control Hardy-Weinberg equilibrium..\n"
-    echo "  ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_pheno" ${keepflag} ${nosexflag}
+    echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile "${tmpprefix}_pheno" ${keepflag} ${nosexflag}
                  --chr 23,24
                  --hwe 1.E-${sex_hweneglogp_ctrl} midp
                  --make-just-bim
-                 --out ${tmpprefix}_ctrlhwe_sex" | printlog 2
+                 --out ${tmpprefix}_ctrlhwe_sex\n" | printlog 2
     ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_pheno" ${keepflag} ${nosexflag} \
                  --chr 23,24 \
                  --hwe 1.E-${sex_hweneglogp_ctrl} midp \
@@ -135,13 +137,16 @@ if [ $Nctrl -ge $cfg_minindcount ] ; then
   fi
   unset nosexflag
   [ -s "${tmpprefix}_ctrlhwe_nonsex.bim" -o -s "${tmpprefix}_ctrlhwe_sex.bim" ] || {
-    printf "no variants left after HWE tests: aborting..\n" >&2;
+    printf "no variants left after HWE tests: aborting..\n\n" >&2;
     exit 1;
   }
   # list the variants passing stricter Hardy-Weiberg equilibrium tests on controls
   cut -f 2 "${tmpprefix}_ctrlhwe_"*sex.bim | sort -u > "${tmpprefix}_ctrlhwe.mrk"
   plinkflag="--extract ${tmpprefix}_ctrlhwe.mrk"
   # make a new plink set with eventual filter
+  echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${opt_inprefix} ${plinkflag}
+               --make-bed
+               --out ${tmpprefix}_ctrlhwe\n" | printlog 2
   ${plinkexec} --allow-extra-chr --bfile "${opt_inprefix}" ${plinkflag} \
                --make-bed \
                --out "${tmpprefix}_ctrlhwe" \
@@ -194,6 +199,10 @@ if [ ${#batchfamfiles[*]} -gt 1 ] ; then
   done
   sort -u "${tmpprefix}.exclude" > "${tmpprefix}.exclude.sort"
   mv "${tmpprefix}.exclude.sort" "${tmpprefix}.exclude"
+  echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_out
+               --exclude ${tmpprefix}.exclude
+               --make-bed
+               --out ${tmpprefix}_nbe\n" | printlog 2
   ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_out" \
                --exclude "${tmpprefix}.exclude" \
                --make-bed \

@@ -5,8 +5,8 @@ set -ETeuo pipefail
 source "${BASEDIR}/progs/checkdep.sh"
 
 bcftoolsexec="${BASEDIR}/lib/3rd/bcftools"
-eaglexec="${BASEDIR}/lib/3rd/eagle"
-minimac_version=3
+phstag=Eagle
+imptag=MaCH3
 
 declare -r cfg_chromosomes=$( cfgvar_get chromosomes )
 declare -r cfg_execommand=$( cfgvar_get execommand )
@@ -58,7 +58,19 @@ fi
 
 #-------------------------------------------------------------------------------
 
-echo -e "==== Eagle phasing ====\n" | printlog 1
+echo -e "==== Eagle phasing ====\n" | printlog 0
+
+case "${phstag}" in
+  "Eagle")
+    phsexec="${BASEDIR}/lib/3rd/eagle"
+    ;;
+  *)
+    printf "> error unknown phasing software '%s'\n" "${phstag}" >&2
+    exit 1
+    ;;
+esac
+
+${phsexec} || true | printlog 1
 
 # write phase scripts
 printf "> writing phasing scripts..\n"
@@ -85,7 +97,7 @@ set -Eeou pipefail
 [ -s /cluster/bin/jobsetup ] && source /cluster/bin/jobsetup
 num_cpus_detected=\$(cat /proc/cpuinfo | grep "model name" | wc -l)
 num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
-${timexec} "${eaglexec}" \\
+${timexec} "${phsexec}" \\
   --chrom ${chrtag} \\
   --geneticMapFile "${genmapprefix}_chr${chr}.txt.gz" \\
   --vcfRef "${cfg_refprefix}.chr${chr}.haplotypes.bcf" \\
@@ -109,7 +121,7 @@ done
 
 #-------------------------------------------------------------------------------
 
-echo "==== MaCH${minimac_version} imputation ====" | printlog 1
+echo "==== ${imptag} imputation ====" | printlog 0
 
 # write impute scripts
 printf "> writing imputation scripts..\n"
@@ -137,26 +149,29 @@ SBATCH_CONF_MM4="
 #   4) sbatch: cpus-per-task=2 mem-per-cpu=8G  mm4: cpus=4  -> 3.0h; 126jobs; chr6 max.mem=6/16G
 "
 
+case "${imptag}" in
+  "MaCH3")
+    impexec="${BASEDIR}/lib/3rd/minimac3_march-sb_omp --lowMemory"
+    sbatch_conf=${SBATCH_CONF_MM3}
+    ;;
+  "MaCH4")
+    impexec="${BASEDIR}/lib/3rd/minimac4"
+    sbatch_conf=${SBATCH_CONF_MM4}
+    ;;
+  *)
+    printf "> error unknown imputation software '%s'\n" "${imptag}" >&2
+    exit 1
+    ;;
+esac
+
+${impexec} || true | printlog 1
+
 for chr in ${cfg_chromosomes} ; do
   for samplefile in ${tmplist} ; do
     sampletag="${samplefile##*\/}"
     sampletag="${sampletag//*sample/s}"
     sampletag="${sampletag//*s/sample}"
     imputescriptfn="${scriptprefix}2_impute_chr${chr}_${sampletag}.sh"
-    case "${minimac_version}" in
-      "3")
-        minimacexec="${BASEDIR}/lib/3rd/minimac3_march-sb_omp --lowMemory"
-        sbatch_conf=${SBATCH_CONF_MM3}
-        ;;
-      "4")
-        minimacexec="${BASEDIR}/lib/3rd/minimac4"
-        sbatch_conf=${SBATCH_CONF_MM4}
-        ;;
-      *)
-        printf "> error unknown minimac_version '%s'\n" "${minimac_version}" >&2
-        exit 1
-        ;;
-    esac
     cat > "${imputescriptfn}" << EOI
 #!/usr/bin/env bash
 ${sbatch_conf}
@@ -170,7 +185,7 @@ num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
   > "${tmpprefix}_chr${chr}_${sampletag}_phased_draft.vcf.gz"
 mv "${tmpprefix}_chr${chr}_${sampletag}_phased_draft.vcf.gz" \\
   "${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz"
-${timexec} ${minimacexec} \\
+${timexec} ${impexec} \\
   --cpus \${num_cpus} \\
   --format GT,GP,DS \\
   --haps "${tmpprefix}_chr${chr}_${sampletag}_phased.vcf.gz" \\
@@ -408,13 +423,13 @@ case ${cfg_execommand} in
     ijobdep=""
     for cat in ${scriptcats}; do
       ijoblist=""
-      echo "> script category '${cat}':" | printlog 3
+      echo "> script category '${cat}':" | printlog 4
       for script in $(printf "%s\n" ${jobscripts[@]} | grep "${cat}_" ); do
         ijobname=$( echo $( basename "${script}" ) | grep -o 'script[^/]\+' | sed 's/cript//' )
         echo " > submitting '${cfg_execommand} ${ijobdep}
               --job-name=${ijobname}
               --output=${scriptlogprefix}_slurm_%x_%j.out
-              --parsable ${script}'.. " | printlog 3
+              --parsable ${script}'.. " | printlog 4
         ijobid=$( \
           ${cfg_execommand} ${ijobdep} \
           --job-name=${ijobname} \
@@ -422,10 +437,10 @@ case ${cfg_execommand} in
           --parsable "${script}"
         )
         ijoblist="${ijoblist}:${ijobid}"
-        echo ' > done.' | printlog 3
+        echo ' > done.' | printlog 4
       done
       ijobdep="--dependency=afterok${ijoblist}"
-      echo '> done.' | printlog 3
+      echo '> done.' | printlog 4
     done
     ;;
   *)

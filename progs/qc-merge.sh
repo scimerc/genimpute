@@ -13,7 +13,7 @@ declare -ra batchfiles=( ${opt_inputfiles} )
 # input: aligned plink file sets
 # output: merged plink file set, eventually purged of conflicts
 
-echo -e "==== Merge ====\n" | printlog 1
+echo -e "==== Merge ====\n" | printlog 0
 
 printf "\
   * Initialize global blacklist
@@ -25,21 +25,21 @@ printf "\
     * Abort entire procedure if blacklist is not empty \
       (if more than twice something is weird)
     * Append mismatching variants to global blacklist (derived from errors)
-\n" | printlog 1
+\n" | printlog 0
 
 if [ -f "${opt_outprefix}.bed" -a -f "${opt_outprefix}.bim" -a -f "${opt_outprefix}.fam" ] ; then
-  printf "> '%s' already exists. skipping merge..\n" "${opt_outprefix}.bed"
+  printf "> '%s' already exists. skipping merge..\n\n" "${opt_outprefix}.bed"
   exit 0
 fi
 
 if ls "${tmpprefix}"* > /dev/null 2>&1; then
-  printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+  printf "> temporary files '%s*' found. please remove them before re-run.\n\n" "${tmpprefix}" >&2
   exit 1
 fi
 
 #-------------------------------------------------------------------------------
 
-printf "> merging batches..\n"
+printf "> merging batches..\n\n"
 
 declare -r varblacklist="${tmpprefix}.exclude"
 declare -r mismatchlist="${tmpprefix}.mismatch"
@@ -54,6 +54,10 @@ while true ; do
     if [ -s "${varblacklist}" ] ; then
       plinkflag="--exclude ${varblacklist}" 
     fi
+    echo -e "  ${plinkexec##*/} --allow-extra-chr
+              --bfile ${b_inprefix} ${plinkflag}
+              --make-bed
+              --out ${b_outprefix}\n" | printlog 2
     ${plinkexec} --allow-extra-chr \
           --bfile "${b_inprefix}" ${plinkflag} \
           --make-bed \
@@ -69,6 +73,9 @@ while true ; do
   done
   unset plinkflag
   # NOTE: if only one batch is present plink throws a warning
+  echo -e "  ${plinkexec##*/} --allow-extra-chr
+            --merge-list ${batchlist}
+            --out ${tmpprefix}_out\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
         --merge-list "${batchlist}" \
         --out "${tmpprefix}_out" \
@@ -92,7 +99,7 @@ while true ; do
   fi
   # no! prepare to repeat loop
   sort -u "${tmpprefix}.missnp" > "${varblacklist}"
-  printf "> repeating merging attempt..\n"
+  printf "> repeating merging attempt..\n\n"
   rm "${tmpprefix}.missnp"
 done
 sed -i -r 's/[ \t]+/\t/g' "${tmpprefix}_out.bim"

@@ -10,7 +10,7 @@ readonly batchfiles
 
 if [ ! -s "${opt_biofile}" ] ; then
   declare N=0 # total number of individuals
-  echo "> initializing sample biography file.."
+  echo -e "> initializing sample biography file..\n"
   # initialize sample biography file
   for i in ${!batchfiles[@]} ; do
     declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )

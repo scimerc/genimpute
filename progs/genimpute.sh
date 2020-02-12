@@ -36,7 +36,7 @@ USAGE: $( basename $0 ) [OPTIONS] <bed|bcf|vcf file(s)>
   where <bed|bcf|vcf file(s)> are the genotype files to be merged and qc'd.
 
 NOTE:
-  <bed> stands for plink binary set identifiers. $( basename $0 ) expects to find
+  <bed> stands for a plink binary genotype file. $( basename $0 ) expects to find
   <bim> and <fam> files on the same path.
 
 OPTIONS:
@@ -144,7 +144,7 @@ printlog() {
   IFS=$'\n'
   while read line; do
     echo $(date) $lvl "${line}" >> ${logfn}
-    # check log-level and print if lower or equal
+    # check log-level and print to standard output if lower or equal
     if [ "$lvl" -le "$lvl_max" ]; then
       echo "${line}"
     fi
@@ -179,14 +179,14 @@ run() {
     declare -r cfg_execommand=$( cfgvar_get execommand )
     case ${cfg_execommand} in
       *bash*)
-        echo "running '$( basename ${cmd} )'.."
+        echo -e "\nrunning '$( basename ${cmd} )'..\n"
         export plink_num_cpus=1
         export plink_mem_per_cpu=${opt_memory}
         export plinkexec="${BASEDIR}/lib/3rd/plink"
         ${timexec} ${cfg_execommand} ${cmd}
         ;;
       *sbatch*)
-        echo "submitting '$( basename ${cmd} )'.."
+        echo -e "\nsubmitting '$( basename ${cmd} )'..\n"
         # maximum number of jobs permitted to run on the same node
         export plink_max_jobs=$(( eff_snodemem / opt_memory ))
         [ ${plink_max_jobs} -eq 0 ] && export plink_max_jobs=1
@@ -209,7 +209,7 @@ run() {
         joblist=${joblist}:${jobnum}
         jobdepflag="--dependency=afterok${joblist}"
         echo "submitted job ${jobnum}."
-        echo "${jobcmd}" | printlog 3
+        echo "${jobcmd}" | printlog 4
         ;;
       *)
         echo "error: unknown execution command '${cfg_execommand}'" >&2

@@ -23,7 +23,7 @@ readonly batchfiles
 # input: original genotype file(s)
 # output: plink bed and eventual tped file sets
 
-echo -e "==== Recode ====\n" | printlog 1
+echo -e "==== Recode ====\n" | printlog 0
 
 printf "\
   * For every batch:
@@ -31,7 +31,7 @@ printf "\
     * Extract samples according to sample whitelist (if enabled)
     * Convert colocalized variant set to human readable format (tped) (for later QC)
     * Convert to binary plink (for easy use downstream)
-\n" | printlog 1
+\n" | printlog 0
 
 for i in ${!batchfiles[@]} ; do
   declare batchcode=$( get_unique_filename_from_path "${batchfiles[$i]}" )
@@ -40,14 +40,14 @@ for i in ${!batchfiles[@]} ; do
   # check for hash collisions
   if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
     printf "> '%s' already exists. skipping recode step..\n" "${b_outprefix}.bed"
-    printf "> increase 'numchars' in the hash function if you think this shouldn't happen.\n"
+    printf "> increase 'numchars' in the hash function if you think this shouldn't happen.\n\n"
     continue
   fi
   if ls "${tmpprefix}"* > /dev/null 2>&1; then
-    printf "> temporary files '%s*' found. please remove them before re-run.\n" "${tmpprefix}" >&2
+    printf "> temporary files '%s*' found. please remove them before re-run.\n\n" "${tmpprefix}" >&2
     exit 1
   fi
-  printf "> converting batch '$( basename "${batchfiles[$i]}" )'..\n"
+  printf "> recoding batch '$( basename "${batchfiles[$i]}" )'..\n\n"
   # define input specific plink settings
   declare flagkeep=''
   declare flagformat='--bfile'
@@ -66,7 +66,7 @@ for i in ${!batchfiles[@]} ; do
       flagformat='--vcf'
       ;;
     * )
-      printf "> error: unhandled fileformat '%s'.\n" ${fformat} >&2
+      printf "> error: unhandled fileformat '%s'.\n\n" ${fformat} >&2
       exit 1
       ;;
   esac
@@ -80,6 +80,9 @@ for i in ${!batchfiles[@]} ; do
     bedflag="--extract range ${opt_varwhitelist}"
   fi
   # convert to plink binary format
+  echo -e "  ${plinkexec##*/} --allow-extra-chr $flagformat ${plinkinputfn} ${flagkeep}
+          --make-bed
+          --out ${tmpprefix}_ex\n" | printlog 2
   ${plinkexec} --allow-extra-chr $flagformat "${plinkinputfn}" ${flagkeep} \
     --make-bed \
     --out "${tmpprefix}_ex" \
@@ -92,6 +95,10 @@ for i in ${!batchfiles[@]} ; do
   parcount=$( awk '$1 == 25' "${tmpprefix}_ex.bim" | wc -l )
   # split X chromosome variants if necessary
   if [ $parcount -eq 0 ] ; then
+    echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_ex
+                 --split-x ${cfg_genomebuild} no-fail
+                 --make-bed
+                 --out ${tmpprefix}_draftex\n" | printlog 2
     ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_ex" \
                  --split-x ${cfg_genomebuild} no-fail \
                  --make-bed \
@@ -103,6 +110,9 @@ for i in ${!batchfiles[@]} ; do
     rename "${tmpprefix}_draftex" "${tmpprefix}_ex" "${tmpprefix}_draftex".*
   fi
   # extract region whitelist
+  echo -e "  ${plinkexec##*/} --allow-extra-chr --bfile ${tmpprefix}_ex ${bedflag}
+          --make-bed
+          --out ${tmpprefix}_out\n" | printlog 2
   ${plinkexec} --allow-extra-chr --bfile "${tmpprefix}_ex" ${bedflag} \
     --make-bed \
     --out "${tmpprefix}_out" \
@@ -135,7 +145,7 @@ for i in ${!batchfiles[@]} ; do
     mv "${tmpprefix}_out.log" "${b_outprefix}.2.log"
   else
     printf "> no colocalized variants found.\n"
-    printf "> skipping batch '$( basename "${batchfiles[$i]}" )' tped recoding..\n"
+    printf "> skipping batch '$( basename "${batchfiles[$i]}" )' tped recoding..\n\n"
     touch "${tmpprefix}_out.tped" "${tmpprefix}_out.tfam"
   fi
   # tab-separate all human-readable plink files
