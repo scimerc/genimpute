@@ -45,12 +45,11 @@ fi
 # purge fam file ids of any unwanted characters
 touch ${tmpprefix}_updateids.txt
 touch ${tmpprefix}_updateparents.txt
-awk -F $'\t' -f ${BASEDIR}/lib/awk/idclean.awk \
+awk -f ${BASEDIR}/lib/awk/idclean.awk \
   -v idmapfile=${tmpprefix}.idmap \
   -v idsupfile=${tmpprefix}_updateids.txt \
   -v parupfile=${tmpprefix}_updateparents.txt \
   --source 'BEGIN{
-    OFS="\t"
     fn=0
   } {
     if ( FNR==1 ) fn++
@@ -93,16 +92,14 @@ if [ $Nold -eq $Nnew ] ; then
   fi
 else
   printf "====> warning: could not purge IDs due to ensuing conflicts.\n\n"
-  awk '{ OFS=FS="\t"; uid=$1"_"$2; print( uid, uid, $3, $4 ); }' \
+  awk '{ uid=$1"_"$2; print( uid, uid, $3, $4 ); }' \
     ${opt_sqprefix}_updateids.txt > ${opt_outprefix}_updateids.txt
   cp ${opt_sqprefix}_updateparents.txt ${opt_outprefix}_updateparents.txt
   cp ${opt_inprefix}.bed ${tmpprefix}_idfix.bed
   cp ${opt_inprefix}.bim ${tmpprefix}_idfix.bim
   cp ${opt_inprefix}.fam ${tmpprefix}_idfix.fam
 fi
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_idfix.bim
-sed -i -r 's/[ \t]+/\t/g' ${tmpprefix}_idfix.fam
-awk '{ OFS=FS="\t"; print( $1"_"$2, $1"_"$2, $5 ); }' \
+awk '{ print( $1"_"$2, $1"_"$2, $5 ); }' \
   ${tmpprefix}_idfix.fam > ${opt_outprefix}_updatesex.txt
 # convert input files to vcf formats
 for chr in ${tmp_chromosomes} ; do

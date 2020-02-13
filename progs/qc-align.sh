@@ -118,7 +118,7 @@ for i in ${!batchfiles[@]} ; do
   # check for hash collisions
   if [ -f "${b_outprefix}.bed" -a -f "${b_outprefix}.bim" -a -f "${b_outprefix}.fam" ]; then
     printf "> '%s' already exists. skipping alignment step..\n" "${b_outprefix}.bed"
-    printf "> increase 'numchars' in the hash function if you think this shouldn't happen.\n"
+    printf "> increase 'numchars' in the hash function if you think this shouldn't happen.\n\n"
     continue
   fi
   if ls "${tmpprefix}"* > /dev/null 2>&1; then

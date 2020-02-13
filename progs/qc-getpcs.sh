@@ -23,7 +23,7 @@ printf "\
 \n" | printlog 0
 
 if [ -f "${opt_outprefix}.eigenvec" -a -f "${opt_outprefix}.eigenvec.var" ] ; then
-  printf "> '%s' found. skipping PCA..\n" "${opt_outprefix}.eigenvec"
+  printf "> '%s' found. skipping PCA..\n\n" "${opt_outprefix}.eigenvec"
   exit 0
 fi
 

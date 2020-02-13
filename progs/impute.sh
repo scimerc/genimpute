@@ -70,7 +70,7 @@ case "${phstag}" in
     ;;
 esac
 
-${phsexec} || true | printlog 1
+${phsexec} || true 2>/dev/null | printlog 1
 
 # write phase scripts
 printf "> writing phasing scripts..\n"
@@ -164,7 +164,7 @@ case "${imptag}" in
     ;;
 esac
 
-${impexec} || true | printlog 1
+${impexec} || true 2>/dev/null | printlog 1
 
 for chr in ${cfg_chromosomes} ; do
   for samplefile in ${tmplist} ; do
@@ -394,10 +394,10 @@ EOI
 chmod u+x "${scriptfn}"
 if [ -s "${opt_outprefixbase}/bed/all.bed" ]; then
   printf "> plink-merged file present. nothing to do.\n"
-  continue
+else
+  printf "> adding ${scriptfn} to jobs stack..\n"
+  jobscripts+=( "${scriptfn}" )
 fi
-printf "> adding ${scriptfn} to jobs stack..\n"
-jobscripts+=( "${scriptfn}" )
 
 #-------------------------------------------------------------------------------
 
