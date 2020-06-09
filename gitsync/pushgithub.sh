@@ -36,5 +36,6 @@ git add .
 git remote -v | grep -qw "${REMOTEREPOS}" || git remote add ${REMOTEREPOS} ${PUBREP}
 git pull ${REMOTEREPOS} master
 git commit -m 'merge with remote'
-git push ${REMOTEREPOS}
+git push -u ${REMOTEREPOS}
+git push
 
