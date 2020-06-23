@@ -20,6 +20,12 @@ genimputeexec=${BASEDIR}/progs/genimpute.sh
 
 usage() {
 cat << EOF
+
+$( basename $0 ) pre-processes reference data for use in $( basename ${genimputeexec} ).
+
+please note that the Y chromosome is currently excluded from parts of the processing.
+imputation of the Y chromosome will have to be performed separately.
+
 USAGE:
   $( basename $0 ) [\
 -c <configuration file> \
@@ -31,6 +37,7 @@ USAGE:
   $( basename $0 ) uses $( basename ${genimputeexec} )'s own quality control functionality.
   <configuration file> is $( basename ${genimputeexec} )'s configuration file.
   (see $( basename ${genimputeexec} ) for more details on available options)
+
 EOF
 }
 
@@ -39,11 +46,13 @@ declare opt_outprefix_default=refset
 declare opt_outprefix=${opt_outprefix_default}
 declare opt_config=''
 
+Nmin=5
 regexchr='\([Cc]\([Hh]*[Rr]\)*\)*'
 regexnum='[0-9xyXYmtMT]\{1,2\}'
 regexspecx='\([^[:alnum:]]*\([Nn][Oo][Nn]\)*[^[:alnum:]]*[Pp][AaSs][RrEe][Uu]*[Dd]*[Oo]*[12]*\)*'
 regexspecxnonpar='chr\([xX]\|23\)\([^[:alnum:]]*[Nn][Oo][Nn][^[:alnum:]]*[Pp][AaSs][RrEe][Uu]*[Dd]*[Oo]*\)*\.bcf\.gz$'
 regexspecxpar='chr\([xX][yY]*\|23\|25\)\([^[:alnum:]]*[Pp][AaSs][RrEe][Uu]*[Dd]*[Oo]*[12]*\)*\.bcf\.gz$'
+regexspecy='chr\([yY]\|24\)\.bcf\.gz$'
 
 grepcmd=${regexchr}'\('${regexnum}${regexspecx}'\)'
 
@@ -52,7 +61,7 @@ gpaquery='%CHROM\t%ID\t0\t%POS\t%REF\t%ALT\n'
 while getopts "c:o:" opt; do
 case "${opt}" in
   c)
-    opt_config="${OPTARG}"
+    opt_config="-c ${OPTARG}"
     ;;
   o)
     opt_outprefix="${OPTARG}"
@@ -98,40 +107,53 @@ else
   mv "${tmpprefix}.1.ids" "${opt_outprefix}_all.ids"
 fi
 
-echo 'extracting common ID set..'
+echo 'processing files..'
 if [ "${DRYMODE:-}" == "" ] ; then
   for k in ${!opt_inputfiles[@]} ; do
     chrtag=$( grep -o "${grepcmd}" <<<"${opt_inputfiles[$k]##*/}" | head -n 1 || true )
     [ -s "${opt_outprefix}_${chrtag}.bcf.gz" ] && continue
     # extract common ID set if any differences were detected
     echo "processing chromosome '${chrtag}'.."
-    if [ ${dflag} -eq 1 ] ; then
-      "${bcftoolsexec}" view -S "${opt_outprefix}_all.ids" "${opt_inputfiles[$k]}" -Ob \
-        > "${tmpprefix}_rfn${k}.bcf.gz"
-    else
-      "${bcftoolsexec}" convert "${opt_inputfiles[$k]}" -Ob \
-        > "${tmpprefix}_rfn${k}.bcf.gz"
-    fi
+    samplefilter=''
+    [ ${dflag} -eq 1 ] && samplefilter="-S ${opt_outprefix}_all.ids" 
+    "${bcftoolsexec}" view ${samplefilter} -c ${Nmin}:minor "${opt_inputfiles[$k]}" -Ob \
+      > "${tmpprefix}_rfn${k}.bcf.gz"
     "${bcftoolsexec}" index "${tmpprefix}_rfn${k}.bcf.gz"
     rename "${tmpprefix}_rfn${k}" "${opt_outprefix}_${chrtag}" "${tmpprefix}_rfn${k}".*
   done
 fi
 
-chrlist=$( find "${outdir}" -maxdepth 1 -name "${opt_outprefix##*/}"'_chr*.bcf.gz' )
-cmdall="${bcftoolsexec} concat -a ${chrlist} -Ob"
-xnonparlist=$(
+bcftoolscmd='convert'
+chrlist=( $(
   find "${outdir}" -maxdepth 1 -name "${opt_outprefix##*/}"'_chr*.bcf.gz' \
-    | grep ${regexspecxnonpar} | grep -v ${regexspecxpar} || true
-)
-cmdxnonpar="${bcftoolsexec} concat -a ${xnonparlist} -Ob"
-xparlist=$(
+    | grep -v ${regexspecy}
+) )
+[ ${#chrlist[@]} -gt 1 ] && bcftoolscmd='concat -a'
+cmdall="${bcftoolsexec} ${bcftoolscmd} ${chrlist[@]} -Ob"
+bcftoolscmd='convert'
+xnonparlist=( $(
   find "${outdir}" -maxdepth 1 -name "${opt_outprefix##*/}"'_chr*.bcf.gz' \
-    | grep ${regexspecxpar} | grep -v ${regexspecxnonpar} || true
-)
-cmdxpar="${bcftoolsexec} concat -a ${xparlist} -Ob"
+    | grep ${regexspecxnonpar} | grep -v -e ${regexspecxpar} -e ${regexspecy} || true
+) )
+[ ${#xnonparlist[@]} -gt 1 ] && bcftoolscmd='concat -a'
+cmdxnonpar="${bcftoolsexec} ${bcftoolscmd} ${xnonparlist[@]} -Ob"
+bcftoolscmd='convert'
+xparlist=( $(
+  find "${outdir}" -maxdepth 1 -name "${opt_outprefix##*/}"'_chr*.bcf.gz' \
+    | grep ${regexspecxpar} | grep -v -e ${regexspecxnonpar} -e ${regexspecy} || true
+) )
+[ ${#xparlist[@]} -gt 1 ] && bcftoolscmd='concat -a'
+cmdxpar="${bcftoolsexec} ${bcftoolscmd} ${xparlist[@]} -Ob"
+bcftoolscmd='convert'
+ylist=( $(
+  find "${outdir}" -maxdepth 1 -name "${opt_outprefix##*/}"'_chr*.bcf.gz' \
+    | grep ${regexspecy} || true
+) )
+[ ${#ylist[@]} -gt 1 ] && bcftoolscmd='concat -a'
+cmdy="${bcftoolsexec} ${bcftoolscmd} ${ylist[@]} -Ob"
 if [ "${DRYMODE:-}" == "" ] ; then
   if [ ! -s "${opt_outprefix}_all.bcf.gz" ] ; then
-    echo 'merging all chromosomes..'
+    echo 'merging all chromosomes (except Y)..'
     $cmdall > "${tmpprefix}_all.bcf.gz"
     "${bcftoolsexec}" index "${tmpprefix}_all.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_all.bcf.gz"*
@@ -148,6 +170,12 @@ if [ "${DRYMODE:-}" == "" ] ; then
     "${bcftoolsexec}" index "${tmpprefix}_chr25.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr25.bcf.gz"*
   fi
+  if [ ! -s "${opt_outprefix}_chr24.bcf.gz" ] ; then
+    echo 'merging par Y regions..'
+    $cmdy > "${tmpprefix}_chr24.bcf.gz"
+    "${bcftoolsexec}" index "${tmpprefix}_chr24.bcf.gz"
+    rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr24.bcf.gz"*
+  fi
   if [ ! -s "${opt_outprefix}_all.gpa" ] ; then
     echo 'generating variant list..'
     "${bcftoolsexec}" query -f "${gpaquery}" "${opt_outprefix}_all.bcf.gz" \
@@ -163,6 +191,7 @@ else
   echo $cmdall
   echo $cmdxnonpar
   echo $cmdxpar
+  echo $cmdy
 fi
 
 rm -vrf "${tmpprefix}"*
