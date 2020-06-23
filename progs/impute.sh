@@ -100,7 +100,7 @@ num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
 ${timexec} "${phsexec}" \\
   --chrom ${chrtag} \\
   --geneticMapFile "${genmapprefix}_chr${chr}.txt.gz" \\
-  --vcfRef "${cfg_refprefix}.chr${chr}.haplotypes.bcf" \\
+  --vcfRef "${cfg_refprefix}.chr${chr}.bcf" \\
   --vcfTarget "${opt_inprefix}_chr${chr}.bcf" \\
   --outPrefix "${tmpprefix}_chr${chr}_phasing" \\
   --numThreads \${num_cpus}
@@ -111,7 +111,7 @@ EOI
     printf "> phased haplotypes present. nothing to do.\n"
     continue
   fi
-  if [ ! -e "${cfg_refprefix}.chr${chr}.haplotypes.bcf" ] ; then
+  if [ ! -e "${cfg_refprefix}.chr${chr}.bcf" ] ; then
     printf "> reference for chromosome ${chr} not found. skipping phasing..\n"
     continue
   fi

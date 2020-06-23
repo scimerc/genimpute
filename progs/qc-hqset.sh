@@ -123,7 +123,7 @@ declare qcdiff='qcdiff' # just some non-empty initialization string to start the
 
 while [ $Nhqi -lt $Nmin -a $tmpindex -le ${#tmp_varmiss} -a "${qcdiff}" != "" ] ; do
   qcdiff=''
-  printf "> round $k..\n"
+  printf "> round $k..\n" | printlog 1
   # hq sex chromosomes
   Nsexind=$( awk '$5 == 1 || $5 == 2' "${tmpprefix}_draft.fam" | wc -l )
   Nsexvar=$( awk '$1 == 23 || $1 == 24' "${tmpprefix}_draft.bim" | wc -l )
@@ -171,7 +171,7 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le ${#tmp_varmiss} -a "${qcdiff}" != "" ] 
   # LD-prune hq variants
   echo -e "  ${plinkexec##*/} --allow-extra-chr
                --bfile ${tmpprefix}_draft ${cfg_pruneflags}
-               --extract "${tmpprefix}_devel.mrk"
+               --extract ${tmpprefix}_devel.mrk
                --out ${tmpprefix}_ldp\n" | printlog 2
   ${plinkexec} --allow-extra-chr \
                --bfile "${tmpprefix}_draft" ${cfg_pruneflags} \
@@ -210,7 +210,7 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le ${#tmp_varmiss} -a "${qcdiff}" != "" ] 
   if [ ${imputesex} -a "${tmpvarfile}" != "" ] ; then
     echo -e "  ${plinkexec##*/} --allow-extra-chr
                  --bfile ${tmpprefix}_draft ${freqflag}
-                 --extract "${tmpvarfile}"
+                 --extract ${tmpvarfile}
                  --impute-sex ycount ${tmpfflag}
                  --set-hh-missing
                  --make-bed
@@ -227,6 +227,11 @@ while [ $Nhqi -lt $Nmin -a $tmpindex -le ${#tmp_varmiss} -a "${qcdiff}" != "" ] 
       cat "${tmpprefix}.err"
     fi
     # update sex in the draft file
+    echo -e "  ${plinkexec##*/} --allow-extra-chr
+                 --bfile ${tmpprefix}_draft
+                 --update-sex ${tmpprefix}_isex.fam 3
+                 --make-bed
+                 --out ${tmpprefix}_devel\n" | printlog 2
     ${plinkexec} --allow-extra-chr \
                  --bfile "${tmpprefix}_draft" \
                  --update-sex "${tmpprefix}_isex.fam" 3 \
@@ -265,6 +270,12 @@ done
   exit 1;
 }
 # extract hq variants
+echo -e "  ${plinkexec##*/} --allow-extra-chr
+             --bfile ${tmpprefix}_draft
+             --extract ${tmpprefix}_draft.mrk
+             --set-hh-missing
+             --make-bed
+             --out ${tmpprefix}_out\n" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${tmpprefix}_draft" \
              --extract "${tmpprefix}_draft.mrk" \
@@ -276,6 +287,12 @@ if [ $? -ne 0 ] ; then
   cat "${tmpprefix}.err"
 fi
 # extract LD-pruned hq variants
+echo -e "  ${plinkexec##*/} --allow-extra-chr
+             --bfile ${tmpprefix}_draft
+             --extract ${tmpprefix}_draft.imrk
+             --set-hh-missing
+             --make-bed
+             --out ${tmpprefix}_outi\n" | printlog 2
 ${plinkexec} --allow-extra-chr \
              --bfile "${tmpprefix}_draft" \
              --extract "${tmpprefix}_draft.imrk" \

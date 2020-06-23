@@ -5,7 +5,7 @@ set -ETeuo pipefail
 
 #---------------------------------------------------------------------------------------------------
 
-echo "starting.."
+echo -e "starting..\n"
 
 # define default configuration
 
@@ -59,18 +59,23 @@ while getopts "c:diqo:h" opt; do
 case "${opt}" in
   c)
     opt_cfgfile="${OPTARG}"
+    echo "configuration file: ${opt_cfgfile}"
     ;;
   d)
     opt_dryimpute=1
+    echo "dry imputation mode: ON"
     ;;
   i)
     opt_imputeonly=true
+    echo "quality control: OFF"
     ;;
   q)
     opt_qconly=true
+    echo "imputation: OFF"
     ;;
   o)
     opt_outprefixbase="${OPTARG}"
+    echo "output prefix: ${opt_outprefixbase}"
     ;;
   h)
     usage

@@ -14,7 +14,7 @@ declare  cfg_infosep
 readonly cfg_infosep
 
 if [ ! -z "${cfg_refprefix}" ] ; then
-  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.bcf.gz" )
 else
   declare -a batchfiles=( ${opt_inputfiles} )
 fi

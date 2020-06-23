@@ -10,17 +10,17 @@ declare  cfg_infosep
 readonly cfg_infosep
 
 if [ ! -z "${cfg_refprefix}" ] ; then
-  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.bcf.gz" )
 else
   declare -a batchfiles=( ${opt_inputfiles} )
 fi
 readonly batchfiles
 
 # default variant reference file
-declare  varreffile="${cfg_refprefix}.all.haplotypes.gpa"
+declare  varreffile="${cfg_refprefix}.all.gpa"
 
 declare  opt_refcode
-         opt_refcode=$( get_unique_filename_from_path "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+         opt_refcode=$( get_unique_filename_from_path "${cfg_refprefix}.all.bcf.gz" )
 readonly opt_refcode
 
 #-------------------------------------------------------------------------------

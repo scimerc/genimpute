@@ -12,7 +12,7 @@ readonly cfg_genomebuild
 declare -r cfg_samplewhitelist=$( cfgvar_get samplewhitelist )
 
 if [ ! -z "${cfg_refprefix}" ] ; then
-  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.haplotypes.bcf.gz" )
+  declare -a batchfiles=( ${opt_inputfiles} "${cfg_refprefix}.all.bcf.gz" )
 else
   declare -a batchfiles=( ${opt_inputfiles} )
 fi
