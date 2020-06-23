@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #TODO: generate m3vcf files
+#TODO: integrate Y chromosome
 
 # exit on error
 set -ETeuo pipefail
@@ -152,26 +153,26 @@ ylist=( $(
 [ ${#ylist[@]} -gt 1 ] && bcftoolscmd='concat -a'
 cmdy="${bcftoolsexec} ${bcftoolscmd} ${ylist[@]} -Ob"
 if [ "${DRYMODE:-}" == "" ] ; then
-  if [ ! -s "${opt_outprefix}_all.bcf.gz" ] ; then
+  if [ ! -s "${opt_outprefix}_all.bcf.gz" -a ${#chrlist[@]} -gt 0 ] ; then
     echo 'merging all chromosomes (except Y)..'
     $cmdall > "${tmpprefix}_all.bcf.gz"
     "${bcftoolsexec}" index "${tmpprefix}_all.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_all.bcf.gz"*
   fi
-  if [ ! -s "${opt_outprefix}_chr23.bcf.gz" ] ; then
+  if [ ! -s "${opt_outprefix}_chr23.bcf.gz" -a ${#xnonparlist[@]} -gt 0 ] ; then
     echo 'merging non-par X regions..'
     $cmdxnonpar > "${tmpprefix}_chr23.bcf.gz"
     "${bcftoolsexec}" index "${tmpprefix}_chr23.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr23.bcf.gz"*
   fi
-  if [ ! -s "${opt_outprefix}_chr25.bcf.gz" ] ; then
+  if [ ! -s "${opt_outprefix}_chr25.bcf.gz" -a ${#xparlist[@]} -gt 0 ] ; then
     echo 'merging par X regions..'
     $cmdxpar > "${tmpprefix}_chr25.bcf.gz"
     "${bcftoolsexec}" index "${tmpprefix}_chr25.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr25.bcf.gz"*
   fi
-  if [ ! -s "${opt_outprefix}_chr24.bcf.gz" ] ; then
-    echo 'merging par Y regions..'
+  if [ ! -s "${opt_outprefix}_chr24.bcf.gz" -a ${#ylist[@]} -gt 0 ] ; then
+    echo 'merging Y regions..'
     $cmdy > "${tmpprefix}_chr24.bcf.gz"
     "${bcftoolsexec}" index "${tmpprefix}_chr24.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr24.bcf.gz"*
