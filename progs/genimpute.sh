@@ -162,10 +162,8 @@ export -f printlog
 declare jobdepflag=""
 declare joblist=""
 
-#TODO: find the time executable in the cluster and restore the original time commands
-declare -r timeformat="ResStats\nMaxMem_KB\t%M\nRealTime_s\t%e\nUserTime_s\t%U\nSysTime_s\t%S"
-declare -r timexec="${BASEDIR}/lib/3rd/time -o /dev/stdout -f ${timeformat}"
-# declare -r timexec="/usr/bin/env time -o /dev/stdout -f ${timeformat}"
+declare -r timeformat="ResStats_MaxMemKB=%M_RealTimeSec=%e_UserTimeSec=%U_SysTimeSec=%S"
+declare -r timexec="${BASEDIR}/lib/3rd/busybox/usr/bin/time -o /dev/stdout -f ${timeformat}"
 export timexec
 
 declare -r cfg_plinkctime=$( cfgvar_get plinkctime )
