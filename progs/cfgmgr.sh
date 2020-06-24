@@ -190,7 +190,7 @@ _cfgvar_read_file() {
     if [ $? -ne 0 ] ; then
       return 1
     fi
-  done < <( cat "${filename}" )
+  done < <( cat "${filename}" && echo )
 }
 export -f _cfgvar_read_file
 
