@@ -70,8 +70,6 @@ case "${phstag}" in
     ;;
 esac
 
-${phsexec} || true 2>/dev/null | printlog 1
-
 # write phase scripts
 printf "> writing phasing scripts..\n"
 for chr in ${cfg_chromosomes} ; do
