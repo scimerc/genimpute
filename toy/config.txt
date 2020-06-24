@@ -1,1 +1,2 @@
 refprefix='toy/refset
+chromosomes='1 11 21 23 25 26'
