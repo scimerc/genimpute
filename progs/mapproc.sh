@@ -53,6 +53,11 @@ for chr in ${chrlist} ; do
   echo "processing chromosome ${chr}.."
   zcat -f "${opt_inputfile}" | awk -v chr=${chr} 'NR == 1 || $1 == chr' \
     | gzip -c > "${tmpprefix}_${chr}.txt.gz"
+  if [ "${chr}" == "23" ] ; then
+    zcat -f "${opt_inputfile}" | awk -v chr=${chr} 'NR == 1 || $1 == chr {
+      if ( NR == 1 || $2 < 2699520 || $2 > 154931044 ) print
+    }' | gzip -c > "${tmpprefix}_25.txt.gz"
+  fi
 done
 rename "${tmpprefix}_" "${opt_outprefix}_chr" "${tmpprefix}_"*.txt.gz
 
