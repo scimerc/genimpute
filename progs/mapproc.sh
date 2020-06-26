@@ -54,6 +54,9 @@ for chr in ${chrlist} ; do
   zcat -f "${opt_inputfile}" | awk -v chr=${chr} 'NR == 1 || $1 == chr' \
     | gzip -c > "${tmpprefix}_${chr}.txt.gz"
   if [ "${chr}" == "23" ] ; then
+    # this is confusing but eagle appears to identify X=23 by default and thus not to accept
+    # numbers greater than X=23 as chromosome identifier. yet, X tags in the genetic map files do
+    # not seem to work. this leads to the unintuitive tagging of pseudo-autosomal regions with 23
     zcat -f "${opt_inputfile}" | awk -v chr=${chr} 'NR == 1 || $1 == chr {
       if ( NR == 1 || $2 < 2699520 || $2 > 154931044 ) print
     }' | gzip -c > "${tmpprefix}_25.txt.gz"
