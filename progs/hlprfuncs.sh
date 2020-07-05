@@ -209,3 +209,74 @@ rename() {
 }
 
 export -f rename
+
+#-------------------------------------------------------------------------------
+
+# using () instead of {} for function body to limit scope of inner function
+split_sex() (
+  local -r fn_updatesex=$1
+  local -r max_groupsize=$2
+  local -r outprefix=$3
+  local -r tmppath=$4
+  local -r sqlite3_bin="${BASEDIR}"/lib/3rd/sqlite3
+  local -r sqlite3_db="${tmppath}"_genimpute.db
+  
+  # local function
+  _get_unique_subjids_by_sexid() {
+    local -r sqlite3_bin=$1
+    local -r sqlite3_db=$2
+    local -r sex_id=$3
+
+  sql=$( cat << EOI
+.mode "csv"
+.separator "\t"
+select distinct(samples.subjid)
+from samples -- TODO: '0' is unknown sex?
+left join sex_info
+on sex_info.subjid = samples.subjid 
+where coalesce(sex_info.sex, 0) = ${sex_id}
+;
+EOI
+  )
+    ${sqlite3_bin} --init <(echo "${sql}") "${sqlite3_db}"
+  }
+
+  # read input table (all samples) from stdin 
+  sql=$( cat << EOI
+drop table if exists samples;
+create table samples (
+  subjid text
+);
+.mode "csv"
+.separator " "
+.import /dev/stdin samples
+EOI
+  )
+  ${sqlite3_bin} --init <(echo "${sql}") "${sqlite3_db}"
+  
+  # read sex info; 3 columns, space-separated 
+  # example of line: "HG00097_HG00097 HG00097_HG00097 0")
+  # TODO: check 1st and 2nd column (both are subj. ID?)
+  sql=$( cat << EOI
+drop table if exists sex_info;
+create table sex_info (
+  subjid text
+  , fam_id text
+  , sex int
+);
+.mode "csv"
+.separator " "
+.import ${fn_updatesex} sex_info
+EOI
+  )
+  ${sqlite3_bin} --init <(echo "${sql}") "${sqlite3_db}"
+  
+  # append sex ID to fn_outprefix; ´split´ appends more digits
+  for i in 0 1 2; do
+    _get_unique_subjids_by_sexid ${sqlite3_bin} ${sqlite3_db} $i | split -d -l ${max_groupsize} /dev/stdin "${outprefix}"$i
+  done
+
+  rm -rf ${sqlite3_db}
+)
+
+export -f split_sex

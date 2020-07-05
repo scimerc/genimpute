@@ -44,11 +44,10 @@ for bfile in "${opt_inprefix}_chr"*.bcf.gz ; do
 done | sort -u | awk '{ print( $1, $1 ) }' > "${tmpprefix}_ordered.fam"
 
 # split individuals in groups
-#TODO: enable sex-specific subdivisions
 printf "> splitting individuals into groups..\n"
 for bfile in "${opt_inprefix}_chr"*.bcf.gz ; do
   "${bcftoolsexec}" query -l "${bfile}"
-done | sort -u | split -d -l ${cfg_igroupsize} /dev/stdin "${sampleprefix}"
+done | split_sex ${opt_inprefix}_updatesex.txt ${cfg_igroupsize} "${sampleprefix}" ${tmpprefix}
 groupsize=${cfg_igroupsize}
 tmplist=$( ls "${sampleprefix}"* )
 Nind=$( cat "${sampleprefix}"* | wc -l )
