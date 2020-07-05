@@ -234,7 +234,12 @@ select distinct(samples.subjid)
 from samples -- TODO: '0' is unknown sex?
 left join sex_info
 on sex_info.subjid = samples.subjid 
-where coalesce(sex_info.sex, 0) = ${sex_id}
+where 
+  case sex_info.sex 
+    when 1 then 1 
+    when 2 then 2 
+    else 0 
+  end = ${sex_id}
 ;
 EOI
   )
