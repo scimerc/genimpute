@@ -8,6 +8,8 @@ set -ETeuo pipefail
 # get parent dir of this script
 declare -r BASEDIR="$( cd "$( dirname $0 )" && cd .. && pwd )"
 
+source "${BASEDIR}/progs/hlprfuncs.sh"
+
 # uncomment this for dry run
 # declare -r DRYMODE='drymode'
 
