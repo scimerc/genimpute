@@ -1,20 +1,27 @@
 # genimpute
 
-integrated tool set to perform quality control and imputation of diploid genotypes
+Integrated tool set to perform quality control and imputation of diploid genotypes
 
-this tool set was written by Florian Krull and me loosely based on the deCODE genetics protocol
-adapted by Sudheer Giddaluru.
+## Quick start
 
-**NOTE**: the tool set is currently designed to run in linux.
+    git clone https://github.com/scimerc/genimpute.git && cd genimpute
 
-run
+Run
 
     genimpute.sh -h
 
-to get usage instructions.
-`genimpute.sh`'s default settings deploy a minimal configuration.
-below is a configuration file example to submit `genimpute.sh` jobs to a slurm scheduler using a
-set of reference haplotypes (necessary for imputation). the cluster nodes are expected to have
+to get usage instructions. `genimpute.sh`'s default settings deploy a minimal configuration.
+
+Run
+
+    make run_example
+  
+to run imputation on a small test data set. 
+
+## Configuration
+
+Below is a configuration file example to submit `genimpute.sh` jobs to a slurm scheduler using a
+set of reference haplotypes (necessary for imputation). The cluster nodes are expected to have
 256GB of memory distributed over 64 computing cores.
 
     # custom configuration file for slurm
@@ -27,8 +34,17 @@ set of reference haplotypes (necessary for imputation). the cluster nodes are ex
     snodecores=64
     snodemem=256000
 
-**NOTE**: before imputation -- and advisably also before quality control -- reference maps and
+## Requirements 
+
+* Linux
+* Bash
+
+**NOTE**: Before imputation -- and advisably also before quality control -- reference maps and
 haplotypes may have to be pre-processed in order to ensure full compatibility with `genimpute.sh`.
-the scripts `mapproc.sh` and `refproc.sh` perform the necessary pre-processing steps on genetic map
+The scripts `mapproc.sh` and `refproc.sh` perform the necessary pre-processing steps on genetic map
 and reference haplotypes, respectively.
 
+## Authors
+
+Written by Francesco Bettella and Florian Krull loosely based on the deCODE genetics protocol
+adapted by Sudheer Giddaluru.
