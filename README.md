@@ -46,5 +46,5 @@ and reference haplotypes, respectively.
 
 ## Authors
 
-Written by Francesco Bettella and Florian Krull loosely based on a deCODE genetics protocol
+Written by Francesco Bettella and Florian Krull based on a deCODE genetics protocol
 adapted by Sudheer Giddaluru.
