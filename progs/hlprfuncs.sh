@@ -231,14 +231,14 @@ split_sex() (
 .mode "csv"
 .separator "\t"
 select distinct(samples.subjid)
-from samples -- TODO: '0' is unknown sex?
+from samples
 left join sex_info
 on sex_info.subjid = samples.subjid 
 where 
   case sex_info.sex 
     when 1 then 1 
     when 2 then 2 
-    else 0 
+    else 0         -- NOTE: '0' is unknown sex
   end = ${sex_id}
 ;
 EOI
@@ -261,12 +261,11 @@ EOI
   
   # read sex info; 3 columns, space-separated 
   # example of line: "HG00097_HG00097 HG00097_HG00097 0")
-  # TODO: check 1st and 2nd column (both are subj. ID?)
   sql=$( cat << EOI
 drop table if exists sex_info;
 create table sex_info (
   subjid text
-  , fam_id text
+  , fam_id text  --NOTE: this second ID is supposed to be identical to first ID
   , sex int
 );
 .mode "csv"
@@ -277,7 +276,8 @@ EOI
   ${sqlite3_bin} --init <(echo "${sql}") "${sqlite3_db}"
   
   # append sex ID to fn_outprefix; ´split´ appends more digits
-  for i in 0 1 2; do
+  local -r sex_ids="0 1 2"
+  for i in ${sex_ids}; do
     _get_unique_subjids_by_sexid ${sqlite3_bin} ${sqlite3_db} $i | split -d -l ${max_groupsize} /dev/stdin "${outprefix}"$i
   done
 
