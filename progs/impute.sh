@@ -39,14 +39,14 @@ mkdir -p "$( dirname "${scriptlogprefix}" )"
 #-------------------------------------------------------------------------------
 
 # extract list of individuals to establish unique order
-for bfile in "${opt_inprefix}_chr"*.bcf ; do
+for bfile in "${opt_inprefix}_chr"*.bcf.gz ; do
   "${bcftoolsexec}" query -l "${bfile}"
 done | sort -u | awk '{ print( $1, $1 ) }' > "${tmpprefix}_ordered.fam"
 
 # split individuals in groups
 #TODO: enable sex-specific subdivisions
 printf "> splitting individuals into groups..\n"
-for bfile in "${opt_inprefix}_chr"*.bcf ; do
+for bfile in "${opt_inprefix}_chr"*.bcf.gz ; do
   "${bcftoolsexec}" query -l "${bfile}"
 done | sort -u | split -d -l ${cfg_igroupsize} /dev/stdin "${sampleprefix}"
 groupsize=${cfg_igroupsize}
@@ -79,7 +79,7 @@ for chr in ${cfg_chromosomes} ; do
   if [ ${chr} -eq 23 -o ${chr} -eq 25 ] ; then
     chrtag=X
   fi
-  Nvar=$( "${bcftoolsexec}" query -f '%ID\n' "${opt_inprefix}_chr${chr}.bcf" | wc -l )
+  Nvar=$( "${bcftoolsexec}" query -f '%ID\n' "${opt_inprefix}_chr${chr}.bcf.gz" | wc -l )
 #TODO: implement different running time for reference-less phasing (stage ii)
   runtimehrs=$(( 1 + Nind / 10000 + Nvar / 2000 ))
   phasescriptfn="${scriptprefix}1_phase_chr${chr}.sh"
@@ -100,8 +100,8 @@ num_cpus=\${OMP_NUM_THREADS:-\${num_cpus_detected}}
 ${timexec} "${phsexec}" \\
   --chrom ${chrtag} \\
   --geneticMapFile "${genmapprefix}_chr${chr}.txt.gz" \\
-  --vcfRef "${cfg_refprefix}.chr${chr}.bcf" \\
-  --vcfTarget "${opt_inprefix}_chr${chr}.bcf" \\
+  --vcfRef "${cfg_refprefix}.chr${chr}.bcf.gz" \\
+  --vcfTarget "${opt_inprefix}_chr${chr}.bcf.gz" \\
   --outPrefix "${tmpprefix}_chr${chr}_phasing" \\
   --numThreads \${num_cpus}
 mv "${tmpprefix}_chr${chr}_phasing.vcf.gz" "${tmpprefix}_chr${chr}_phased.vcf.gz"
@@ -111,7 +111,7 @@ EOI
     printf "> phased haplotypes present. nothing to do.\n"
     continue
   fi
-  if [ ! -e "${cfg_refprefix}.chr${chr}.bcf" ] ; then
+  if [ ! -e "${cfg_refprefix}.chr${chr}.bcf.gz" ] ; then
     printf "> reference for chromosome ${chr} not found. skipping phasing..\n"
     continue
   fi

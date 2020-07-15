@@ -117,13 +117,13 @@ for chr in ${tmp_chromosomes} ; do
   fi
   ${bcftoolsexec} convert -Ob --threads 3 \
                   ${tmpprefix}_chr${chr}.vcf.gz \
-                  > ${tmpprefix}_chr${chr}_out.bcf
+                  > ${tmpprefix}_chr${chr}_out.bcf.gz
   ${bcftoolsexec} annotate --rename-chrs <( echo -e '23 X\n25 X' ) -Ob --threads 3 \
-                  ${tmpprefix}_chr${chr}_out.bcf \
-                  > ${tmpprefix}_chr${chr}_outx.bcf
-  ${bcftoolsexec} index ${tmpprefix}_chr${chr}_outx.bcf --threads 3
-  mv ${tmpprefix}_chr${chr}_outx.bcf     ${opt_outprefix}_chr${chr}.bcf
-  mv ${tmpprefix}_chr${chr}_outx.bcf.csi ${opt_outprefix}_chr${chr}.bcf.csi
+                  ${tmpprefix}_chr${chr}_out.bcf.gz \
+                  > ${tmpprefix}_chr${chr}_outx.bcf.gz
+  ${bcftoolsexec} index ${tmpprefix}_chr${chr}_outx.bcf.gz --threads 3
+  mv ${tmpprefix}_chr${chr}_outx.bcf.gz     ${opt_outprefix}_chr${chr}.bcf.gz
+  mv ${tmpprefix}_chr${chr}_outx.bcf.gz.csi ${opt_outprefix}_chr${chr}.bcf.gz.csi
 done
 
 rm -r ${tmpprefix}*
