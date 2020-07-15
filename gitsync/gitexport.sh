@@ -24,6 +24,7 @@ MD5=${MD5:0:7}
 echo "Cloning source repository '${PRJDIR}'..."
 cd ${LOCTMPDIR} && rm -rf ${PRJNAME}
 git clone ${PRJDIR} ${PRJNAME}
+echo "done."
 
 echo "Compressing into '${PRJNAME}.git.tar.gz'..."
 tar czf ${PRJNAME}.git.tar.gz ${PRJNAME}
