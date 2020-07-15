@@ -30,7 +30,6 @@ echo "Syncing into '${PRJDIR}'..."
 rsync -av --delete --exclude={".git","${SELFREL}"} ${PRJNAME}/ ${PRJDIR}/
 echo "done."
 
-if [ "$( diff $SELFABS ${PRJNAME}/${SELFREL} 2>&1 || true )" != "" ] ; then
-  echo "${SELFREL}: Not daring to self-sync or self-destroy."
-fi
+[ -f ${PRJNAME}/${SELFREL} ] || { echo "${SELFREL}: Not daring to self-destroy."; exit 0; }
+cmp $SELFABS ${PRJNAME}/${SELFREL} 2>/dev/null || { echo "${SELFREL}: Not daring to self-sync."; }
 
