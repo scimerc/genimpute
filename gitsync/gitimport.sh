@@ -6,7 +6,7 @@ set -ETeuo pipefail
 
 [ -d ".git" ] || { printf "error at %d.\n" $LINENO >&2; exit 1; }
 
-[ "$*" != "" ] || { printf "usage: %s <dir>\n" $0; exit 0; }
+[ "$*" != "" ] || { printf "usage: %s <tarfile>\n" ${BASH_SOURCE[0]}; exit 0; }
 
 TARFILE="$1"
 
