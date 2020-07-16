@@ -22,14 +22,14 @@ SELFREL="${SELFABS#${PRJDIR}/}"
 echo "Extracting source archive '${TARFILE}'..."
 cd ${LOCTMPDIR} && rm -rf ${PRJNAME}
 tar xvf "${TARFILE}"
-echo "done."
 
 [ -d ${PRJNAME} ] || { printf "project '%s' not found.\n" ${PRJNAME}; exit 1; }
 
 echo "Syncing into '${PRJDIR}'..."
 rsync -av --delete --exclude={".git","${SELFREL}"} ${PRJNAME}/ ${PRJDIR}/
-echo "done."
 
 [ -f ${PRJNAME}/${SELFREL} ] || { echo "${SELFREL}: Not daring to self-destroy."; exit 0; }
 cmp $SELFABS ${PRJNAME}/${SELFREL} 2>/dev/null || { echo "${SELFREL}: Not daring to self-sync."; }
+
+echo "Repository synced."
 
