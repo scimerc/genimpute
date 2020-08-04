@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-#TODO: generate m3vcf files
 #TODO: integrate Y chromosome when merging all
 
 # exit on error
@@ -15,6 +14,7 @@ source "${BASEDIR}/progs/hlprfuncs.sh"
 
 bcftoolsexec=${BASEDIR}/lib/3rd/bcftools
 genimputeexec=${BASEDIR}/progs/genimpute.sh
+minimacexec=${BASEDIR}/lib/3rd/minimac3_org
 
 #-------------------------------------------------------------------------------
 
@@ -30,13 +30,14 @@ please note that the Y chromosome is currently excluded from parts of the proces
 imputation of the Y chromosome will have to be performed separately.
 
 USAGE:
-  $( basename $0 ) [\
--c <configuration file> \
--o <output prefix='${opt_outprefix_default}>'\
-] \
-<bcf|vcf file(s)>
+  $( basename $0 ) OPTIONS <bcf|vcf file(s)>
 
- NOTE:
+OPTIONS:
+  -c <file>    configuration file with genimpute options
+  -n <number>  number of threads for minimac parallel processing
+  -o <prefix>  output prefix [default='${opt_outprefix_default}']
+
+  NOTE:
   $( basename $0 ) uses $( basename ${genimputeexec} )'s own quality control functionality.
   <configuration file> is $( basename ${genimputeexec} )'s configuration file.
   (see $( basename ${genimputeexec} ) for more details on available options)
@@ -47,11 +48,12 @@ EOF
 declare -a opt_inputfiles=()
 declare opt_outprefix_default=refset
 declare opt_outprefix=${opt_outprefix_default}
+declare opt_nthreads=1
 declare opt_config=''
 
 Nmin=5
 regexchr='\([Cc]\([Hh]*[Rr]\)*\)*'
-regexnum='[0-9xyXYmtMT]\{1,2\}'
+regexnum='\([0-9xyXY]\|[mM][tT]\?\)\{1,2\}'
 regexspecx='\([^[:alnum:]]*\([Nn][Oo][Nn]\)*[^[:alnum:]]*[Pp][AaSs][RrEe][Uu]*[Dd]*[Oo]*[12]*\)*'
 regexspecxnonpar='chr\([xX]\|23\)\([^[:alnum:]]*[Nn][Oo][Nn][^[:alnum:]]*[Pp][AaSs][RrEe][Uu]*[Dd]*[Oo]*\)*\.bcf\.gz$'
 regexspecxpar='chr\([xX][yY]*\|23\|25\)\([^[:alnum:]]*[Pp][AaSs][RrEe][Uu]*[Dd]*[Oo]*[12]*\)*\.bcf\.gz$'
@@ -65,6 +67,9 @@ while getopts "c:o:" opt; do
 case "${opt}" in
   c)
     opt_config="-c ${OPTARG}"
+    ;;
+  n)
+    opt_nthreads="${OPTARG}"
     ;;
   o)
     opt_outprefix="${OPTARG}"
@@ -92,7 +97,7 @@ else
 fi
 
 dflag=0
-echo 'finding common ID set..'
+echo -n 'finding common ID set.. '
 for k in ${!opt_inputfiles[@]} ; do
   if [ $k -eq 0 ] ; then
     "${bcftoolsexec}" query -l "${opt_inputfiles[$k]}" | sort -u > "${tmpprefix}.0.ids"
@@ -102,6 +107,7 @@ for k in ${!opt_inputfiles[@]} ; do
   fi
   mv "${tmpprefix}.0.ids" "${tmpprefix}.1.ids"
 done
+echo -e "done.\n\n"
 
 # compare to existing common ID set if one is there
 if [ -s "${opt_outprefix}_all.ids" ] ; then
@@ -110,19 +116,35 @@ else
   mv "${tmpprefix}.1.ids" "${opt_outprefix}_all.ids"
 fi
 
-echo 'processing files..'
 if [ "${DRYMODE:-}" == "" ] ; then
   for k in ${!opt_inputfiles[@]} ; do
     chrtag=$( grep -o "${grepcmd}" <<<"${opt_inputfiles[$k]##*/}" | head -n 1 || true )
-    [ -s "${opt_outprefix}_${chrtag}.bcf.gz" ] && continue
-    # extract common ID set if any differences were detected
     echo "processing chromosome '${chrtag}'.."
-    samplefilter=''
-    [ ${dflag} -eq 1 ] && samplefilter="-S ${opt_outprefix}_all.ids" 
-    "${bcftoolsexec}" view ${samplefilter} -c ${Nmin}:minor "${opt_inputfiles[$k]}" -Ob \
-      > "${tmpprefix}_rfn${k}.bcf.gz"
-    "${bcftoolsexec}" index "${tmpprefix}_rfn${k}.bcf.gz"
+    if [ -s "${opt_outprefix}_${chrtag}.bcf.gz" ] ; then
+      echo "BCF file '${opt_outprefix}_${chrtag}.bcf.gz' found."
+    else
+      samplefilter=''
+      # extract common ID set if any differences were detected
+      [ ${dflag} -eq 1 ] && samplefilter="-S ${opt_outprefix}_all.ids" 
+      "${bcftoolsexec}" view ${samplefilter} -c ${Nmin}:minor "${opt_inputfiles[$k]}" -Ob \
+        > "${tmpprefix}_rfn${k}.bcf.gz"
+      "${bcftoolsexec}" convert "${tmpprefix}_rfn${k}.bcf.gz" -Oz \
+        > "${tmpprefix}_rfn${k}.vcf.gz"
+      "${bcftoolsexec}" index "${tmpprefix}_rfn${k}.bcf.gz"
+      "${bcftoolsexec}" index "${tmpprefix}_rfn${k}.vcf.gz"
+    fi
+    if [ -s "${opt_outprefix}_${chrtag}.m3vcf.gz" ] ; then
+      echo "M3 file '${opt_outprefix}_${chrtag}.m3vcf.gz' found. skipping conversion.."
+      continue
+    fi
+    ${minimacexec} \
+      --refHaps "${tmpprefix}_rfn${k}.vcf.gz" \
+      --processReference \
+      --prefix "${tmpprefix}_rfn${k}" \
+      --cpus ${opt_nthreads} \
+      --rounds 5 || true  # suppress minimac errors
     rename "${tmpprefix}_rfn${k}" "${opt_outprefix}_${chrtag}" "${tmpprefix}_rfn${k}".*
+    echo -e " ==============================================================================\n\n"
   done
 fi
 
@@ -167,11 +189,33 @@ if [ "${DRYMODE:-}" == "" ] ; then
     "${bcftoolsexec}" index "${tmpprefix}_chr23.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr23.bcf.gz"*
   fi
+  if [ ! -s "${opt_outprefix}_chr23.m3vcf.gz" ] ; then
+    echo 'converting non-par X regions..'
+    "${bcftoolsexec}" convert "${opt_outprefix}_chr23.bcf.gz" -Oz > "${opt_outprefix}_chr23.vcf.gz"
+    ${minimacexec} \
+      --refHaps "${opt_outprefix}_chr23.vcf.gz" \
+      --processReference \
+      --prefix "${tmpprefix}_chr23" \
+      --cpus ${opt_nthreads} \
+      --rounds 5
+    rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr23"*
+  fi
   if [ ! -s "${opt_outprefix}_chr25.bcf.gz" -a ${#xparlist[@]} -gt 0 ] ; then
     echo 'merging par X regions..'
     $cmdxpar > "${tmpprefix}_chr25.bcf.gz"
     "${bcftoolsexec}" index "${tmpprefix}_chr25.bcf.gz"
     rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr25.bcf.gz"*
+  fi
+  if [ ! -s "${opt_outprefix}_chr25.m3vcf.gz" ] ; then
+    echo 'converting par X regions..'
+    "${bcftoolsexec}" convert "${opt_outprefix}_chr25.bcf.gz" -Oz > "${opt_outprefix}_chr25.vcf.gz"
+    ${minimacexec} \
+      --refHaps "${opt_outprefix}_chr25.vcf.gz" \
+      --processReference \
+      --prefix "${tmpprefix}_chr25" \
+      --cpus ${opt_nthreads} \
+      --rounds 5
+    rename "${tmpprefix}" "${opt_outprefix}" "${tmpprefix}_chr25"*
   fi
   if [ ! -s "${opt_outprefix}_chr24.bcf.gz" -a ${#ylist[@]} -gt 0 ] ; then
     echo 'merging Y regions..'
@@ -198,4 +242,6 @@ else
 fi
 
 rm -vrf "${tmpprefix}"*
+
+echo 'all done.'
 

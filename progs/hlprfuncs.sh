@@ -205,7 +205,9 @@ rename() {
   local -r fromtext=$1
   local -r totext=$2
   shift 2
-  for f in $* ; do mv $f ${f/${fromtext}/${totext}} ; done
+  for f in "$@" ; do
+    [ -e "$f" ] && mv $f ${f/${fromtext}/${totext}}
+  done
 }
 
 export -f rename
