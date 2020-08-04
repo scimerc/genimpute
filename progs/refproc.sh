@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #TODO: generate m3vcf files
-#TODO: integrate Y chromosome
+#TODO: integrate Y chromosome when merging all
 
 # exit on error
 set -ETeuo pipefail
