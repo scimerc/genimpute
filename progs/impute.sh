@@ -69,7 +69,7 @@ case "${phstag}" in
     ;;
 esac
 
-${phsexec} || true 2>/dev/null | printlog 1
+{ ${phsexec} || true ; } 2> /dev/null | printlog 1
 
 # write phase scripts
 printf "> writing phasing scripts..\n"
@@ -163,7 +163,7 @@ case "${imptag}" in
     ;;
 esac
 
-${impexec} || true 2>/dev/null | printlog 1
+echo "%s %s\n" $(basename ${impexec} ) $( ${impexec} | grep -o "Version.*") | printlog 1
 
 for chr in ${cfg_chromosomes} ; do
   for samplefile in ${tmplist} ; do
